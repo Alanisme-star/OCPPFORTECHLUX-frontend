@@ -1,6 +1,6 @@
 // frontend/src/pages/WeeklyPricingSettings.jsx
 import React, { useEffect, useState } from "react";
-import axios from "../axiosInstance";
+import axios from "./axiosInstance";
 
 const API_ROOT = "https://ocppfortechlux.onrender.com/api/weekly-pricing";
 
