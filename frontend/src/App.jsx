@@ -7,7 +7,6 @@ import CardTopUp from './pages/CardTopUp';
 import ChargePointComparisonChart from './pages/ChargePointComparisonChart';
 import CostSummaryPage from './pages/CostSummaryPage';
 import CostSummaryTable from './pages/CostSummaryTable';
-import DailyPricingManager from './pages/DailyPricingManager';
 import Dashboard from './pages/Dashboard';
 import DashboardCards from './components/DashboardCards';
 import ExportReservations from './pages/ExportReservations';
@@ -20,7 +19,6 @@ import Login from './pages/Login';
 import MonthlyReportDownload from './pages/MonthlyReportDownload';
 import PaymentHistory from './pages/PaymentHistory';
 import PricingRuleChart from './pages/PricingRuleChart';
-import PricingSettings from './pages/PricingSettings';
 import Reservations from './pages/Reservations';
 import StatusLogs from './pages/StatusLogs';
 import TopEnergyChart from './pages/TopEnergyChart';
@@ -45,7 +43,7 @@ export default function App() {
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/cards" element={<Cards />} />
             <Route path="/card-topup" element={<CardTopUp />} />
-            <Route path="/weekly-pricing" element={<WeeklyPricingSettings />} />        
+            <Route path="/weekly-pricing" element={<WeeklyPricingSettings />} />
             <Route path="/pricing-rule-chart" element={<PricingRuleChart />} />
             <Route path="/cost-summary" element={<CostSummaryPage />} />
             <Route path="/cost-summary-table" element={<CostSummaryTable />} />
