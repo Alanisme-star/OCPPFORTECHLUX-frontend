@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "../axiosInstance";  // ✅ 改這行
+import axios from "../axiosInstance";
 import {
   LineChart,
   Line,
@@ -43,7 +43,7 @@ const ChargePointComparisonChart = () => {
   };
 
   return (
-    <div className="p-4 bg-white shadow rounded mb-4">
+    <div className="p-4 bg-gray-800 text-white shadow rounded mb-4">
       <h2 className="text-xl font-bold mb-2">📊 多樁用電趨勢比較（可選擇區間）</h2>
       <div className="flex items-center gap-2 mb-2">
         <label>Start:</label>
@@ -51,14 +51,14 @@ const ChargePointComparisonChart = () => {
           type="date"
           value={start}
           onChange={(e) => setStart(e.target.value)}
-          className="border p-1 rounded"
+          className="border p-1 rounded text-black"
         />
         <label>End:</label>
         <input
           type="date"
           value={end}
           onChange={(e) => setEnd(e.target.value)}
-          className="border p-1 rounded"
+          className="border p-1 rounded text-black"
         />
       </div>
       <ResponsiveContainer width="100%" height={400}>

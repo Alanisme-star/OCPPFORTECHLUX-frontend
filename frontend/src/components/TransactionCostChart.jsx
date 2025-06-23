@@ -1,6 +1,5 @@
-// frontend/src/components/TransactionCostChart.jsx
 import React, { useEffect, useState } from "react";
-import axios from "../axiosInstance"; // ✅ 使用正確 baseURL
+import axios from "../axiosInstance";
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend
 } from "recharts";
@@ -24,7 +23,7 @@ const TransactionCostChart = ({ transactionId }) => {
   };
 
   return (
-    <div className="mt-6">
+    <div className="mt-6 bg-gray-800 text-white p-4 rounded">
       <h3 className="text-lg font-bold mb-2">📈 用電分段圖表</h3>
       {data.length === 0 ? (
         <p>無資料</p>
