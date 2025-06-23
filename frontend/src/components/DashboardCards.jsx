@@ -2,7 +2,7 @@
 // 元件：顯示即時統計資訊（目前充電中、總功率、今日用電）
 
 import React, { useEffect, useState } from "react";
-import axios from "../../axiosInstance";
+import axios from "../axiosInstance";
 
 function DashboardCards() {
   const [data, setData] = useState(null);
