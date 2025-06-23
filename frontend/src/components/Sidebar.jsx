@@ -17,7 +17,7 @@ import {
 } from "lucide-react";
 
 const menu = [
-  { path: "/dashboard", label: "Dashboard", icon: <Home size={18} /> },
+  { path: "/", label: "Dashboard", icon: <Home size={18} /> },
   { path: "/reservations", label: "Reservations", icon: <Calendar size={18} /> },
   { path: "/users", label: "Users", icon: <UsersIcon size={18} /> },
   { path: "/transactions", label: "交易紀錄", icon: <FileText size={18} /> },
