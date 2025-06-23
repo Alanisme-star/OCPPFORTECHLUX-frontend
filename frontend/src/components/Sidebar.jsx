@@ -12,28 +12,50 @@ import {
   DollarSign,
   DownloadIcon,
   BarChart3,
-  CalendarDays
+  CalendarDays,
+  Clock,
+  MessageSquare
 } from "lucide-react";
 
 const menu = [
+  // 儀表板區
   { path: "/", label: "Dashboard", icon: <Home size={18} /> },
-  { path: "/reservations", label: "Reservations", icon: <Calendar size={18} /> },
+  { path: "/dashboard-cards", label: "Dashboard 卡片", icon: <Home size={18} /> },
+
+  // 使用者與交易管理
   { path: "/users", label: "Users", icon: <UsersIcon size={18} /> },
+  { path: "/bound-users", label: "身分綁定", icon: <UsersIcon size={18} /> },
   { path: "/transactions", label: "交易紀錄", icon: <FileText size={18} /> },
   { path: "/cards", label: "卡片管理", icon: <CreditCard size={18} /> },
-  { path: "/status-logs", label: "狀態日誌", icon: <ClipboardList size={18} /> },
-  { path: "/export-transactions", label: "匯出資料", icon: <FileText size={18} /> },
-  { path: "/bound-users", label: "身分綁定", icon: <UsersIcon size={18} /> },
-  { path: "/top-energy-chart", label: "用電排行圖表", icon: <BarChart3 size={18} /> },
-  { path: "/pricing-rule-chart", label: "電價圖表", icon: <DollarSign size={18} /> },
-  { path: "/compare-chart", label: "樁用電對比", icon: <ActivitySquare size={18} /> },
-  { path: "/export-reservations", label: "匯出預約", icon: <DownloadIcon size={18} /> },
-  { path: "/holiday-checker", label: "假日查詢", icon: <CalendarDays size={18} /> },
   { path: "/card-topup", label: "卡片儲值", icon: <CreditCard size={18} /> },
+
+  // 電價設定與圖表
+  { path: "/pricing-settings", label: "電價區間設定", icon: <DollarSign size={18} /> },
+  { path: "/weekly-pricing", label: "週期性電價設定", icon: <Clock size={18} /> },
+  { path: "/daily-pricing", label: "每日電價設定", icon: <Clock size={18} /> },
+  { path: "/pricing-rule-chart", label: "電價圖表", icon: <DollarSign size={18} /> },
+  { path: "/top-energy-chart", label: "用電排行圖表", icon: <BarChart3 size={18} /> },
+  { path: "/chargepoint-comparison", label: "樁用電對比", icon: <ActivitySquare size={18} /> },
+
+  // 成本與報表
+  { path: "/cost-summary", label: "成本總覽", icon: <DollarSign size={18} /> },
+  { path: "/cost-summary-table", label: "成本明細表格", icon: <FileText size={18} /> },
   { path: "/payment-history", label: "扣款紀錄", icon: <FileText size={18} /> },
-  { path: "/weekly-pricing", label: "週期性電價設定", icon: <DollarSign size={18} /> },
-  { path: "/live-demo", label: "即時充電資訊", icon: <ActivitySquare size={18} /> },
-  { path: "/cost-summary", label: "成本查詢", icon: <DollarSign size={18} /> },
+  { path: "/monthly-report", label: "月報表下載", icon: <DownloadIcon size={18} /> },
+
+  // 預約與匯出
+  { path: "/reservations", label: "預約記錄", icon: <Calendar size={18} /> },
+  { path: "/export-reservations", label: "匯出預約", icon: <DownloadIcon size={18} /> },
+  { path: "/export-transactions", label: "匯出交易資料", icon: <FileText size={18} /> },
+
+  // 即時/工具
+  { path: "/live-charging-status", label: "即時充電狀態", icon: <ActivitySquare size={18} /> },
+  { path: "/live-demo", label: "即時圖表 DEMO", icon: <ActivitySquare size={18} /> },
+  { path: "/line-push", label: "LINE 通知推送", icon: <MessageSquare size={18} /> },
+  { path: "/holiday-checker", label: "假日查詢", icon: <CalendarDays size={18} /> },
+
+  // 系統
+  { path: "/status-logs", label: "狀態日誌", icon: <ClipboardList size={18} /> },
 ];
 
 const Sidebar = () => {
