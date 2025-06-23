@@ -9,7 +9,7 @@ import CostSummaryPage from './pages/CostSummaryPage';
 import CostSummaryTable from './pages/CostSummaryTable';
 import DailyPricingManager from './pages/DailyPricingManager';
 import Dashboard from './pages/Dashboard';
-import DashboardCards from './pages/DashboardCards';
+import DashboardCards from './components/DashboardCards';
 import ExportReservations from './pages/ExportReservations';
 import ExportTransactions from './pages/ExportTransactions';
 import HolidayChecker from './pages/HolidayChecker';
