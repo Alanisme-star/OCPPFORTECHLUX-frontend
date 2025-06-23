@@ -45,9 +45,7 @@ export default function App() {
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/cards" element={<Cards />} />
             <Route path="/card-topup" element={<CardTopUp />} />
-            <Route path="/weekly-pricing" element={<WeeklyPricingSettings />} />
-            <Route path="/daily-pricing" element={<DailyPricingManager />} />
-            <Route path="/pricing-settings" element={<PricingSettings />} />
+            <Route path="/weekly-pricing" element={<WeeklyPricingSettings />} />        
             <Route path="/pricing-rule-chart" element={<PricingRuleChart />} />
             <Route path="/cost-summary" element={<CostSummaryPage />} />
             <Route path="/cost-summary-table" element={<CostSummaryTable />} />
