@@ -1,5 +1,6 @@
-# ✅ DashboardCards.jsx
-# components/DashboardCards.jsx
+// DashboardCards.jsx
+// 元件：顯示即時統計資訊（目前充電中、總功率、今日用電）
+
 import React, { useEffect, useState } from "react";
 import axios from "../axiosInstance";
 
@@ -33,6 +34,7 @@ function DashboardCards() {
 }
 
 export default DashboardCards;
+
 
 
 # ✅ TrendChart.jsx
