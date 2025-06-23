@@ -31,12 +31,12 @@ import WeeklyPricingSettings from './pages/WeeklyPricingSettings';
 export default function App() {
   return (
     <Router>
-      <div className="flex">
-        {/* 左側 Sidebar */}
+      <div className="flex min-h-screen bg-gray-900 text-white">
+        {/* 左側側邊欄 */}
         <Sidebar />
 
-        {/* 右側頁面內容 */}
-        <div className="flex-1 p-4 bg-gray-100 min-h-screen">
+        {/* 主頁面內容 */}
+        <main className="ml-60 flex-1 p-6 overflow-y-auto">
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/dashboard-cards" element={<DashboardCards />} />
@@ -64,10 +64,9 @@ export default function App() {
             <Route path="/chargepoint-comparison" element={<ChargePointComparisonChart />} />
             <Route path="/top-energy-chart" element={<TopEnergyChart />} />
             <Route path="/login" element={<Login />} />
-            {/* 404 Not Found fallback */}
-            <Route path="*" element={<div className="text-red-500 text-xl">404 找不到頁面</div>} />
+            <Route path="*" element={<div className="text-red-400 text-xl">404 找不到頁面</div>} />
           </Routes>
-        </div>
+        </main>
       </div>
     </Router>
   );

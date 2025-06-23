@@ -11,7 +11,6 @@ import {
   ActivitySquare,
   DollarSign,
   DownloadIcon,
-  FileDown,
   BarChart3,
   CalendarDays,
   Clock
@@ -50,28 +49,30 @@ const Sidebar = () => {
   };
 
   return (
-    <div className="w-60 bg-[#1E293B] p-4 space-y-6">
-      <h1 className="text-xl font-bold mb-6">🔌 Energy Admin</h1>
-      <nav className="space-y-2">
-        {menu.map((item) => (
-          <Link
-            key={item.path}
-            to={item.path}
-            className={`flex items-center gap-2 px-3 py-2 rounded-md hover:bg-[#334155] transition ${
-              location.pathname === item.path ? "bg-[#334155] text-blue-400" : "text-white"
-            }`}
-          >
-            {item.icon}
-            {item.label}
-          </Link>
-        ))}
-        <button
-          onClick={handleLogout}
-          className="flex items-center gap-2 w-full text-left px-3 py-2 rounded-md text-white hover:bg-red-600 mt-8"
-        >
-          <LogOut size={18} /> 登出
-        </button>
-      </nav>
+    <div className="w-60 h-screen fixed top-0 left-0 bg-[#1E293B] text-white p-4 flex flex-col justify-between">
+      <div>
+        <h1 className="text-xl font-bold mb-6">🔌 Energy Admin</h1>
+        <nav className="space-y-2">
+          {menu.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className={`flex items-center gap-2 px-3 py-2 rounded-md hover:bg-[#334155] transition ${
+                location.pathname === item.path ? "bg-[#334155] text-blue-400" : "text-white"
+              }`}
+            >
+              {item.icon}
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+      </div>
+      <button
+        onClick={handleLogout}
+        className="flex items-center gap-2 w-full text-left px-3 py-2 rounded-md text-white hover:bg-red-600"
+      >
+        <LogOut size={18} /> 登出
+      </button>
     </div>
   );
 };
