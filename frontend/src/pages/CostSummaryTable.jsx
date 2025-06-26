@@ -4,7 +4,7 @@ import axios from "../axiosInstance";
 const CostSummaryTable = () => {
   const [data, setData] = useState([]);
   const [start, setStart] = useState("2025-06-01");
-  const [end, setEnd] = useState("2025-06-13");
+  const [end, setEnd] = useState("2025-06-30");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -19,7 +19,8 @@ const CostSummaryTable = () => {
       setLoading(true);
       setError("");
       const res = await axios.get(
-        `/transactions/cost-summary?start=${start}&end=${end}`
+        `/transactions/cost-summary?start=${start}&end=${end}`,
+        { timeout: 30000 }
       );
       setData(res.data);
     } catch (err) {
@@ -32,17 +33,17 @@ const CostSummaryTable = () => {
 
   return (
     <div className="p-4 bg-gray-800 text-white shadow rounded mb-4">
-      <h2 className="text-xl font-bold mb-2">💰 電費成本明細表</h2>
+      <h2 className="text-xl font-bold mb-2">📋 電費成本明細表</h2>
 
       <div className="flex items-center gap-2 mb-3">
-        <label>Start:</label>
+        <label>起始日期:</label>
         <input
           type="date"
           value={start}
           onChange={(e) => setStart(e.target.value)}
           className="border p-1 rounded bg-gray-700 text-white"
         />
-        <label>End:</label>
+        <label>結束日期:</label>
         <input
           type="date"
           value={end}
@@ -51,14 +52,10 @@ const CostSummaryTable = () => {
         />
       </div>
 
-      {error && (
-        <div className="text-red-400 mb-2">
-          ⚠️ {error}
-        </div>
-      )}
+      {error && <div className="text-red-400 mb-2">⚠️ {error}</div>}
 
       {loading ? (
-        <div className="text-gray-400">載入中...</div>
+        <div className="text-gray-400">📊 資料載入中...</div>
       ) : (
         <div className="overflow-auto">
           <table className="table-auto w-full text-sm border border-gray-600">
@@ -73,24 +70,25 @@ const CostSummaryTable = () => {
               </tr>
             </thead>
             <tbody>
-              {data.map((item) => (
-                <tr key={item.transactionId} className="border-t border-gray-600">
-                  <td className="px-3 py-1 border border-gray-600">{item.transactionId}</td>
-                  <td className="px-3 py-1 border border-gray-600">{item.totalKWh}</td>
-                  <td className="px-3 py-1 border border-gray-600">${item.basicFee}</td>
-                  <td className="px-3 py-1 border border-gray-600">${item.energyCost}</td>
-                  <td className="px-3 py-1 border border-gray-600">${item.overuseFee}</td>
-                  <td className="px-3 py-1 border border-gray-600 font-semibold text-right">
-                    ${item.totalCost}
-                  </td>
-                </tr>
-              ))}
-              {data.length === 0 && (
+              {data.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-3 text-gray-400">
-                    無符合條件的資料
+                  <td colSpan={6} className="text-center py-4 text-gray-400">
+                    ⚠️ 無符合條件的交易資料
                   </td>
                 </tr>
+              ) : (
+                data.map((item) => (
+                  <tr key={item.transactionId} className="border-t border-gray-600">
+                    <td className="px-3 py-1 border border-gray-600">{item.transactionId}</td>
+                    <td className="px-3 py-1 border border-gray-600">{item.totalKWh}</td>
+                    <td className="px-3 py-1 border border-gray-600">${item.basicFee}</td>
+                    <td className="px-3 py-1 border border-gray-600">${item.energyCost}</td>
+                    <td className="px-3 py-1 border border-gray-600">${item.overuseFee}</td>
+                    <td className="px-3 py-1 border border-gray-600 font-semibold text-right">
+                      ${item.totalCost}
+                    </td>
+                  </tr>
+                ))
               )}
             </tbody>
           </table>
