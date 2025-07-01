@@ -68,7 +68,7 @@ const Sidebar = () => {
   };
 
   return (
-    <div className="w-60 h-screen fixed top-0 left-0 bg-[#1E293B] text-white p-4 flex flex-col justify-between">
+    <div className="w-60 h-screen fixed top-0 left-0 bg-[#1E293B] text-white p-4 flex flex-col justify-between z-50">
       <div>
         <h1 className="text-xl font-bold mb-6">🔌 Energy Admin</h1>
         <nav className="space-y-2">
