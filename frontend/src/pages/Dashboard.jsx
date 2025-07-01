@@ -17,27 +17,32 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const fetchAll = async () => {
+      const today = new Date();
+      const end = today.toISOString().slice(0, 10);
+      const start = new Date(today.setDate(today.getDate() - 30)).toISOString().slice(0, 10);
+
+      try {
+        const [s1, s2, s3, s4] = await Promise.all([
+          axios.get(`/dashboard/trend?group_by=day&start=${start}&end=${end}`),
+          axios.get("/summary/top?group_by=idTag&limit=5"),
+          axios.get("/status"),
+          axios.get(`/summary/daily-by-chargepoint?start=${start}&end=${end}`)
+        ]);
+
+        setTrend(Array.isArray(s1.data) ? s1.data : []);
+        setTopList(Array.isArray(s2.data) ? s2.data : []);
+        setStatus(s3.data || {});
+        setSummary(Array.isArray(s4.data) ? s4.data : []);
+      } catch (err) {
+        console.error("儀表板資料讀取失敗：", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchAll();
   }, []);
-
-  const fetchAll = async () => {
-    try {
-      const [s1, s2, s3, s4] = await Promise.all([
-          axios.get("/dashboard/trend?group_by=day"),
-          axios.get("/summary/top?group_by=idTag&limit=5"), // 若後端有支援可保留
-          axios.get("/status"),
-          axios.get("/summary/daily-by-chargepoint")
-        ]);
-      setSummary(Array.isArray(s1.data) ? s1.data : []);
-      setTopList(Array.isArray(s2.data) ? s2.data : []);
-      setStatus(s3.data || {});
-      setTrend(Array.isArray(s4.data) ? s4.data.slice(-7) : []);
-    } catch (err) {
-      console.error("儀表板資料讀取失敗：", err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const cpList = trend.length > 0 ? Object.keys(trend[0]).filter((k) => k !== "period") : [];
 
@@ -81,7 +86,7 @@ const Dashboard = () => {
           </div>
 
           <div className="bg-gray-800 p-4 rounded">
-            <h3 className="font-semibold text-lg mb-2">📈 多樁近 7 日用電趨勢圖（固定範圍）</h3>
+            <h3 className="font-semibold text-lg mb-2">📈 多樁近 30 日用電趨勢圖</h3>
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={trend} margin={{ top: 10, right: 30, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" />
@@ -99,10 +104,14 @@ const Dashboard = () => {
           <div className="bg-gray-800 p-4 rounded">
             <h3 className="font-semibold text-lg mb-2">🏅 前 5 名用電量圖表</h3>
             <ResponsiveContainer width="100%" height={250}>
-              <BarChart layout="vertical" data={topList.map((item) => ({
-                name: item.group,
-                kWh: (item.totalEnergy / 1000).toFixed(2)
-              }))} margin={{ left: 50 }}>
+              <BarChart
+                layout="vertical"
+                data={topList.map((item) => ({
+                  name: item.group,
+                  kWh: (item.totalEnergy / 1000).toFixed(2)
+                }))}
+                margin={{ left: 50 }}
+              >
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis type="number" unit="kWh" />
                 <YAxis type="category" dataKey="name" />
@@ -139,12 +148,10 @@ const Dashboard = () => {
             </table>
           </div>
 
-          {/* ✅ 新增元件：日期範圍多樁用電比較圖 */}
           <div className="bg-white rounded">
             <ChargePointComparisonChart />
           </div>
 
-          {/* ✅ 新增元件：電費成本明細表格 */}
           <div className="bg-white rounded">
             <CostSummaryTable />
           </div>
