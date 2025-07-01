@@ -1,4 +1,3 @@
-// frontend/src/pages/Dashboard.jsx
 import React, { useEffect, useState } from "react";
 import axios from "../axiosInstance";
 import {
@@ -22,20 +21,28 @@ const Dashboard = () => {
       const end = today.toISOString().slice(0, 10);
       const start = new Date(today.setDate(today.getDate() - 30)).toISOString().slice(0, 10);
 
+      setLoading(true); // 顯示 loading 文字
+      console.log("📡 發出 dashboard 請求...", { start, end });
+
       try {
         const [s1, s2, s3, s4] = await Promise.all([
-          axios.get(`/dashboard/trend?group_by=day&start=${start}&end=${end}`),
+          axios.get(`/dashboard/trend?group_by=day&start=${start}&end=${end}`, { timeout: 30000 }),
           axios.get("/summary/top?group_by=idTag&limit=5"),
           axios.get("/status"),
           axios.get(`/summary/daily-by-chargepoint?start=${start}&end=${end}`)
         ]);
+
+        console.log("✅ /dashboard/trend 結果:", s1.data);
+        console.log("✅ /summary/top 結果:", s2.data);
+        console.log("✅ /status 結果:", s3.data);
+        console.log("✅ /summary/daily-by-chargepoint 結果:", s4.data);
 
         setTrend(Array.isArray(s1.data) ? s1.data : []);
         setTopList(Array.isArray(s2.data) ? s2.data : []);
         setStatus(s3.data || {});
         setSummary(Array.isArray(s4.data) ? s4.data : []);
       } catch (err) {
-        console.error("儀表板資料讀取失敗：", err);
+        console.error("❌ 儀表板資料讀取失敗：", err.message);
       } finally {
         setLoading(false);
       }
@@ -50,7 +57,7 @@ const Dashboard = () => {
     <div>
       <h2 className="text-2xl font-bold mb-4">儀表板 Dashboard</h2>
       {loading ? (
-        <p>載入中...</p>
+        <p>⏳ 資料載入中，請稍候...</p>
       ) : (
         <div className="space-y-8">
           <div className="grid grid-cols-2 gap-6">
