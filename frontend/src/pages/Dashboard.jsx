@@ -21,7 +21,7 @@ const Dashboard = () => {
       const end = today.toISOString().slice(0, 10);
       const start = new Date(today.setDate(today.getDate() - 30)).toISOString().slice(0, 10);
 
-      setLoading(true); // 顯示 loading 文字
+      setLoading(true);
       console.log("📡 發出 dashboard 請求...", { start, end });
 
       try {
@@ -29,7 +29,7 @@ const Dashboard = () => {
           axios.get(`/dashboard/trend?group_by=day&start=${start}&end=${end}`, { timeout: 30000 }),
           axios.get("/summary/top?group_by=idTag&limit=5"),
           axios.get("/status"),
-          axios.get(`/summary/daily-by-chargepoint?start=${start}&end=${end}`)
+          axios.get(`/summary/daily-by-chargepoint?start=${start}&end=${end}`, { timeout: 30000 })
         ]);
 
         console.log("✅ /dashboard/trend 結果:", s1.data);
@@ -60,6 +60,7 @@ const Dashboard = () => {
         <p>⏳ 資料載入中，請稍候...</p>
       ) : (
         <div className="space-y-8">
+          {/* 每日用電統計 */}
           <div className="grid grid-cols-2 gap-6">
             <div className="bg-gray-800 p-4 rounded">
               <h3 className="font-semibold text-lg mb-2">📊 每日用電統計</h3>
@@ -76,6 +77,7 @@ const Dashboard = () => {
               </ul>
             </div>
 
+            {/* 用電排行榜 */}
             <div className="bg-gray-800 p-4 rounded">
               <h3 className="font-semibold text-lg mb-2">🏆 用電排行榜</h3>
               <ul className="text-sm">
@@ -92,6 +94,7 @@ const Dashboard = () => {
             </div>
           </div>
 
+          {/* 趨勢圖 */}
           <div className="bg-gray-800 p-4 rounded">
             <h3 className="font-semibold text-lg mb-2">📈 多樁近 30 日用電趨勢圖</h3>
             <ResponsiveContainer width="100%" height={300}>
@@ -108,6 +111,7 @@ const Dashboard = () => {
             </ResponsiveContainer>
           </div>
 
+          {/* 前 5 名用電圖表 */}
           <div className="bg-gray-800 p-4 rounded">
             <h3 className="font-semibold text-lg mb-2">🏅 前 5 名用電量圖表</h3>
             <ResponsiveContainer width="100%" height={250}>
@@ -129,6 +133,7 @@ const Dashboard = () => {
             </ResponsiveContainer>
           </div>
 
+          {/* 即時狀態 */}
           <div className="bg-gray-800 p-4 rounded">
             <h3 className="font-semibold text-lg mb-2">🔌 即時充電樁狀態</h3>
             <table className="table-auto w-full text-sm">
@@ -155,10 +160,10 @@ const Dashboard = () => {
             </table>
           </div>
 
+          {/* 其他元件 */}
           <div className="bg-white rounded">
             <ChargePointComparisonChart />
           </div>
-
           <div className="bg-white rounded">
             <CostSummaryTable />
           </div>
