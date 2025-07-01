@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import axios from "axiosInstance";
+import axios from "../axiosInstance";
 import CostSummaryTable from "./CostSummaryTable";
 
 export default function CostSummaryPage() {
