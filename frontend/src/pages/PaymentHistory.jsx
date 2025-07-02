@@ -9,12 +9,12 @@ function PaymentHistory() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get("/payments").then((res) => {
+    axios.get("/api/payments").then((res) => {
       setRecords(res.data);
       setFiltered(res.data);
     });
 
-    axios.get("/cards").then((res) => {
+    axios.get("/api/cards").then((res) => {
       setCards(res.data);
     });
 

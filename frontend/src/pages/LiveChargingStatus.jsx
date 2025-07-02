@@ -7,11 +7,11 @@ function LiveChargingStatus({ chargePointId, idTag }) {
 
   useEffect(() => {
     const fetchStatus = () => {
-      axios.get(`/charge-points/${chargePointId}/latest-meter`)
+      axios.get(`/api/charge-points/${chargePointId}/latest-meter`)
         .then((res) => setLatest(res.data))
         .catch((err) => console.error("⚠️ 無法取得即時瓦數", err));
 
-      axios.get(`/cards/${idTag}`)
+      axios.get(`/api/cards/${idTag}`)
         .then((res) => setBalance(res.data.balance))
         .catch((err) => console.error("⚠️ 無法取得卡片餘額", err));
     };

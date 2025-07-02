@@ -9,7 +9,7 @@ export default function CostSummaryPage() {
 
   useEffect(() => {
     axios
-      .get("/transactions/cost-summary", { timeout: 30000 }) // ✅ 延長 timeout
+      .get("/api/transactions/cost-summary", { timeout: 30000 }) // ✅ 延長 timeout
       .then((res) => {
         setData(res.data);
         setLoading(false);

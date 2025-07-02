@@ -12,7 +12,7 @@ const Cards = () => {
   }, []);
 
   const fetchCards = async () => {
-    const res = await axios.get("/id_tags");
+    const res = await axios.get("/api/id_tags");
     setCards(res.data);
   };
 

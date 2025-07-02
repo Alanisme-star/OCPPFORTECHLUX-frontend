@@ -8,7 +8,7 @@ const ExportReservations = () => {
   const downloadCSV = async () => {
     setDownloading(true);
     try {
-      const res = await axios.get("/reservations/export", {
+      const res = await axios.get("/api/reservations/export", {
         responseType: "blob"
       });
       const blob = new Blob([res.data], { type: "text/csv" });

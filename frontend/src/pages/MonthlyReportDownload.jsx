@@ -10,7 +10,7 @@ const MonthlyReportDownload = () => {
     if (!month) return alert("請選擇月份！");
     setLoading(true);
     try {
-      const res = await axios.get(`/report/monthly?month=${month}`, {
+      const res = await axios.get(`/api/report/monthly?month=${month}`, {
         responseType: "blob",
       });
       const blob = new Blob([res.data], { type: "application/pdf" });
