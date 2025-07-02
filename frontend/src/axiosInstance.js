@@ -1,8 +1,9 @@
 // src/axiosInstance.js
 import axios from "axios";
 
+// ✅ 將 baseURL 設為純主機，不加 /api，避免路徑重複
 const instance = axios.create({
-  baseURL: "https://ocppfortechlux-backend.onrender.com/api",  // ✅ 正確後端 API 網域
+  baseURL: "https://ocppfortechlux-backend.onrender.com",
   timeout: 10000,
 });
 
