@@ -20,7 +20,7 @@ const WeeklyPricingSettings = () => {
   }, [season]);
 
   const fetchEntries = async () => {
-    const res = await axios.get("/weekly-pricing", { params: { season } });
+    const res = await axios.get("/api/weekly-pricing", { params: { season } });
     setEntries(res.data);
   };
 
@@ -39,9 +39,9 @@ const WeeklyPricingSettings = () => {
         price: parseFloat(form.price)
       };
       if (form.id) {
-        await axios.put(`/weekly-pricing/${form.id}`, payload);
+        await axios.put(`/api/weekly-pricing/${form.id}`, payload);
       } else {
-        await axios.post("/weekly-pricing", payload);
+        await axios.post("/api/weekly-pricing", payload);
       }
     }
     setForm({ id: null, type: "peak", startTime: "08:00", endTime: "12:00", price: 0 });
@@ -60,7 +60,7 @@ const WeeklyPricingSettings = () => {
   };
 
   const handleDelete = async (id) => {
-    await axios.delete(`/weekly-pricing/${id}`);
+    await axios.delete(`/api/weekly-pricing/${id}`);
     fetchEntries();
   };
 
