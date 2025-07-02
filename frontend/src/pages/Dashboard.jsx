@@ -59,29 +59,6 @@ const Dashboard = () => {
   return (
     <div>
       <h2 className="text-2xl font-bold mb-4">儀表板 Dashboard</h2>
-
-
-  {/* ✅ 新增測試按鈕 */}
-    <button
-      onClick={async () => {
-        try {
-          await axios.post("/api/internal/mock-status", {
-            chargePointId: "CP001",
-            connectorId: 1,
-            status: "Available"
-          });
-          alert("✅ 測試狀態已送出！");
-        } catch (err) {
-          alert("❌ 發送失敗：" + err.message);
-        }
-      }}
-      className="bg-blue-600 text-white px-4 py-2 rounded mb-4"
-    >
-      模擬送出 Status
-    </button>
-
-
-
       {loading ? (
         <p>⏳ 資料載入中，請稍候...</p>
       ) : (
