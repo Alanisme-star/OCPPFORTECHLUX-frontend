@@ -13,8 +13,8 @@ const TransactionDetailModal = ({ transactionId, onClose }) => {
 
   const fetchDetail = async () => {
     try {
-      const res1 = await axios.get(`/api/transactions/${transactionId}`);
-      const res2 = await axios.get(`/api/transactions/${transactionId}/cost`);
+      const res1 = await axios.get(`/transactions/${transactionId}`);
+      const res2 = await axios.get(`/transactions/${transactionId}/cost`);
       setDetail(res1.data);
       setCost(res2.data);
     } catch (err) {

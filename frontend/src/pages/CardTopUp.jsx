@@ -9,7 +9,7 @@ function CardTopUp() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    axios.get("/api/cards")
+    axios.get("/cards")
       .then((res) => setCards(res.data))
       .catch((err) => console.error("讀取卡片失敗", err));
   }, []);
@@ -21,7 +21,7 @@ function CardTopUp() {
       return;
     }
 
-    axios.post(`/api/cards/${selectedCardId}/topup`, {
+    axios.post(`/cards/${selectedCardId}/topup`, {
       amount: parseFloat(topUpAmount),
     })
       .then((res) => {

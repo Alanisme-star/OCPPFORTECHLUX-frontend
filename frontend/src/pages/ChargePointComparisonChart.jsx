@@ -28,7 +28,7 @@ const ChargePointComparisonChart = () => {
       setLoading(true);
       setError("");
       const res = await axios.get(
-        `/api/summary/daily-by-chargepoint-range?start=${start}&end=${end}`,
+        `/summary/daily-by-chargepoint-range?start=${start}&end=${end}`,
         { timeout: 30000 }
       );
       const rows = res.data;

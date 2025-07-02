@@ -19,7 +19,7 @@ const CostSummaryTable = () => {
       setLoading(true);
       setError("");
       const res = await axios.get(
-        `/api/transactions/cost-summary?start=${start}&end=${end}`,
+        `/transactions/cost-summary?start=${start}&end=${end}`,
         { timeout: 30000 }
       );
       setData(res.data);

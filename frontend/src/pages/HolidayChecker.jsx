@@ -11,7 +11,7 @@ const HolidayChecker = () => {
     if (!date) return alert("請選擇日期");
     setLoading(true);
     try {
-      const res = await axios.get(`/api/holiday/${date}`);
+      const res = await axios.get(`/holiday/${date}`);
       setResult(res.data);
     } catch (err) {
       alert("查詢失敗：" + err.message);

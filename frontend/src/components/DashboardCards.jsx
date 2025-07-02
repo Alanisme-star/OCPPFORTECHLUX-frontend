@@ -5,7 +5,7 @@ function DashboardCards() {
   const [data, setData] = useState(null);
 
   useEffect(() => {
-    axios.get("/api/dashboard/summary")
+    axios.get("/dashboard/summary")
       .then(res => setData(res.data))
       .catch(err => console.error("📉 載入 summary 失敗", err));
   }, []);

@@ -8,7 +8,7 @@ const ExportTransactions = () => {
   const downloadCSV = async () => {
     setDownloading(true);
     try {
-      const res = await axios.get("/api/users/export", {
+      const res = await axios.get("/users/export", {
         responseType: "blob"
       });
       const blob = new Blob([res.data], { type: "text/csv" });

@@ -15,7 +15,7 @@ const LinePush = () => {
 
   const fetchUsers = async () => {
     try {
-      const res = await axios.get("/api/users");
+      const res = await axios.get("/users");
       setUsers(res.data);
     } catch (err) {
       console.error("使用者資料載入失敗：", err);
@@ -31,7 +31,7 @@ const LinePush = () => {
   const sendMessage = async () => {
     setLoading(true);
     try {
-      await axios.post("/api/messaging/test", {
+      await axios.post("/messaging/test", {
         message,
         targets: selectedUsers,
       });

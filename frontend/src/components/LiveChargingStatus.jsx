@@ -7,7 +7,7 @@ function LiveChargingStatus({ chargePointId, idTag }) {
 
   useEffect(() => {
     const fetchStatus = () => {
-      axios.get(`/api/charge-points/${chargePointId}/latest-meter`)
+      axios.get(`/charge-points/${chargePointId}/latest-meter`)
         .then((res) => setLatest(res.data))
         .catch((err) => console.error("⚠️ 無法取得即時瓦數", err));
 

@@ -23,7 +23,7 @@ const TopEnergyChart = () => {
 
   const fetchTop = async () => {
     try {
-      const res = await axios.get("/api/dashboard/top?group_by=idTag&limit=10", {
+      const res = await axios.get("/dashboard/top?group_by=idTag&limit=10", {
         timeout: 30000,
       });
       const formatted = res.data.map((item) => ({

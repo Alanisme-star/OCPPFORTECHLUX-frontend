@@ -11,7 +11,7 @@ const BoundUsers = () => {
 
   const fetchUsers = async () => {
     try {
-      const res = await axios.get("/api/users");
+      const res = await axios.get("/users");
       setUsers(res.data);
     } catch (err) {
       console.error("讀取使用者失敗：", err);
@@ -21,7 +21,7 @@ const BoundUsers = () => {
   const unbindUser = async (idTag) => {
     if (!window.confirm(`確定要解除綁定 ${idTag} 嗎？`)) return;
     try {
-      await axios.put(`/api/users/${idTag}`, { cardNumber: null });
+      await axios.put(`/users/${idTag}`, { cardNumber: null });
       fetchUsers();
     } catch (err) {
       alert("解除綁定失敗：" + err.message);

@@ -14,7 +14,7 @@ const Transactions = () => {
 
   const fetchTransactions = async () => {
     try {
-      const res = await axios.get("/api/transactions");
+      const res = await axios.get("/transactions");
       setTransactions(Object.values(res.data));
     } catch (err) {
       console.error("讀取交易紀錄失敗：", err);
