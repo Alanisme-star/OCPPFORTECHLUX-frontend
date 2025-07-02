@@ -14,7 +14,7 @@ const PricingRuleChart = () => {
 
   const fetchRules = async () => {
     try {
-      const res = await axios.get("/summary/pricing-matrix");
+      const res = await axios.get("/api/summary/pricing-matrix");
       setRules(res.data);
     } catch (err) {
       console.error("電價規則載入失敗：", err);

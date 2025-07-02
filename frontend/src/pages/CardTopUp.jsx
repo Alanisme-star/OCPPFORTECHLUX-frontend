@@ -9,7 +9,7 @@ function CardTopUp() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    axios.get("/cards")
+    axios.get("/api/cards")
       .then((res) => setCards(res.data))
       .catch((err) => console.error("讀取卡片失敗", err));
   }, []);

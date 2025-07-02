@@ -13,7 +13,7 @@ const StatusLogs = () => {
       const params = new URLSearchParams();
       if (filter.chargePointId) params.append("chargePointId", filter.chargePointId);
       if (filter.limit) params.append("limit", filter.limit);
-      const res = await axios.get(`/status/logs?${params.toString()}`);
+      const res = await axios.get(`/api/status/logs?${params.toString()}`);
       setLogs(res.data);
     } catch (err) {
       console.error("讀取狀態紀錄失敗：", err);

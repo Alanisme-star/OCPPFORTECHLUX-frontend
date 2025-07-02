@@ -14,7 +14,7 @@ const Users = () => {
 
   const fetchUsers = () => {
     axios
-      .get("/api/users")
+      .get("/api/api/users")
       .then((res) => setUsers(res.data))
       .catch((err) => console.error("Failed to fetch users:", err));
   };

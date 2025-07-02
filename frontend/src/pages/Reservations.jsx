@@ -19,7 +19,7 @@ const Reservations = () => {
 
   const fetchList = async () => {
     setLoading(true);
-    const res = await axios.get("/reservations");
+    const res = await axios.get("/api/reservations");
     setList(res.data);
     setLoading(false);
   };

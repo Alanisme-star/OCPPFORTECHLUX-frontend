@@ -14,7 +14,7 @@ const TransactionCostChart = ({ transactionId }) => {
 
   const fetchCostData = async () => {
     try {
-      const res = await axios.get(`/transactions/${transactionId}/cost`);
+      const res = await axios.get(`/api/transactions/${transactionId}/cost`);
       setData(res.data.details);
       setTotal(res.data);
     } catch (err) {

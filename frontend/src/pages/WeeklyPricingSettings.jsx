@@ -20,7 +20,7 @@ const WeeklyPricingSettings = () => {
   }, [season]);
 
   const fetchEntries = async () => {
-    const res = await axios.get("/weekly-pricing", { params: { season } });
+    const res = await axios.get("/api/weekly-pricing", { params: { season } });
     setEntries(res.data);
   };
 

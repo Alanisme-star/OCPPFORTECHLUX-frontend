@@ -11,7 +11,7 @@ const BoundUsers = () => {
 
   const fetchUsers = async () => {
     try {
-      const res = await axios.get("/users");
+      const res = await axios.get("/api/users");
       setUsers(res.data);
     } catch (err) {
       console.error("讀取使用者失敗：", err);

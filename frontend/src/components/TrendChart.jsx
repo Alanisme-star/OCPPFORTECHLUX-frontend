@@ -10,7 +10,7 @@ function TrendChart({ groupBy = "day" }) {
     const end = new Date().toISOString().slice(0, 10); // 今日
     const start = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10); // 近 30 日
 
-    axios.get(`/dashboard/trend?group_by=${groupBy}&start=${start}&end=${end}`)
+    axios.get(`/api/dashboard/trend?group_by=${groupBy}&start=${start}&end=${end}`)
       .then(res => setData(res.data))
       .catch(err => console.error("載入趨勢圖失敗", err));
   }, [groupBy]);

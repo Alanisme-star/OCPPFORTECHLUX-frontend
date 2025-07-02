@@ -26,7 +26,7 @@ const Dashboard = () => {
 
       try {
         const [s1, s2, s3, s4] = await Promise.all([
-          axios.get(`/dashboard/trend?group_by=day&start=${start}&end=${end}`, { timeout: 30000 }),
+          axios.get(`/api/dashboard/trend?group_by=day&start=${start}&end=${end}`, { timeout: 30000 }),
           axios.get("/summary/top?group_by=idTag&limit=5"),
           axios.get("/status"),
           axios.get(`/summary/daily-by-chargepoint?start=${start}&end=${end}`, { timeout: 30000 })
