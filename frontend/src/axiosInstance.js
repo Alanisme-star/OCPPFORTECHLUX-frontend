@@ -1,9 +1,10 @@
-// src/axiosInstance.js
+// src/utils/axiosInstance.js
 import axios from "axios";
 
-// ✅ 將 baseURL 設為純主機，不加 /api，避免路徑重複
+console.log("🔥 baseURL =", import.meta.env.VITE_API_BASE_URL);
+
 const instance = axios.create({
-  baseURL: "https://ocppfortechlux-backend.onrender.com",
+  baseURL: import.meta.env.VITE_API_BASE_URL || "http://localhost:8000",
   timeout: 10000,
 });
 
