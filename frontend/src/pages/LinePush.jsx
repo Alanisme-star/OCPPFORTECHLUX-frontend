@@ -31,7 +31,7 @@ const LinePush = () => {
   const sendMessage = async () => {
     setLoading(true);
     try {
-      await axios.post("/messaging/test", {
+      await axios.post("/api/messaging/test", {
         message,
         targets: selectedUsers,
       });

@@ -19,7 +19,7 @@ const Reservations = () => {
 
   const fetchList = async () => {
     setLoading(true);
-    const res = await axios.get("/reservations");
+    const res = await axios.get("/api/reservations");
     setList(res.data);
     setLoading(false);
   };
@@ -28,9 +28,9 @@ const Reservations = () => {
     e.preventDefault();
     try {
       if (editing !== null) {
-        await axios.put(`/reservations/${editing}`, form);
+        await axios.put(`/api/reservations/${editing}`, form);
       } else {
-        await axios.post("/reservations", { ...form });
+        await axios.post("/api/reservations", { ...form });
       }
       fetchList();
       setForm({ chargePointId: "", idTag: "", startTime: "", endTime: "" });
@@ -52,7 +52,7 @@ const Reservations = () => {
 
   const handleDelete = async (id) => {
     if (window.confirm("確定要刪除此預約嗎？")) {
-      await axios.delete(`/reservations/${id}`);
+      await axios.delete(`/api/reservations/${id}`);
       fetchList();
     }
   };

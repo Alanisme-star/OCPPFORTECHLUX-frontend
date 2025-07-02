@@ -20,9 +20,9 @@ const Cards = () => {
     e.preventDefault();
     try {
       if (editing) {
-        await axios.put(`/id_tags/${editing}`, form);
+        await axios.put(`/api/id_tags/${editing}`, form);
       } else {
-        await axios.post("/id_tags", form);
+        await axios.post("/api/id_tags", form);
       }
       fetchCards();
       setForm({ idTag: "", status: "Accepted", validUntil: "2099-12-31T23:59:59" });
@@ -39,7 +39,7 @@ const Cards = () => {
 
   const handleDelete = async (idTag) => {
     if (window.confirm("確定要刪除這張卡片嗎？")) {
-      await axios.delete(`/id_tags/${idTag}`);
+      await axios.delete(`/api/id_tags/${idTag}`);
       fetchCards();
     }
   };
