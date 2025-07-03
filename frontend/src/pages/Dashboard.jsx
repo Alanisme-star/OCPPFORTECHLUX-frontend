@@ -51,10 +51,9 @@ const Dashboard = () => {
     fetchAll();
   }, []);
 
-  const cpList = trend.length > 0 ? Object.keys(trend[0]).filter((k) => k !== "period") : [];
-
-
-
+  const cpList = trend.length > 0
+    ? Object.keys(trend[0]).filter((k) => k !== "period" && typeof k === "string")
+    : [];
 
   return (
     <div>
@@ -71,7 +70,7 @@ const Dashboard = () => {
                 {summary.length > 0 ? (
                   summary.slice(-7).map((row) => (
                     <li key={row.period}>
-                       ▸ {row.period}：{row.totalEnergy ? (row.totalEnergy / 1000).toFixed(2) : "0.00"} kWh（{row.transactionCount ?? 0} 筆）
+                      ▸ {row.period}：{row.totalEnergy ? (row.totalEnergy / 1000).toFixed(2) : "0.00"} kWh（{row.transactionCount ?? 0} 筆）
                     </li>
                   ))
                 ) : (
@@ -108,13 +107,19 @@ const Dashboard = () => {
                 <Tooltip />
                 <Legend />
                 {cpList.map((cp) => (
-                  <Line key={cp} type="monotone" dataKey={cp} stroke="#4fd1c5" name={cp} />
+                  <Line
+                    key={`line-${cp}`}
+                    type="monotone"
+                    dataKey={cp}
+                    stroke="#4fd1c5"
+                    name={cp}
+                  />
                 ))}
               </LineChart>
             </ResponsiveContainer>
           </div>
 
-          {/* 前 5 名用電圖表 */}
+          {/* 前 5 名用電量圖表 */}
           <div className="bg-gray-800 p-4 rounded">
             <h3 className="font-semibold text-lg mb-2">🏅 前 5 名用電量圖表</h3>
             <ResponsiveContainer width="100%" height={250}>
