@@ -29,7 +29,9 @@ const Cards = () => {
 
       try {
         const payload = { ...form, validUntil: fixedValidUntil };
-        console.log("🚀 送出的 payload：", payload); // ✅ 加這行
+        console.log("🚀 payload.idTag:", payload.idTag);
+        console.log("🚀 payload.status:", payload.status);
+        console.log("🚀 payload.validUntil:", payload.validUntil);
 
         if (editing) {
           await axios.put(`/api/id_tags/${editing}`, payload);
