@@ -156,7 +156,7 @@ const Dashboard = () => {
                   Object.entries(status).map(([cpId, st]) => (
                     <tr key={cpId} className="border-b">
                       <td className="p-2">{cpId}</td>
-                      <td className="p-2">{st}</td>
+                      <td className="p-2">{st.status}</td>
                     </tr>
                   ))
                 ) : (
