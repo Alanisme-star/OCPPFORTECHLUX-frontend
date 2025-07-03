@@ -14,7 +14,7 @@ const Users = () => {
 
   const fetchUsers = () => {
     axios
-      .get("/users")
+      .get("/api/users")
       .then((res) => setUsers(res.data))
       .catch((err) => console.error("Failed to fetch users:", err));
   };
@@ -26,7 +26,7 @@ const Users = () => {
   const handleSubmit = (e) => {
     e.preventDefault();
     axios
-      .post("/users", formData)
+      .post("/api/users", formData)
       .then(() => {
         setFormData({ idTag: "", name: "", department: "", cardNumber: "" });
         setShowForm(false);
