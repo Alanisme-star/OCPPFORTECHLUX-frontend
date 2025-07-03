@@ -16,21 +16,26 @@ const Cards = () => {
     setCards(res.data);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    try {
-      if (editing) {
-        await axios.put(`/api/id_tags/${editing}`, form);
-      } else {
-        await axios.post("/api/id_tags", form);
+    const handleSubmit = async (e) => {
+      e.preventDefault();
+      if (!form.idTag.trim()) {
+        alert("請輸入 ID Tag");
+        return;
       }
-      fetchCards();
-      setForm({ idTag: "", status: "Accepted", validUntil: "2099-12-31T23:59:59" });
-      setEditing(null);
-    } catch (err) {
-      alert("操作失敗: " + err.response?.data?.detail || err.message);
-    }
-  };
+
+      try {
+        if (editing) {
+          await axios.put(`/api/id_tags/${editing}`, form);
+        } else {
+          await axios.post("/api/id_tags", form);
+        }
+        fetchCards();
+        setForm({ idTag: "", status: "Accepted", validUntil: "2099-12-31T23:59:59" });
+        setEditing(null);
+      } catch (err) {
+        alert("操作失敗: " + (err.response?.data?.detail || err.message));
+      }
+    };
 
   const handleEdit = (card) => {
     setForm({ ...card });
