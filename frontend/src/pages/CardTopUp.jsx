@@ -21,7 +21,7 @@ function CardTopUp() {
       return;
     }
 
-    axios.post(`/cards/${selectedCardId}/topup`, {
+    axios.post(`/api/cards/${selectedCardId}/topup`, {
       amount: parseFloat(topUpAmount),
     })
       .then((res) => {
