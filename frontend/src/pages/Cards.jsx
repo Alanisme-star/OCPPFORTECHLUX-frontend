@@ -23,12 +23,19 @@ const Cards = () => {
         return;
       }
 
+      const fixedValidUntil = form.validUntil.length === 16
+        ? form.validUntil + ":00"
+        : form.validUntil;
+
       try {
+        const payload = { ...form, validUntil: fixedValidUntil };
+
         if (editing) {
-          await axios.put(`/api/id_tags/${editing}`, form);
+          await axios.put(`/api/id_tags/${editing}`, payload);
         } else {
-          await axios.post("/api/id_tags", form);
+          await axios.post("/api/id_tags", payload);
         }
+
         fetchCards();
         setForm({ idTag: "", status: "Accepted", validUntil: "2099-12-31T23:59:59" });
         setEditing(null);
