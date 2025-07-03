@@ -71,7 +71,7 @@ const Dashboard = () => {
                 {summary.length > 0 ? (
                   summary.slice(-7).map((row) => (
                     <li key={row.period}>
-                      ▸ {row.period}：{(row.totalEnergy / 1000).toFixed(2)} kWh（{row.transactionCount} 筆）
+                       ▸ {row.period}：{row.totalEnergy ? (row.totalEnergy / 1000).toFixed(2) : "0.00"} kWh（{row.transactionCount ?? 0} 筆）
                     </li>
                   ))
                 ) : (
