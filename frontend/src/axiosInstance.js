@@ -1,14 +1,14 @@
 import axios from "axios";
 
 const instance = axios.create({
-  baseURL: "https://ocppfortechlux-backend.onrender.com", // ✅ 已移除 /api
+  baseURL: import.meta.env.VITE_API_BASE || "",
   timeout: 10000,
 });
 
-// ✅ 攔截 request
+// request 攔截器
 instance.interceptors.request.use(
   (config) => {
-    console.log("📤 [Axios Request]", config);
+    console.log("📤 [Axios Request]", config.method?.toUpperCase(), config.url);
     return config;
   },
   (error) => {
@@ -17,13 +17,20 @@ instance.interceptors.request.use(
   }
 );
 
-// ✅ 攔截 response
+// response 攔截器（✅ 加強顯示錯誤細節）
 instance.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   (error) => {
-    console.error("❌ [Axios Response Error]", error);
+    const status = error.response?.status;
+    const detail = error.response?.data?.detail || error.message;
+    const url = error.config?.url;
+
+    console.error("❌ [Axios Response Error]", {
+      url,
+      status,
+      detail,
+    });
+
     return Promise.reject(error);
   }
 );
