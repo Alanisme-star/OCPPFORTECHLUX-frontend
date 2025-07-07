@@ -27,7 +27,12 @@ const DailyPricingSettings = () => {
 
   useEffect(() => {
     generateCalendar();
-  }, [year, month]);
+   // 預設例假日規則（可自行調整時間、單價、類型）
+  setSundayRules([
+    { startTime: "00:00", endTime: "08:00", price: 1.5, label: "off" },
+    { startTime: "08:00", endTime: "18:00", price: 2.5, label: "mid" },
+    { startTime: "18:00", endTime: "23:59", price: 3.0, label: "peak" }
+  ]);
 
   const generateCalendar = async () => {
     const daysInMonth = dayjs(`${year}-${month}-01`).daysInMonth();
