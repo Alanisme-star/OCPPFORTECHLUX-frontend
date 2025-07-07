@@ -154,6 +154,33 @@ const DailyPricingSettings = () => {
 };
 
 
+  const handleSave = async () => {
+  if (!selectedDate) return;
+
+  try {
+    await axios.delete("/api/daily-pricing", { params: { date: selectedDate } });
+
+    for (let entry of dailySettings) {
+      await axios.post("/api/daily-pricing", {
+        date: selectedDate,
+        startTime: entry.startTime,
+        endTime: entry.endTime,
+        price: entry.price,
+        label: entry.label,
+      });
+    }
+
+    alert("✅ 儲存成功！");
+    generateCalendar();
+  } catch (err) {
+    alert("❌ 儲存失敗，請查看後端或 Console Log");
+  }
+};
+
+
+
+
+
 
   return (
     <div className="text-white max-w-6xl mx-auto">
