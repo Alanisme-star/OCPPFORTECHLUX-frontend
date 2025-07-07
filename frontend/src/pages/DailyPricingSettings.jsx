@@ -126,6 +126,35 @@ const DailyPricingSettings = () => {
   };
 
 
+  const handleApplyHoliday = async (date) => {
+  if (!sundayRules.length) {
+    alert("⚠️ 尚未設定例假日規則");
+    return;
+  }
+
+  try {
+    await axios.delete("/api/daily-pricing", { params: { date } });
+
+    for (let rule of sundayRules) {
+      await axios.post("/api/daily-pricing", {
+        date,
+        startTime: rule.startTime,
+        endTime: rule.endTime,
+        price: rule.price,
+        label: rule.label,
+      });
+    }
+
+    alert("✅ 已套用例假日設定！");
+    generateCalendar();
+    loadDateSettings(date);
+  } catch (e) {
+    alert("❌ 套用例假日失敗，請查看 Console Log");
+  }
+};
+
+
+
   return (
     <div className="text-white max-w-6xl mx-auto">
       <h2 className="text-2xl font-bold mb-4">📅 每日電價設定</h2>
@@ -171,7 +200,13 @@ const DailyPricingSettings = () => {
         )}
       </div>
 
-      {selectedDate && (
+      
+
+
+
+
+
+
         <div className="bg-gray-700 p-4 rounded mb-10">
           <h3 className="font-semibold mb-4">🛠 {selectedDate} 設定</h3>
           {dailySettings.map((e, idx) => (
@@ -204,6 +239,14 @@ const DailyPricingSettings = () => {
           <div className="mt-4 flex gap-2">
             <button onClick={() => setDailySettings([...dailySettings, { id: null, startTime: "08:00", endTime: "12:00", price: 0, label: "peak" }])} className="bg-gray-500 px-3 py-1 rounded">➕ 新增</button>
             <button onClick={handleSave} className="bg-green-600 px-3 py-1 rounded">💾 儲存</button>
+            {selectedDate && (
+              <button
+                onClick={() => handleApplyHoliday(selectedDate)}
+                className="mt-2 bg-green-600 px-3 py-1 rounded"
+              >
+                🔁 套用例假日設定
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -225,7 +268,7 @@ const DailyPricingSettings = () => {
         </div>
 
         <div>
-          <h4 className="text-green-300 font-bold mb-2">◆ 星期日</h4>
+          <h4 className="text-green-300 font-bold mb-2">◆ 星期日或例假日設定</h4>
           {renderRuleEditor(sundayRules, setSundayRules)}
           <button onClick={() => handleApplyTemplate("sunday")} className="mt-2 bg-blue-600 px-3 py-1 rounded">📤 套用至本月日</button>
         </div>
