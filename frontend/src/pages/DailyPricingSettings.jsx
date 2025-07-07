@@ -32,6 +32,13 @@ const DailyPricingSettings = () => {
   const generateCalendar = async () => {
     const daysInMonth = dayjs(`${year}-${month}-01`).daysInMonth();
     const newCalendar = [];
+
+    // 前導空格補齊
+    const firstDay = dayjs(`${year}-${month}-01`).day(); // 0(日)~6(六)
+    for (let i = 0; i < firstDay; i++) {
+      newCalendar.push(null); // 空格
+    }
+
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = dayjs(`${year}-${month}-${d}`).format("YYYY-MM-DD");
       const res = await axios.get("/api/daily-pricing", { params: { date: dateStr } });
@@ -45,8 +52,10 @@ const DailyPricingSettings = () => {
       }
       newCalendar.push({ date: dateStr, color });
     }
+
     setCalendar(newCalendar);
   };
+
 
   const loadDateSettings = async (date) => {
     const res = await axios.get("/api/daily-pricing", { params: { date } });
@@ -97,14 +106,25 @@ const DailyPricingSettings = () => {
     if (type === "saturday") rules = saturdayRules;
     if (type === "sunday") rules = sundayRules;
 
-    const start = `${year}-${String(month).padStart(2, "0")}-01`;
-    await axios.post("/api/internal/duplicate-daily-pricing", {
-      type,
-      rules,
-      start,
-    });
-    generateCalendar();
+    if (!rules.length) {
+      alert("⚠️ 尚未設定任何規則，請先新增後再套用");
+      return;
+    }
+
+    try {
+      const start = `${year}-${String(month).padStart(2, "0")}-01`;
+      await axios.post("/api/internal/duplicate-daily-pricing", {
+        type,
+        rules,
+        start,
+      });
+      alert("✅ 套用成功！");
+      generateCalendar();
+    } catch (err) {
+      alert("❌ 套用失敗，請檢查後端或 Console Log");
+    }
   };
+
 
   return (
     <div className="text-white max-w-6xl mx-auto">
