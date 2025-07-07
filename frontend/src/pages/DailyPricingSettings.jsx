@@ -33,6 +33,7 @@ const DailyPricingSettings = () => {
     { startTime: "08:00", endTime: "18:00", price: 2.5, label: "mid" },
     { startTime: "18:00", endTime: "23:59", price: 3.0, label: "peak" }
   ]);
+}, []);  // 👈 記得補上 useEffect 的第二參數：[]
 
   const generateCalendar = async () => {
     const daysInMonth = dayjs(`${year}-${month}-01`).daysInMonth();
@@ -277,6 +278,7 @@ const DailyPricingSettings = () => {
             )}
           </div>
         </div>
+      )}
 
       {/* 預設規則區塊 */}
       <div className="bg-gray-800 p-4 rounded">
