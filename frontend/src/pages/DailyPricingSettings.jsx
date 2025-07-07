@@ -1,9 +1,8 @@
-// frontend/src/pages/DailyPricingSettings.jsx
 import React, { useEffect, useState } from "react";
 import axios from "../axiosInstance";
 import dayjs from "dayjs";
-import * as weekday from "dayjs/plugin/weekday";
-import * as isoWeek from "dayjs/plugin/isoWeek";
+import weekday from "dayjs/plugin/weekday";
+import isoWeek from "dayjs/plugin/isoWeek";
 dayjs.extend(weekday);
 dayjs.extend(isoWeek);
 
