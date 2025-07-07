@@ -53,11 +53,11 @@ const DailyPricingSettings = () => {
       let color = "gray";
       if (isSet) {
         const isHoliday = res.data.some(rule => rule.label === 'holiday');
-        if (isHoliday) color = "green";
+        if (isHoliday || weekDay === 0) color = "green";
         else if (weekDay === 6) color = "blue";
         else color = "yellow";
       }
-      newCalendar.push({ date: dateStr, color });
+      newCalendar.push({ date: dateStr, color });   // ⬅️ 這一行一定要有！！
     }
 
 
