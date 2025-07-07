@@ -52,12 +52,15 @@ const DailyPricingSettings = () => {
       const weekDay = dayjs(dateStr).day();
       let color = "gray";
       if (isSet) {
-        if (weekDay === 0) color = "green";
+        const isHoliday = res.data.some(rule => rule.label === 'holiday');
+        if (isHoliday) color = "green";
         else if (weekDay === 6) color = "blue";
         else color = "yellow";
       }
       newCalendar.push({ date: dateStr, color });
     }
+
+
 
     setCalendar(newCalendar);
   };
@@ -147,7 +150,7 @@ const DailyPricingSettings = () => {
         startTime: rule.startTime,
         endTime: rule.endTime,
         price: rule.price,
-        label: rule.label,
+        label: "holiday", // 這樣寫入資料庫的每條都是 holiday
       });
     }
 
