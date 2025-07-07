@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
+import DailyPricingSettings from "./pages/DailyPricingSettings";
 
 import BoundUsers from './pages/BoundUsers';
 import Cards from './pages/Cards';
@@ -61,6 +62,7 @@ export default function App() {
             <Route path="/top-energy-chart" element={<TopEnergyChart />} />
             <Route path="/login" element={<Login />} />
             <Route path="*" element={<div className="text-red-400 text-xl">404 找不到頁面</div>} />
+            <Route path="/daily-pricing" element={<DailyPricingSettings />} />
           </Routes>
         </main>
       </div>
