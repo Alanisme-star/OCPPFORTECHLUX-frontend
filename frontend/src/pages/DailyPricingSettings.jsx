@@ -2,8 +2,8 @@
 import React, { useEffect, useState } from "react";
 import axios from "../axiosInstance";
 import dayjs from "dayjs";
-import weekday from "dayjs/plugin/weekday";
-import isoWeek from "dayjs/plugin/isoWeek";
+import * as weekday from "dayjs/plugin/weekday";
+import * as isoWeek from "dayjs/plugin/isoWeek";
 dayjs.extend(weekday);
 dayjs.extend(isoWeek);
 
@@ -12,8 +12,6 @@ const types = [
   { value: "mid", label: "半尖峰", color: "#F59E0B" },
   { value: "off", label: "離峰", color: "#3B82F6" }
 ];
-
-const weekdays = ["工作日", "星期六", "星期天"];
 
 const DailyPricingSettings = () => {
   const [year, setYear] = useState(dayjs().year());
@@ -93,7 +91,15 @@ const DailyPricingSettings = () => {
           <button
             key={i}
             onClick={() => loadDateSettings(d.date)}
-            className={`rounded p-2 ${d.color === "yellow" ? "bg-yellow-400" : d.color === "blue" ? "bg-blue-400" : d.color === "green" ? "bg-green-400" : "bg-gray-400"}`}
+            className={`rounded p-2 ${
+              d.color === "yellow"
+                ? "bg-yellow-400"
+                : d.color === "blue"
+                ? "bg-blue-400"
+                : d.color === "green"
+                ? "bg-green-400"
+                : "bg-gray-400"
+            }`}
           >
             {dayjs(d.date).date()}
           </button>
@@ -117,21 +123,38 @@ const DailyPricingSettings = () => {
               >
                 {types.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
-              <input type="time" value={e.startTime} onChange={(ev) => {
-                const copy = [...dailySettings];
-                copy[idx].startTime = ev.target.value;
-                setDailySettings(copy);
-              }} className="text-black px-2 py-1" />
-              <input type="time" value={e.endTime} onChange={(ev) => {
-                const copy = [...dailySettings];
-                copy[idx].endTime = ev.target.value;
-                setDailySettings(copy);
-              }} className="text-black px-2 py-1" />
-              <input type="number" step="0.01" value={e.price} onChange={(ev) => {
-                const copy = [...dailySettings];
-                copy[idx].price = ev.target.value;
-                setDailySettings(copy);
-              }} className="text-black px-2 py-1 w-20" placeholder="單價" />
+              <input
+                type="time"
+                value={e.startTime}
+                onChange={(ev) => {
+                  const copy = [...dailySettings];
+                  copy[idx].startTime = ev.target.value;
+                  setDailySettings(copy);
+                }}
+                className="text-black px-2 py-1"
+              />
+              <input
+                type="time"
+                value={e.endTime}
+                onChange={(ev) => {
+                  const copy = [...dailySettings];
+                  copy[idx].endTime = ev.target.value;
+                  setDailySettings(copy);
+                }}
+                className="text-black px-2 py-1"
+              />
+              <input
+                type="number"
+                step="0.01"
+                value={e.price}
+                onChange={(ev) => {
+                  const copy = [...dailySettings];
+                  copy[idx].price = ev.target.value;
+                  setDailySettings(copy);
+                }}
+                className="text-black px-2 py-1 w-20"
+                placeholder="單價"
+              />
               <button onClick={() => e.id && handleDelete(e.id)} className="text-red-400">刪除</button>
             </div>
           ))}
