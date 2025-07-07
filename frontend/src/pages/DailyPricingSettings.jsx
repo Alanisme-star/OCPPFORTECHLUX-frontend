@@ -235,10 +235,6 @@ const DailyPricingSettings = () => {
       
 
 
-
-
-
-
         <div className="bg-gray-700 p-4 rounded mb-10">
           <h3 className="font-semibold mb-4">🛠 {selectedDate} 設定</h3>
           {dailySettings.map((e, idx) => (
@@ -281,7 +277,6 @@ const DailyPricingSettings = () => {
             )}
           </div>
         </div>
-      )}
 
       {/* 預設規則區塊 */}
       <div className="bg-gray-800 p-4 rounded">
