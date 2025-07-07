@@ -148,15 +148,27 @@ const DailyPricingSettings = () => {
 
       {/* 月曆按鈕列 */}
       <div className="grid grid-cols-7 gap-2 mb-8">
-        {calendar.map((d, i) => (
-          <button
-            key={i}
-            onClick={() => loadDateSettings(d.date)}
-            className={`rounded p-2 w-full ${d.color === "yellow" ? "bg-yellow-400" : d.color === "blue" ? "bg-blue-400" : d.color === "green" ? "bg-green-400" : "bg-gray-400"}`}
-          >
-            {dayjs(d.date).date()}
-          </button>
-        ))}
+        {calendar.map((d, i) =>
+          d ? (
+            <button
+              key={i}
+              onClick={() => loadDateSettings(d.date)}
+              className={`rounded p-2 w-full ${
+                d.color === "yellow"
+                  ? "bg-yellow-400"
+                  : d.color === "blue"
+                  ? "bg-blue-400"
+                  : d.color === "green"
+                  ? "bg-green-400"
+                  : "bg-gray-400"
+              }`}
+            >
+              {dayjs(d.date).date()}
+            </button>
+          ) : (
+            <div key={i} className="p-2" />
+          )
+        )}
       </div>
 
       {selectedDate && (
