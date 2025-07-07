@@ -300,7 +300,7 @@ const DailyPricingSettings = () => {
         </div>
 
         <div>
-          <h4 className="text-green-300 font-bold mb-2">◆ 星期日或例假日設定</h4>
+          <h4 className="text-green-300 font-bold mb-2">◆ 星期日</h4>
           {renderRuleEditor(sundayRules, setSundayRules)}
           <button onClick={() => handleApplyTemplate("sunday")} className="mt-2 bg-blue-600 px-3 py-1 rounded">📤 套用至本月日</button>
         </div>
