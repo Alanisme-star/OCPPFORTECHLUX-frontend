@@ -231,50 +231,32 @@ const DailyPricingSettings = () => {
       </div>
 
       
-
-
-        <div className="bg-gray-700 p-4 rounded mb-10">
-          <h3 className="font-semibold mb-4">🛠 {selectedDate} 設定</h3>
-          {dailySettings.map((e, idx) => (
+      <div className="bg-gray-700 p-4 rounded mb-10">
+        <h3 className="font-semibold mb-4">🛠 {selectedDate} 例假日設定</h3>
+        <div className="mb-2 text-green-300 font-bold">（此區塊內容僅會自動引用星期日規則）</div>
+        {sundayRules.length > 0 ? (
+          sundayRules.map((e, idx) => (
             <div key={idx} className="flex gap-2 mb-2">
-              <select value={e.label} onChange={(ev) => {
-                const copy = [...dailySettings];
-                copy[idx].label = ev.target.value;
-                setDailySettings(copy);
-              }} className="text-black px-2 py-1">
-                {types.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
-              <input type="time" value={e.startTime} onChange={(ev) => {
-                const copy = [...dailySettings];
-                copy[idx].startTime = ev.target.value;
-                setDailySettings(copy);
-              }} className="text-black px-2 py-1" />
-              <input type="time" value={e.endTime} onChange={(ev) => {
-                const copy = [...dailySettings];
-                copy[idx].endTime = ev.target.value;
-                setDailySettings(copy);
-              }} className="text-black px-2 py-1" />
-              <input type="number" step="0.01" value={e.price} onChange={(ev) => {
-                const copy = [...dailySettings];
-                copy[idx].price = ev.target.value;
-                setDailySettings(copy);
-              }} className="text-black px-2 py-1 w-20" placeholder="單價" />
-              <button onClick={() => e.id && handleDelete(e.id)} className="text-red-400">刪除</button>
+              <span className="px-2">{types.find(t => t.value === e.label)?.label ?? e.label}</span>
+              <span className="px-2">{e.startTime}</span>
+              <span className="px-2">{e.endTime}</span>
+              <span className="px-2">{e.price}</span>
             </div>
-          ))}
-          <div className="mt-4 flex gap-2">
-            <button onClick={() => setDailySettings([...dailySettings, { id: null, startTime: "08:00", endTime: "12:00", price: 0, label: "peak" }])} className="bg-gray-500 px-3 py-1 rounded">➕ 新增</button>
-            <button onClick={handleSave} className="bg-green-600 px-3 py-1 rounded">💾 儲存</button>
-            {selectedDate && (
-              <button
-                onClick={() => handleApplyHoliday(selectedDate)}
-                className="mt-2 bg-green-600 px-3 py-1 rounded"
-              >
-                🔁 套用例假日設定
-              </button>
-            )}
-          </div>
+          ))
+        ) : (
+          <div className="text-red-400">⚠️ 尚未設定星期日規則</div>
+        )}
+        <div className="mt-4 flex gap-2">
+          {selectedDate && (
+            <button
+              onClick={() => handleApplyHoliday(selectedDate)}
+              className="bg-green-600 px-3 py-1 rounded"
+            >
+              🔁 套用例假日設定（內容取自星期日設定）
+            </button>
+          )}
         </div>
+      </div>
       )}
 
       {/* 預設規則區塊 */}
