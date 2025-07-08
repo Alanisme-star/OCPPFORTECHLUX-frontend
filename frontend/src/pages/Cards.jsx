@@ -12,42 +12,45 @@ const Cards = () => {
   }, []);
 
   const fetchCards = async () => {
-    const res = await axios.get("/api/id_tags");
-    setCards(res.data);
+    try {
+      const res = await axios.get("/api/cards");
+      setCards(res.data);
+    } catch (err) {
+      console.error("讀取卡片失敗", err);
+    }
   };
 
-    const handleSubmit = async (e) => {
-      e.preventDefault();
-      if (!form.idTag.trim()) {
-        alert("請輸入 ID Tag");
-        return;
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.idTag.trim()) {
+      alert("請輸入 ID Tag");
+      return;
+    }
+
+    const fixedValidUntil = form.validUntil.length === 16
+      ? form.validUntil + ":00"
+      : form.validUntil;
+
+    const payload = { ...form, validUntil: fixedValidUntil };
+
+    try {
+      if (editing) {
+        await axios.put(`/api/id_tags/${editing}`, payload);
+      } else {
+        await axios.post("/api/id_tags", payload);
       }
 
-      const fixedValidUntil = form.validUntil.length === 16
-        ? form.validUntil + ":00"
-        : form.validUntil;
-
-        const payload = { ...form, validUntil: fixedValidUntil };
-        console.log("🚀 送出 payload：", JSON.stringify(payload, null, 2));
-
-      try {
-        if (editing) {
-          await axios.put(`/api/id_tags/${editing}`, payload);
-        } else {
-          await axios.post("/api/id_tags", payload);
-        }
-
-        fetchCards();
-        setForm({ idTag: "", status: "Accepted", validUntil: "2099-12-31T23:59:59" });
-        setEditing(null);
-      } catch (err) {
-        alert("操作失敗: " + (err.response?.data?.detail || err.message));
-      }
-    };
+      fetchCards();
+      setForm({ idTag: "", status: "Accepted", validUntil: "2099-12-31T23:59:59" });
+      setEditing(null);
+    } catch (err) {
+      alert("操作失敗: " + (err.response?.data?.detail || err.message));
+    }
+  };
 
   const handleEdit = (card) => {
     setForm({ ...card });
-    setEditing(card.idTag);
+    setEditing(card.card_id);
   };
 
   const handleDelete = async (idTag) => {
@@ -97,18 +100,20 @@ const Cards = () => {
             <th className="p-2">ID Tag</th>
             <th className="p-2">狀態</th>
             <th className="p-2">有效期限</th>
+            <th className="p-2">餘額</th>
             <th className="p-2">操作</th>
           </tr>
         </thead>
         <tbody>
           {cards.map((card) => (
-            <tr key={card.idTag} className="border-b hover:bg-gray-700">
-              <td className="p-2">{card.idTag}</td>
-              <td className="p-2">{card.status}</td>
-              <td className="p-2">{card.validUntil}</td>
+            <tr key={card.card_id} className="border-b hover:bg-gray-700">
+              <td className="p-2">{card.card_id}</td>
+              <td className="p-2">{card.status || "—"}</td>
+              <td className="p-2">{card.validUntil || "—"}</td>
+              <td className="p-2">{card.balance != null ? `${card.balance} 元` : "—"}</td>
               <td className="p-2 space-x-2">
                 <button onClick={() => handleEdit(card)} className="text-blue-400 hover:underline">編輯</button>
-                <button onClick={() => handleDelete(card.idTag)} className="text-red-400 hover:underline">刪除</button>
+                <button onClick={() => handleDelete(card.card_id)} className="text-red-400 hover:underline">刪除</button>
               </td>
             </tr>
           ))}
