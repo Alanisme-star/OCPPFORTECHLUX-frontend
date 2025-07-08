@@ -75,7 +75,7 @@ const Cards = () => {
   const handleDelete = async (idTag) => {
     if (window.confirm("確定要刪除這張卡片嗎？")) {
       try {
-        await axios.delete(`/api/cards/${idTag}`);
+        await axios.delete(`/api/id_tags/${idTag}`);
         fetchCards();
       } catch (err) {
         alert("刪除失敗：" + (err.response?.data?.detail || err.message));
