@@ -18,7 +18,7 @@ const ChargePoints = () => {
   const fetchList = async () => {
     setLoading(true);
     try {
-      const res = await axios.get("/api/charge-points"); // 修正這裡
+      const res = await axios.get("/api/charge-points");
       setList(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       alert("讀取失敗：" + err.message);
@@ -36,14 +36,20 @@ const ChargePoints = () => {
   // 新增 or 編輯
   const handleSubmit = async (e) => {
     e.preventDefault();
+    // 將 payload 欄位名轉為駝峰命名
+    const payload = {
+      chargePointId: form.charge_point_id,
+      name: form.name,
+      status: form.status,
+    };
     try {
       if (editingId) {
         // 編輯
-        await axios.put(`/api/charge-points/${editingId}`, form); // 修正這裡
+        await axios.put(`/api/charge-points/${editingId}`, payload);
         setEditingId(null);
       } else {
         // 新增
-        await axios.post("/api/charge-points", form); // 修正這裡
+        await axios.post("/api/charge-points", payload);
       }
       setForm({ charge_point_id: "", name: "", status: "enabled" });
       fetchList();
@@ -54,15 +60,20 @@ const ChargePoints = () => {
 
   // 編輯填表
   const startEdit = (row) => {
-    setForm(row);
-    setEditingId(row.charge_point_id);
+    // row 取回的是後端資料（駝峰），轉回表單格式
+    setForm({
+      charge_point_id: row.chargePointId || row.charge_point_id || "",
+      name: row.name || "",
+      status: row.status || "enabled",
+    });
+    setEditingId(row.chargePointId || row.charge_point_id);
   };
 
   // 刪除
   const handleDelete = async (id) => {
     if (!window.confirm("確定刪除？")) return;
     try {
-      await axios.delete(`/api/charge-points/${id}`); // 修正這裡
+      await axios.delete(`/api/charge-points/${id}`);
       fetchList();
     } catch (err) {
       alert("刪除失敗：" + err.message);
@@ -78,7 +89,7 @@ const ChargePoints = () => {
             <input
               type="text"
               name="charge_point_id"
-              className="input input-bordered ml-2 p-1 rounded"
+              className="input input-bordered ml-2 p-1 rounded text-black"
               value={form.charge_point_id}
               onChange={handleChange}
               required
@@ -91,7 +102,7 @@ const ChargePoints = () => {
             <input
               type="text"
               name="name"
-              className="input input-bordered ml-2 p-1 rounded"
+              className="input input-bordered ml-2 p-1 rounded text-black"
               value={form.name}
               onChange={handleChange}
               required
@@ -102,7 +113,7 @@ const ChargePoints = () => {
           <label>狀態
             <select
               name="status"
-              className="ml-2 p-1 rounded"
+              className="ml-2 p-1 rounded text-black"
               value={form.status}
               onChange={handleChange}
               required
@@ -138,8 +149,8 @@ const ChargePoints = () => {
               <tr><td colSpan={4}>載入中...</td></tr>
             ) : (
               list.length > 0 ? list.map(row => (
-                <tr key={row.charge_point_id}>
-                  <td className="p-2">{row.charge_point_id}</td>
+                <tr key={row.chargePointId || row.charge_point_id}>
+                  <td className="p-2">{row.chargePointId || row.charge_point_id}</td>
                   <td className="p-2">{row.name}</td>
                   <td className="p-2">
                     <span className={row.status === "enabled" ? "text-green-400" : "text-gray-400"}>
@@ -155,7 +166,7 @@ const ChargePoints = () => {
                     </button>
                     <button
                       className="px-3 py-1 rounded border border-red-500 text-red-500 hover:bg-red-100"
-                      onClick={() => handleDelete(row.charge_point_id)}
+                      onClick={() => handleDelete(row.chargePointId || row.charge_point_id)}
                     >
                       刪除
                     </button>
