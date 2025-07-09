@@ -53,9 +53,12 @@ const menu = [
   { path: "/line-push", label: "LINE 通知推送", icon: <MessageSquare size={18} /> },
   { path: "/holiday-checker", label: "假日查詢", icon: <CalendarDays size={18} /> },
 
-  // 系統
+    // 系統
   { path: "/status-logs", label: "狀態日誌", icon: <ClipboardList size={18} /> },
+  // 充電樁白名單管理
+  { path: "/charge-points", label: "充電樁白名單管理", icon: <ActivitySquare size={18} /> },
 ];
+
 
 const Sidebar = () => {
   const location = useLocation();

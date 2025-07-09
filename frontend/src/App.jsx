@@ -26,6 +26,7 @@ import TopEnergyChart from './pages/TopEnergyChart';
 import Transactions from './pages/Transactions';
 import Users from './pages/Users';
 import WeeklyPricingSettings from './pages/WeeklyPricingSettings';
+import ChargePoints from './pages/ChargePoints';
 
 export default function App() {
   return (
@@ -63,6 +64,7 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="*" element={<div className="text-red-400 text-xl">404 找不到頁面</div>} />
             <Route path="/daily-pricing" element={<DailyPricingSettings />} />
+            <Route path="/charge-points" element={<ChargePoints />} />
           </Routes>
         </main>
       </div>
