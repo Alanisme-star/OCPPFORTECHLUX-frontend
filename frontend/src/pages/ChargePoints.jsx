@@ -18,7 +18,7 @@ const ChargePoints = () => {
   const fetchList = async () => {
     setLoading(true);
     try {
-      const res = await axios.get("/api/charge_points");
+      const res = await axios.get("/api/charge-points"); // 修正這裡
       setList(Array.isArray(res.data) ? res.data : []);
     } catch (err) {
       alert("讀取失敗：" + err.message);
@@ -39,11 +39,11 @@ const ChargePoints = () => {
     try {
       if (editingId) {
         // 編輯
-        await axios.put(`/api/charge_points/${editingId}`, form);
+        await axios.put(`/api/charge-points/${editingId}`, form); // 修正這裡
         setEditingId(null);
       } else {
         // 新增
-        await axios.post("/api/charge_points", form);
+        await axios.post("/api/charge-points", form); // 修正這裡
       }
       setForm({ charge_point_id: "", name: "", status: "enabled" });
       fetchList();
@@ -62,7 +62,7 @@ const ChargePoints = () => {
   const handleDelete = async (id) => {
     if (!window.confirm("確定刪除？")) return;
     try {
-      await axios.delete(`/api/charge_points/${id}`);
+      await axios.delete(`/api/charge-points/${id}`); // 修正這裡
       fetchList();
     } catch (err) {
       alert("刪除失敗：" + err.message);
