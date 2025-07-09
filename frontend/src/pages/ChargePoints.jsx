@@ -1,7 +1,7 @@
 // src/pages/ChargePoints.jsx
 import React, { useEffect, useState } from "react";
 import axios from "../axiosInstance";
-import { Button } from "@/components/ui/button";
+// 已移除：import { Button } from "@/components/ui/button";
 
 const STATUS_OPTIONS = [
   { value: "enabled", label: "啟用" },
@@ -113,14 +113,14 @@ const ChargePoints = () => {
             </select>
           </label>
         </div>
-        <Button type="submit" className="ml-2">{editingId ? "更新" : "新增"}</Button>
+        <button type="submit" className="ml-2 px-4 py-1 rounded bg-blue-600 text-white">{editingId ? "更新" : "新增"}</button>
         {editingId && (
-          <Button type="button" className="ml-2 bg-gray-500" onClick={() => {
+          <button type="button" className="ml-2 px-4 py-1 rounded bg-gray-500 text-white" onClick={() => {
             setEditingId(null);
             setForm({ charge_point_id: "", name: "", status: "enabled" });
           }}>
             取消編輯
-          </Button>
+          </button>
         )}
       </form>
       <div className="overflow-x-auto">
@@ -147,8 +147,18 @@ const ChargePoints = () => {
                     </span>
                   </td>
                   <td className="p-2 space-x-2">
-                    <Button size="sm" variant="outline" onClick={() => startEdit(row)}>編輯</Button>
-                    <Button size="sm" variant="destructive" onClick={() => handleDelete(row.charge_point_id)}>刪除</Button>
+                    <button
+                      className="px-3 py-1 rounded border border-blue-500 text-blue-500 hover:bg-blue-100"
+                      onClick={() => startEdit(row)}
+                    >
+                      編輯
+                    </button>
+                    <button
+                      className="px-3 py-1 rounded border border-red-500 text-red-500 hover:bg-red-100"
+                      onClick={() => handleDelete(row.charge_point_id)}
+                    >
+                      刪除
+                    </button>
                   </td>
                 </tr>
               )) : <tr><td colSpan={4}>無資料</td></tr>
