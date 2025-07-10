@@ -17,7 +17,7 @@ function RealtimeStatusPage() {
     <div className="p-8">
       <div className="flex gap-4 mb-4">
         <select
-          className="p-2 rounded"
+          className="p-2 rounded bg-white text-black"
           value={chargePointId}
           onChange={e => setChargePointId(e.target.value)}
         >
