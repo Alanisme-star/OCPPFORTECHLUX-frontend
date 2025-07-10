@@ -15,7 +15,6 @@ import ExportTransactions from './pages/ExportTransactions';
 import HolidayChecker from './pages/HolidayChecker';
 import LinePush from './pages/LinePush';
 import LiveChargingStatus from './components/LiveChargingStatus';
-import RealtimeStatusPage from './pages/RealtimeStatusPage';
 import LiveDemo from './pages/LiveDemo';
 import Login from './pages/Login';
 import MonthlyReportDownload from './pages/MonthlyReportDownload';
