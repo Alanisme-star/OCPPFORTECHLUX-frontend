@@ -29,7 +29,7 @@ function RealtimeStatusPage() {
           ))}
         </select>
         <select
-          className="p-2 rounded"
+          className="p-2 rounded bg-white text-black"
           value={idTag}
           onChange={e => setIdTag(e.target.value)}
         >
