@@ -14,7 +14,8 @@ import ExportReservations from './pages/ExportReservations';
 import ExportTransactions from './pages/ExportTransactions';
 import HolidayChecker from './pages/HolidayChecker';
 import LinePush from './pages/LinePush';
-import LiveChargingStatus from './pages/LiveChargingStatus';
+import LiveChargingStatus from './components/LiveChargingStatus';
+import RealtimeStatusPage from './pages/RealtimeStatusPage';
 import LiveDemo from './pages/LiveDemo';
 import Login from './pages/Login';
 import MonthlyReportDownload from './pages/MonthlyReportDownload';
@@ -27,6 +28,7 @@ import Transactions from './pages/Transactions';
 import Users from './pages/Users';
 import WeeklyPricingSettings from './pages/WeeklyPricingSettings';
 import ChargePoints from './pages/ChargePoints';
+import RealtimeStatusPage from "./pages/RealtimeStatusPage";
 
 export default function App() {
   return (
@@ -55,7 +57,7 @@ export default function App() {
             <Route path="/export-reservations" element={<ExportReservations />} />
             <Route path="/export-transactions" element={<ExportTransactions />} />
             <Route path="/holiday-checker" element={<HolidayChecker />} />
-            <Route path="/live-charging-status" element={<LiveChargingStatus />} />
+            
             <Route path="/line-push" element={<LinePush />} />
             <Route path="/live-demo" element={<LiveDemo />} />
             <Route path="/status-logs" element={<StatusLogs />} />
@@ -65,6 +67,7 @@ export default function App() {
             <Route path="*" element={<div className="text-red-400 text-xl">404 找不到頁面</div>} />
             <Route path="/daily-pricing" element={<DailyPricingSettings />} />
             <Route path="/charge-points" element={<ChargePoints />} />
+            <Route path="/realtime-status" element={<RealtimeStatusPage />} />
           </Routes>
         </main>
       </div>

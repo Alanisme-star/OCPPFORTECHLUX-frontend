@@ -48,7 +48,7 @@ const menu = [
   { path: "/export-transactions", label: "匯出交易資料", icon: <FileText size={18} /> },
 
   // 即時/工具
-  { path: "/live-charging-status", label: "即時充電狀態", icon: <ActivitySquare size={18} /> },
+  { path: "/realtime-status", label: "即時充電狀態", icon: <ActivitySquare size={18} /> },
   { path: "/live-demo", label: "即時圖表 DEMO", icon: <ActivitySquare size={18} /> },
   { path: "/line-push", label: "LINE 通知推送", icon: <MessageSquare size={18} /> },
   { path: "/holiday-checker", label: "假日查詢", icon: <CalendarDays size={18} /> },

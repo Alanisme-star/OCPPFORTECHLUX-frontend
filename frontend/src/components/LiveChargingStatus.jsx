@@ -6,20 +6,26 @@ function LiveChargingStatus({ chargePointId, idTag }) {
   const [balance, setBalance] = useState(null);
 
   useEffect(() => {
+    if (!chargePointId || !idTag) return; // 若沒有必要資訊，不查詢
+
     const fetchStatus = () => {
       axios.get(`/api/charge-points/${chargePointId}/latest-meter`)
         .then((res) => setLatest(res.data))
-        .catch((err) => console.error("⚠️ 無法取得即時瓦數", err));
+        .catch((err) => setLatest(null)); // 查不到直接設null
 
       axios.get(`/api/cards/${idTag}`)
         .then((res) => setBalance(res.data.balance))
-        .catch((err) => console.error("⚠️ 無法取得卡片餘額", err));
+        .catch((err) => setBalance(null));
     };
 
     fetchStatus();
-    const interval = setInterval(fetchStatus, 3000);
+    const interval = setInterval(fetchStatus, 1000); // 每1秒更新
     return () => clearInterval(interval);
   }, [chargePointId, idTag]);
+
+  if (!chargePointId || !idTag) {
+    return <div className="text-gray-500">請先選擇充電樁和用戶卡片</div>;
+  }
 
   return (
     <div className="bg-white text-black p-4 rounded-xl shadow-lg w-full max-w-xl">
@@ -39,9 +45,10 @@ function LiveChargingStatus({ chargePointId, idTag }) {
         )}
 
         {balance !== null ? (
-          <p><strong>剩餘金額：</strong>
+          <p>
+            <strong>剩餘金額：</strong>
             <span className={balance < 100 ? 'text-red-600 font-semibold' : ''}>
-              {balance} 元
+              {Number(balance).toFixed(2)} 元
             </span>
           </p>
         ) : (
