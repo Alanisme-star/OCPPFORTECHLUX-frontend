@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "../axiosInstance";
-import LiveChargingStatus from "./components/LiveChargingStatus"; // 若放在 components 改路徑
+import LiveChargingStatus from "../components/LiveChargingStatus"; // 若放在 components 改路徑
 
 function RealtimeStatusPage() {
   const [chargePoints, setChargePoints] = useState([]);
