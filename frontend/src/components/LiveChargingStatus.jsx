@@ -4,21 +4,13 @@ import axios from "../axiosInstance";
 function LiveChargingStatus({ chargePointId, idTag }) {
   const [latest, setLatest] = useState(null);
   const [balance, setBalance] = useState(null);
-  const [price, setPrice] = useState(10);
+
   const [powerW, setPowerW] = useState(null);
-  const [chargedKWh, setChargedKWh] = useState(0);
+
   const [isActive, setIsActive] = useState(false);
   const [startTime, setStartTime] = useState(null);
 
-  useEffect(() => {
-    if (!chargePointId) return;
-    const today = new Date().toISOString().slice(0, 10);
-    axios.get(`/api/daily-pricing?date=${today}`)
-      .then(res => {
-        if (res.data.length > 0) setPrice(res.data[0].price);
-      })
-      .catch(() => setPrice(10));
-  }, [chargePointId]);
+
 
   useEffect(() => {
     if (!chargePointId || !idTag) return;
@@ -44,15 +36,15 @@ function LiveChargingStatus({ chargePointId, idTag }) {
       axios.get(`/api/charge-points/${chargePointId}/current-transaction`)
         .then((res) => {
           if (typeof res.data.kwh === "number") {
-            setChargedKWh(res.data.kwh);
+
           } else {
-            setChargedKWh(0);
+
           }
           setIsActive(res.data.active);
           setStartTime(res.data.start_time);
         })
         .catch(() => {
-          setChargedKWh(0);
+
           setIsActive(false);
           setStartTime(null);
         });
@@ -66,15 +58,14 @@ function LiveChargingStatus({ chargePointId, idTag }) {
     return <div className="text-gray-500">請先選擇充電樁和用戶卡片</div>;
   }
 
-  const usedAmount = chargedKWh * price;
-  const dynamicBalance = balance !== null ? balance - usedAmount : null;
+  
+  
   const powerKW = powerW !== null ? (powerW / 1000).toFixed(2) : "0.00";
 
   return (
     <div className="bg-white text-black p-4 rounded-xl shadow-lg w-full max-w-xl">
       <h2 className="text-lg font-bold mb-2">🔌 即時充電狀態</h2>
       <div className="space-y-2">
-        <p><strong>本次充電金額：</strong>{usedAmount.toFixed(2)} 元</p>
 
 
         <p><strong>本次充電時間：</strong>
@@ -94,7 +85,6 @@ function LiveChargingStatus({ chargePointId, idTag }) {
         {latest ? (
           <>
             <p><strong>時間：</strong>{new Date(latest.timestamp).toLocaleString()}</p>
-            <p><strong>累積充電度數：</strong>{chargedKWh.toFixed(3)} kWh</p>
             <p><strong>即時功率：</strong>
               <span className={powerKW > 7.2 ? 'text-red-600 font-bold' : ''}>
                 {powerKW} kW
@@ -108,11 +98,8 @@ function LiveChargingStatus({ chargePointId, idTag }) {
         {balance !== null ? (
           <p>
             <strong>即時剩餘金額：</strong>
-            <span className={dynamicBalance < 100 ? 'text-red-600 font-semibold' : ''}>
-              {dynamicBalance.toFixed(2)} 元
-            </span>
-            <span className="ml-2 text-gray-400 text-xs">
-              (原始餘額 {Number(balance).toFixed(2)} 元, 單價 {price} 元/度)
+            <span className={balance < 100 ? 'text-red-600 font-semibold' : ''}>
+              {balance.toFixed(2)} 元
             </span>
           </p>
         ) : (
