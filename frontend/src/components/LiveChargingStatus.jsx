@@ -61,11 +61,23 @@ function LiveChargingStatus({ chargePointId, idTag }) {
 
   const usedAmount = chargedKWh * price;
   const dynamicBalance = balance !== null ? balance - usedAmount : null;
+  const powerKW = powerW !== null ? (powerW / 1000).toFixed(2) : "0.00";
 
   return (
     <div className="bg-white text-black p-4 rounded-xl shadow-lg w-full max-w-xl">
       <h2 className="text-lg font-bold mb-2">🔌 即時充電狀態</h2>
       <div className="space-y-2">
+        <p><strong>本次充電金額：</strong>{usedAmount.toFixed(2)} 元</p>
+        <p><strong>本次充電時間：</strong>
+          {latest ? (() => {
+            const now = new Date();
+            const start = new Date(latest.timestamp);
+            const diffMs = now - start;
+            const mins = Math.floor(diffMs / 60000);
+            const secs = Math.floor((diffMs % 60000) / 1000);
+            return `${mins} 分 ${secs} 秒`;
+          })() : "讀取中…"}
+        </p>
         <p><strong>充電樁 ID：</strong>{chargePointId}</p>
         <p><strong>用戶 ID：</strong>{idTag}</p>
         {latest ? (
@@ -73,10 +85,10 @@ function LiveChargingStatus({ chargePointId, idTag }) {
             <p><strong>時間：</strong>{new Date(latest.timestamp).toLocaleString()}</p>
             <p><strong>累積充電度數：</strong>{chargedKWh.toFixed(3)} kWh</p>
             <p><strong>即時功率：</strong>
-              <span className={powerW > 7200 ? 'text-red-600 font-bold' : ''}>
-                {powerW !== null ? `${powerW.toFixed(2)} W` : "讀取中…"}
+              <span className={powerKW > 7.2 ? 'text-red-600 font-bold' : ''}>
+                {powerKW} kW
               </span>
-              {powerW > 7200 && <span className="ml-2 text-xs text-red-500">(超過上限)</span>}
+              {powerKW > 7.2 && <span className="ml-2 text-xs text-red-500">(超過上限)</span>}
             </p>
           </>
         ) : (
