@@ -56,7 +56,7 @@ function LiveChargingStatus({ chargePointId, idTag }) {
           setIsActive(false);
           setStartTime(null);
         });
-
+    };
     fetchStatus();
     const interval = setInterval(fetchStatus, 1000);
     return () => clearInterval(interval);
