@@ -7,6 +7,8 @@ function LiveChargingStatus({ chargePointId, idTag }) {
   const [price, setPrice] = useState(10);
   const [powerW, setPowerW] = useState(null);
   const [chargedKWh, setChargedKWh] = useState(0);
+  const [isActive, setIsActive] = useState(false);
+  const [startTime, setStartTime] = useState(null);
 
   useEffect(() => {
     if (!chargePointId) return;
@@ -46,9 +48,14 @@ function LiveChargingStatus({ chargePointId, idTag }) {
           } else {
             setChargedKWh(0);
           }
+          setIsActive(res.data.active);
+          setStartTime(res.data.start_time);
         })
-        .catch(() => setChargedKWh(0));
-    };
+        .catch(() => {
+          setChargedKWh(0);
+          setIsActive(false);
+          setStartTime(null);
+        });
 
     fetchStatus();
     const interval = setInterval(fetchStatus, 1000);
@@ -68,16 +75,20 @@ function LiveChargingStatus({ chargePointId, idTag }) {
       <h2 className="text-lg font-bold mb-2">🔌 即時充電狀態</h2>
       <div className="space-y-2">
         <p><strong>本次充電金額：</strong>{usedAmount.toFixed(2)} 元</p>
+
+
         <p><strong>本次充電時間：</strong>
-          {latest ? (() => {
+          {isActive && startTime ? (() => {
             const now = new Date();
-            const start = new Date(latest.timestamp);
+            const start = new Date(startTime);
             const diffMs = now - start;
             const mins = Math.floor(diffMs / 60000);
             const secs = Math.floor((diffMs % 60000) / 1000);
             return `${mins} 分 ${secs} 秒`;
-          })() : "讀取中…"}
+          })() : "0 秒"}
         </p>
+
+
         <p><strong>充電樁 ID：</strong>{chargePointId}</p>
         <p><strong>用戶 ID：</strong>{idTag}</p>
         {latest ? (
