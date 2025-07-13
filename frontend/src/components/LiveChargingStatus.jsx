@@ -84,7 +84,6 @@ function LiveChargingStatus({ chargePointId, idTag }) {
         <p><strong>用戶 ID：</strong>{idTag}</p>
         {latest ? (
           <>
-            <p><strong>時間：</strong>{new Date(latest.timestamp).toLocaleString()}</p>
             <p><strong>即時功率：</strong>
               <span className={powerKW > 7.2 ? 'text-red-600 font-bold' : ''}>
                 {powerKW} kW
