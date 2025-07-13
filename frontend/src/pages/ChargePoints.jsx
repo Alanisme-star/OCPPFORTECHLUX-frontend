@@ -85,16 +85,23 @@ const ChargePoints = () => {
       <h2 className="text-2xl font-bold mb-4">充電樁白名單管理</h2>
       <form className="mb-6 flex flex-wrap gap-4 items-end" onSubmit={handleSubmit}>
         <div>
-          <label>充電樁ID
+          <label>充電樁ID           
             <input
               type="text"
               name="charge_point_id"
               className="input input-bordered ml-2 p-1 rounded text-black"
               value={form.charge_point_id}
-              onChange={handleChange}
+              onChange={(e) => {
+              // 防呆：不允許輸入 URL encoded (%2A) 字元
+              const raw = e.target.value.replace(/%2A/gi, "*");
+              setForm({ ...form, charge_point_id: raw });
+              }}
               required
               disabled={!!editingId}
             />
+            <div className="text-sm text-gray-400 mt-1 ml-1">
+              ※請直接輸入「*」，不可輸入「%2A」
+            </div>
           </label>
         </div>
         <div>
