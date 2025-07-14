@@ -68,18 +68,6 @@ function LiveChargingStatus({ chargePointId, idTag }) {
       <div className="space-y-2">
 
 
-        <p><strong>本次充電時間：</strong>
-          {isActive && startTime ? (() => {
-            const now = new Date();
-            const start = new Date(startTime);
-            const diffMs = now - start;
-            const mins = Math.floor(diffMs / 60000);
-            const secs = Math.floor((diffMs % 60000) / 1000);
-            return `${mins} 分 ${secs} 秒`;
-          })() : "0 秒"}
-        </p>
-
-
         <p><strong>充電樁 ID：</strong>{chargePointId}</p>
         <p><strong>用戶 ID：</strong>{idTag}</p>
         {latest ? (
