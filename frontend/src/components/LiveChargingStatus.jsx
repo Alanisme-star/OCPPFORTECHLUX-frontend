@@ -3,9 +3,6 @@ import axios from "../axiosInstance";
 
 function LiveChargingStatus({ chargePointId, idTag }) {
   const [latest, setLatest] = useState(null);
-  const [balance, setBalance] = useState(null);
-
-  const [powerW, setPowerW] = useState(null);
 
   const [isActive, setIsActive] = useState(false);
   const [startTime, setStartTime] = useState(null);
@@ -18,20 +15,6 @@ function LiveChargingStatus({ chargePointId, idTag }) {
       axios.get(`/api/charge-points/${chargePointId}/latest-meter`)
         .then((res) => setLatest(res.data))
         .catch(() => setLatest(null));
-
-      axios.get(`/api/cards/${idTag}`)
-        .then((res) => setBalance(res.data.balance))
-        .catch(() => setBalance(null));
-
-      axios.get(`/api/charge-points/${chargePointId}/realtime-status`)
-        .then((res) => {
-          if (res.data && typeof res.data.power_w === "number") {
-            setPowerW(res.data.power_w);
-          } else {
-            setPowerW(null);
-          }
-        })
-        .catch(() => setPowerW(null));
 
       axios.get(`/api/charge-points/${chargePointId}/current-transaction`)
         .then((res) => {
@@ -59,9 +42,6 @@ function LiveChargingStatus({ chargePointId, idTag }) {
   }
 
   
-  
-  const powerKW = powerW !== null ? (powerW / 1000).toFixed(2) : "0.00";
-
   return (
     <div className="bg-white text-black p-4 rounded-xl shadow-lg w-full max-w-xl">
       <h2 className="text-lg font-bold mb-2">🔌 即時充電狀態</h2>
@@ -70,29 +50,7 @@ function LiveChargingStatus({ chargePointId, idTag }) {
 
         <p><strong>充電樁 ID：</strong>{chargePointId}</p>
         <p><strong>用戶 ID：</strong>{idTag}</p>
-        {latest ? (
-          <>
-            <p><strong>即時功率：</strong>
-              <span className={powerKW > 7.2 ? 'text-red-600 font-bold' : ''}>
-                {powerKW} kW
-              </span>
-              {powerKW > 7.2 && <span className="ml-2 text-xs text-red-500">(超過上限)</span>}
-            </p>
-          </>
-        ) : (
-          <p className="text-gray-500">尚無電量資料</p>
-        )}
-        {balance !== null ? (
-          <p>
-            <strong>即時剩餘金額：</strong>
-            <span className={balance < 100 ? 'text-red-600 font-semibold' : ''}>
-              {balance.toFixed(2)} 元
-            </span>
-          </p>
-        ) : (
-          <p className="text-gray-500">查詢餘額中...</p>
-        )}
-      </div>
+        </div>
     </div>
   );
 }
