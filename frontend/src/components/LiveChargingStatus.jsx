@@ -36,7 +36,7 @@ function LiveChargingStatus({ chargePointId, idTag }) {
     };
 
     fetchStatus();
-    const interval = setInterval(fetchStatus, 10000); // ⏲️ 改為每 10 秒刷新
+    const interval = setInterval(fetchStatus, 1000); // ⏲️ 改為每 10 秒刷新
     return () => clearInterval(interval);
   }, [chargePointId, idTag]);
 
