@@ -7,6 +7,7 @@ function LiveChargingStatus({ chargePointId, idTag }) {
   const [startTime, setStartTime] = useState(null);
   const [power, setPower] = useState(null);
   const [currentKWh, setCurrentKWh] = useState(null); // ✅ 累積度數
+  const [costInfo, setCostInfo] = useState(null);     // ✅ 本次充電金額
 
   useEffect(() => {
     if (!chargePointId || !idTag) return;
@@ -33,10 +34,14 @@ function LiveChargingStatus({ chargePointId, idTag }) {
       axios.get(`/api/charge-points/${chargePointId}/current-kwh`)
         .then((res) => setCurrentKWh(res.data.kwh))
         .catch(() => setCurrentKWh(null));
+
+      axios.get(`/api/charge-points/${chargePointId}/current-cost`)
+        .then((res) => setCostInfo(res.data))
+        .catch(() => setCostInfo(null));
     };
 
     fetchStatus();
-    const interval = setInterval(fetchStatus, 1000); // ⏲️ 改為每 10 秒刷新
+    const interval = setInterval(fetchStatus, 1000); // ⏲️ 每 1 秒刷新
     return () => clearInterval(interval);
   }, [chargePointId, idTag]);
 
@@ -61,6 +66,12 @@ function LiveChargingStatus({ chargePointId, idTag }) {
           <p><strong>本次累積度數：</strong>{currentKWh} kWh</p>
         ) : (
           <p className="text-gray-400">尚無累積資料</p>
+        )}
+
+        {costInfo && costInfo.cost !== undefined ? (
+          <p><strong>即時金額：</strong>{costInfo.cost} 元</p>
+        ) : (
+          <p className="text-gray-400">尚無金額資料</p>
         )}
       </div>
     </div>
