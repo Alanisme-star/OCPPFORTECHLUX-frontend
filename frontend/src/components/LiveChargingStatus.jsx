@@ -12,6 +12,8 @@ function LiveChargingStatus({ chargePointId, idTag }) {
   // Debug: 儲存整個 current-transaction 回傳
   const [transactionDebug, setTransactionDebug] = useState(null);
 
+  const [stopTime, setStopTime] = useState(null);
+
   useEffect(() => {
     if (!chargePointId || !idTag) return;
 
@@ -25,15 +27,17 @@ function LiveChargingStatus({ chargePointId, idTag }) {
           setTransactionDebug(res.data); // Debug
           setIsActive(res.data.active);
           setStartTime(res.data.start_time);
+          setStopTime(res.data.stop_time);
 
-          if (res.data.active && res.data.start_time) {
-            const start = new Date(res.data.start_time);
-            const now = new Date();
-            const seconds = Math.floor((now - start) / 1000);
-            setDuration(seconds);
-          } else {
-            setDuration(null);
-          }
+        if (res.data.start_time) {
+          const start = new Date(res.data.start_time);
+          const end = res.data.stop_time ? new Date(res.data.stop_time) : new Date();
+          const seconds = Math.floor((end - start) / 1000);
+          setDuration(seconds);
+        } else {
+          setDuration(null);
+        }
+
         })
         .catch(() => {
           setIsActive(false);
@@ -61,15 +65,15 @@ function LiveChargingStatus({ chargePointId, idTag }) {
 
   // 每秒更新 duration 顯示（不等後端重新回傳）
   useEffect(() => {
-    if (!startTime || !isActive) return;
+    if (!startTime) return;
     const interval = setInterval(() => {
       const start = new Date(startTime);
-      const now = new Date();
-      const seconds = Math.floor((now - start) / 1000);
+      const end = stopTime ? new Date(stopTime) : new Date();
+      const seconds = Math.floor((end - start) / 1000);
       setDuration(seconds);
     }, 1000);
     return () => clearInterval(interval);
-  }, [startTime, isActive]);
+  }, [startTime, stopTime]);
 
   if (!chargePointId || !idTag) {
     return <div className="text-gray-500">請先選擇充電樁和用戶卡片</div>;
@@ -96,7 +100,7 @@ function LiveChargingStatus({ chargePointId, idTag }) {
           <p className="text-gray-400">尚無功率資料</p>
         )}
 
-        {currentKWh !== null ? (
+        {isActive && currentKWh !== null ? (
           <p><strong>本次累積度數：</strong>{currentKWh} kWh</p>
         ) : (
           <p className="text-gray-400">尚無累積資料</p>
