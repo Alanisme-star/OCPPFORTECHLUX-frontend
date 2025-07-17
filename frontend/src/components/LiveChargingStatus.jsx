@@ -5,13 +5,12 @@ function LiveChargingStatus({ chargePointId, idTag }) {
   const [latest, setLatest] = useState(null);
   const [isActive, setIsActive] = useState(false);
   const [startTime, setStartTime] = useState(null);
-  const [duration, setDuration] = useState(null);       // ✅ 新增：充電時間秒數
+  const [duration, setDuration] = useState(null);       // ✅ 充電時間秒數
   const [power, setPower] = useState(null);
+  const [currentAmp, setCurrentAmp] = useState(null);   // ✅ 即時電流
   const [currentKWh, setCurrentKWh] = useState(null);   // ✅ 累積度數
   const [costInfo, setCostInfo] = useState(null);       // ✅ 本次充電金額
-  // Debug: 儲存整個 current-transaction 回傳
-  const [transactionDebug, setTransactionDebug] = useState(null);
-
+  const [transactionDebug, setTransactionDebug] = useState(null);  // Debug
   const [stopTime, setStopTime] = useState(null);
 
   useEffect(() => {
@@ -24,20 +23,19 @@ function LiveChargingStatus({ chargePointId, idTag }) {
 
       axios.get(`/api/charge-points/${chargePointId}/current-transaction`)
         .then((res) => {
-          setTransactionDebug(res.data); // Debug
+          setTransactionDebug(res.data);
           setIsActive(res.data.active);
           setStartTime(res.data.start_time);
           setStopTime(res.data.stop_time);
 
-        if (res.data.start_time) {
-          const start = new Date(res.data.start_time);
-          const end = res.data.stop_time ? new Date(res.data.stop_time) : new Date();
-          const seconds = Math.floor((end - start) / 1000);
-          setDuration(seconds);
-        } else {
-          setDuration(null);
-        }
-
+          if (res.data.start_time) {
+            const start = new Date(res.data.start_time);
+            const end = res.data.stop_time ? new Date(res.data.stop_time) : new Date();
+            const seconds = Math.floor((end - start) / 1000);
+            setDuration(seconds);
+          } else {
+            setDuration(null);
+          }
         })
         .catch(() => {
           setIsActive(false);
@@ -49,6 +47,10 @@ function LiveChargingStatus({ chargePointId, idTag }) {
         .then((res) => setPower(res.data))
         .catch(() => setPower(null));
 
+      axios.get(`/api/charge-points/${chargePointId}/latest-current`) // ✅ 新增 API 呼叫
+        .then((res) => setCurrentAmp(res.data))
+        .catch(() => setCurrentAmp(null));
+
       axios.get(`/api/charge-points/${chargePointId}/current-kwh`)
         .then((res) => setCurrentKWh(res.data.kwh))
         .catch(() => setCurrentKWh(null));
@@ -59,11 +61,10 @@ function LiveChargingStatus({ chargePointId, idTag }) {
     };
 
     fetchStatus();
-    const interval = setInterval(fetchStatus, 1000); // ⏲️ 每 1 秒刷新
+    const interval = setInterval(fetchStatus, 1000);
     return () => clearInterval(interval);
   }, [chargePointId, idTag]);
 
-  // 每秒更新 duration 顯示（不等後端重新回傳）
   useEffect(() => {
     if (!startTime) return;
     const interval = setInterval(() => {
@@ -98,6 +99,12 @@ function LiveChargingStatus({ chargePointId, idTag }) {
           <p><strong>即時功率：</strong>{power.value} {power.unit}</p>
         ) : (
           <p className="text-gray-400">尚無功率資料</p>
+        )}
+
+        {isActive && currentAmp && currentAmp.value !== undefined ? (
+          <p><strong>即時電流：</strong>{currentAmp.value} {currentAmp.unit}</p>
+        ) : (
+          <p className="text-gray-400">尚無電流資料</p>
         )}
 
         {isActive && currentKWh !== null ? (
