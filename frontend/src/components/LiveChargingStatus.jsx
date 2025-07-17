@@ -94,7 +94,7 @@ function LiveChargingStatus({ chargePointId, idTag }) {
           <div><strong>Debug current-transaction API:</strong> {JSON.stringify(transactionDebug)}</div>
         </div>
 
-        {power && power.value !== undefined ? (
+        {isActive && power && power.value !== undefined ? (
           <p><strong>即時功率：</strong>{power.value} {power.unit}</p>
         ) : (
           <p className="text-gray-400">尚無功率資料</p>
@@ -106,13 +106,13 @@ function LiveChargingStatus({ chargePointId, idTag }) {
           <p className="text-gray-400">尚無累積資料</p>
         )}
 
-        {costInfo && costInfo.cost !== undefined ? (
+        {isActive && costInfo && costInfo.cost !== undefined ? (
           <p><strong>即時金額：</strong>{costInfo.cost} 元</p>
         ) : (
           <p className="text-gray-400">尚無金額資料</p>
         )}
 
-        {duration !== null ? (
+        {isActive && duration !== null ? (
           <p><strong>本次充電時間：</strong>{Math.floor(duration / 60)} 分 {duration % 60} 秒</p>
         ) : (
           <p className="text-gray-400">尚無充電時間資料</p>
