@@ -100,16 +100,6 @@ function LiveChargingStatus({ chargePointId, idTag }) {
       <h2>⚡ 即時充電狀態</h2>
       <p>充電樁 ID：{chargePointId}</p>
       <p>用戶 ID：{idTag}</p>
-
-      <div style={{ background: "#eee", padding: "10px", marginBottom: "10px" }}>
-        <p><strong>Debug active:</strong> {isActive.toString()}</p>
-        <p><strong>Debug startTime:</strong> {startTime}</p>
-        <p><strong>Debug duration:</strong> {duration}</p>
-        <p><strong>Debug current-transaction API:</strong> {JSON.stringify(latest)}</p>
-        <p><strong>Debug cardBalance:</strong> {JSON.stringify(cardBalance)}</p>
-        <p><strong>Debug currentCost:</strong> {JSON.stringify(currentCost)}</p>
-      </div>
-
       <p>即時功率：{power !== null ? `${power} kW` : "尚無功率資料"}</p>
       <p>即時電流：{currentAmp !== null ? `${currentAmp} A` : "尚無電流資料"}</p>
       <p>本次累積度數：{currentKWh !== null ? `${currentKWh.toFixed(2)} kWh` : "尚無累積資料"}</p>
