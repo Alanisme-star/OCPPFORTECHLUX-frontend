@@ -12,18 +12,30 @@ function LiveChargingStatus({ chargePointId, idTag }) {
   const [currentCost, setCurrentCost] = useState(null);
   const [cardBalance, setCardBalance] = useState(null);
 
-  // 每秒更新一次資料
   useEffect(() => {
     const interval = setInterval(() => {
       if (chargePointId) {
+        // 取得交易狀態
         axios
           .get(`/api/charge-points/${chargePointId}/current-transaction`)
           .then((res) => {
             setLatest(res.data);
             setIsActive(res.data.active);
             setStartTime(res.data.start_time);
+
+            if (!res.data.active) {
+              setPower(0);
+              setCurrentAmp(0);
+              setCurrentKWh(0);
+              setCurrentCost(0);
+              setDuration(null);
+            }
+          })
+          .catch((err) => {
+            console.error("Failed to fetch transaction:", err);
           });
 
+        // 取得其他資料（如果仍在進行中）
         axios
           .get(`/api/charge-points/${chargePointId}/latest-power`)
           .then((res) => {
@@ -72,10 +84,11 @@ function LiveChargingStatus({ chargePointId, idTag }) {
           });
       }
     }, 1000);
+
     return () => clearInterval(interval);
   }, [chargePointId, idTag]);
 
-  // 計算時間長度
+  // 充電時間計算
   useEffect(() => {
     let timer;
     if (isActive && startTime) {
@@ -88,6 +101,7 @@ function LiveChargingStatus({ chargePointId, idTag }) {
     } else {
       setDuration(null);
     }
+
     return () => clearInterval(timer);
   }, [isActive, startTime]);
 
