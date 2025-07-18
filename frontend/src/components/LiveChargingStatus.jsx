@@ -5,126 +5,123 @@ function LiveChargingStatus({ chargePointId, idTag }) {
   const [latest, setLatest] = useState(null);
   const [isActive, setIsActive] = useState(false);
   const [startTime, setStartTime] = useState(null);
-  const [duration, setDuration] = useState(null);       // ✅ 充電時間秒數
+  const [duration, setDuration] = useState(null);
   const [power, setPower] = useState(null);
-  const [currentAmp, setCurrentAmp] = useState(null);   // ✅ 即時電流
-  const [currentKWh, setCurrentKWh] = useState(null);   // ✅ 累積度數
-  const [costInfo, setCostInfo] = useState(null);       // ✅ 本次充電金額
-  const [transactionDebug, setTransactionDebug] = useState(null);  // Debug
-  const [stopTime, setStopTime] = useState(null);
+  const [currentKWh, setCurrentKWh] = useState(null);
+  const [currentAmp, setCurrentAmp] = useState(null);
+  const [currentCost, setCurrentCost] = useState(null);
+  const [cardBalance, setCardBalance] = useState(null);
 
+  // 每秒更新一次資料
   useEffect(() => {
-    if (!chargePointId || !idTag) return;
+    const interval = setInterval(() => {
+      if (chargePointId) {
+        axios
+          .get(`/api/charge-points/${chargePointId}/current-transaction`)
+          .then((res) => {
+            setLatest(res.data);
+            setIsActive(res.data.active);
+            setStartTime(res.data.start_time);
+          })
+          .catch((err) => {
+            console.error("Failed to fetch transaction:", err);
+          });
 
-    const fetchStatus = () => {
-      axios.get(`/api/charge-points/${chargePointId}/latest-meter`)
-        .then((res) => setLatest(res.data))
-        .catch(() => setLatest(null));
+        axios
+          .get(`/api/charge-points/${chargePointId}/latest-power`)
+          .then((res) => {
+            setPower(res.data.value);
+          })
+          .catch(() => {
+            setPower(null);
+          });
 
-      axios.get(`/api/charge-points/${chargePointId}/current-transaction`)
-        .then((res) => {
-          setTransactionDebug(res.data);
-          setIsActive(res.data.active);
-          setStartTime(res.data.start_time);
-          setStopTime(res.data.stop_time);
+        axios
+          .get(`/api/charge-points/${chargePointId}/latest-current`)
+          .then((res) => {
+            setCurrentAmp(res.data.value);
+          })
+          .catch(() => {
+            setCurrentAmp(null);
+          });
 
-          if (res.data.start_time) {
-            const start = new Date(res.data.start_time);
-            const end = res.data.stop_time ? new Date(res.data.stop_time) : new Date();
-            const seconds = Math.floor((end - start) / 1000);
-            setDuration(seconds);
-          } else {
-            setDuration(null);
-          }
-        })
-        .catch(() => {
-          setIsActive(false);
-          setStartTime(null);
-          setDuration(null);
-        });
+        axios
+          .get(`/api/charge-points/${chargePointId}/current-kwh`)
+          .then((res) => {
+            setCurrentKWh(res.data.kwh);
+          })
+          .catch(() => {
+            setCurrentKWh(null);
+          });
 
-      axios.get(`/api/charge-points/${chargePointId}/latest-power`)
-        .then((res) => setPower(res.data))
-        .catch(() => setPower(null));
+        axios
+          .get(`/api/charge-points/${chargePointId}/current-cost`)
+          .then((res) => {
+            setCurrentCost(res.data.cost);
+          })
+          .catch(() => {
+            setCurrentCost(null);
+          });
+      }
 
-      axios.get(`/api/charge-points/${chargePointId}/latest-current`) // ✅ 新增 API 呼叫
-        .then((res) => setCurrentAmp(res.data))
-        .catch(() => setCurrentAmp(null));
-
-      axios.get(`/api/charge-points/${chargePointId}/current-kwh`)
-        .then((res) => setCurrentKWh(res.data.kwh))
-        .catch(() => setCurrentKWh(null));
-
-      axios.get(`/api/charge-points/${chargePointId}/current-cost`)
-        .then((res) => setCostInfo(res.data))
-        .catch(() => setCostInfo(null));
-    };
-
-    fetchStatus();
-    const interval = setInterval(fetchStatus, 1000);
+      if (idTag) {
+        axios
+          .get(`/api/cards/${idTag}/balance`)
+          .then((res) => {
+            setCardBalance(res.data.balance);
+          })
+          .catch((err) => {
+            console.error("Failed to fetch card balance:", err);
+            setCardBalance(null);
+          });
+      }
+    }, 1000);
     return () => clearInterval(interval);
   }, [chargePointId, idTag]);
 
+  // 計算時間長度
   useEffect(() => {
-    if (!startTime) return;
-    const interval = setInterval(() => {
-      const start = new Date(startTime);
-      const end = stopTime ? new Date(stopTime) : new Date();
-      const seconds = Math.floor((end - start) / 1000);
-      setDuration(seconds);
-    }, 1000);
-    return () => clearInterval(interval);
-  }, [startTime, stopTime]);
-
-  if (!chargePointId || !idTag) {
-    return <div className="text-gray-500">請先選擇充電樁和用戶卡片</div>;
-  }
+    let timer;
+    if (isActive && startTime) {
+      timer = setInterval(() => {
+        const start = new Date(startTime);
+        const now = new Date();
+        const seconds = Math.floor((now - start) / 1000);
+        setDuration(seconds);
+      }, 1000);
+    } else {
+      setDuration(null);
+    }
+    return () => clearInterval(timer);
+  }, [isActive, startTime]);
 
   return (
-    <div className="bg-white text-black p-4 rounded-xl shadow-lg w-full max-w-xl">
-      <h2 className="text-lg font-bold mb-2">🔌 即時充電狀態</h2>
-      <div className="space-y-2">
-        <p><strong>充電樁 ID：</strong>{chargePointId}</p>
-        <p><strong>用戶 ID：</strong>{idTag}</p>
+    <div>
+      <h2>⚡ 即時充電狀態</h2>
+      <p>充電樁 ID：{chargePointId}</p>
+      <p>用戶 ID：{idTag}</p>
 
-        {/* DEBUG 區塊 */}
-        <div style={{ background: "#f3f4f6", padding: "8px", borderRadius: "6px", fontSize: "13px" }}>
-          <div><strong>Debug active:</strong> {JSON.stringify(isActive)}</div>
-          <div><strong>Debug startTime:</strong> {startTime?.toString()}</div>
-          <div><strong>Debug duration:</strong> {duration !== null ? duration : "null"}</div>
-          <div><strong>Debug current-transaction API:</strong> {JSON.stringify(transactionDebug)}</div>
-        </div>
-
-        {isActive && power && power.value !== undefined ? (
-          <p><strong>即時功率：</strong>{power.value} {power.unit}</p>
-        ) : (
-          <p className="text-gray-400">尚無功率資料</p>
-        )}
-
-        {isActive && currentAmp && currentAmp.value !== undefined ? (
-          <p><strong>即時電流：</strong>{currentAmp.value} {currentAmp.unit}</p>
-        ) : (
-          <p className="text-gray-400">尚無電流資料</p>
-        )}
-
-        {isActive && currentKWh !== null ? (
-          <p><strong>本次累積度數：</strong>{currentKWh} kWh</p>
-        ) : (
-          <p className="text-gray-400">尚無累積資料</p>
-        )}
-
-        {isActive && costInfo && costInfo.cost !== undefined ? (
-          <p><strong>即時金額：</strong>{costInfo.cost} 元</p>
-        ) : (
-          <p className="text-gray-400">尚無金額資料</p>
-        )}
-
-        {isActive && duration !== null ? (
-          <p><strong>本次充電時間：</strong>{Math.floor(duration / 60)} 分 {duration % 60} 秒</p>
-        ) : (
-          <p className="text-gray-400">尚無充電時間資料</p>
-        )}
+      <div style={{ background: "#eee", padding: "10px", marginBottom: "10px" }}>
+        <p><strong>Debug active:</strong> {isActive.toString()}</p>
+        <p><strong>Debug startTime:</strong> {startTime}</p>
+        <p><strong>Debug duration:</strong> {duration}</p>
+        <p><strong>Debug current-transaction API:</strong> {JSON.stringify(latest)}</p>
+        <p><strong>Debug cardBalance:</strong> {JSON.stringify(cardBalance)}</p>
+        <p><strong>Debug currentCost:</strong> {JSON.stringify(currentCost)}</p>
       </div>
+
+      <p>即時功率：{power !== null ? `${power} kW` : "尚無功率資料"}</p>
+      <p>即時電流：{currentAmp !== null ? `${currentAmp} A` : "尚無電流資料"}</p>
+      <p>本次累積度數：{currentKWh !== null ? `${currentKWh.toFixed(2)} kWh` : "尚無累積資料"}</p>
+      <p>即時金額：{currentCost !== null ? `${currentCost.toFixed(2)} 元` : "尚無金額資料"}</p>
+      <p>本次充電時間：
+        {duration !== null ? `${Math.floor(duration / 60)} 分 ${duration % 60} 秒` : "尚無充電時間資料"}
+      </p>
+      <p>卡片餘額：{
+        typeof cardBalance === "number" && typeof currentCost === "number"
+          ? `${(Number(cardBalance) - Number(currentCost)).toFixed(2)} 元`
+          : "尚無卡片餘額資料"
+      }</p>
     </div>
   );
 }
