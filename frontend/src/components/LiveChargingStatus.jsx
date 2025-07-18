@@ -56,9 +56,6 @@ function LiveChargingStatus({ chargePointId, idTag }) {
               // 停電或交易結束，數值歸零
               setPower(0);
               setCurrentAmp(0);
-              setCurrentKWh(0);
-              setCurrentCost(0);
-              setDuration(null);
             }
           })
           .catch((err) => {
