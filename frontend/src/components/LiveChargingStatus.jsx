@@ -118,6 +118,15 @@ function LiveChargingStatus({ chargePointId, idTag }) {
           ? `${(cardBalance - currentCost).toFixed(2)} 元`
           : "尚無卡片餘額資料"}
       </p>
+
+
+        {/* ✅ 額外提示：餘額不足但仍在充電 */}
+        {cardBalance !== null && currentCost !== null && (cardBalance - currentCost <= 0) && isActive && (
+          <p style={{ color: "red", fontWeight: "bold" }}>
+            ⚠️ 餘額已不足，等待系統停止充電...
+          </p>
+        )}
+
     </div>
   );
 }
