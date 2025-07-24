@@ -11,7 +11,6 @@ function LiveChargingStatus({ chargePointId, idTag }) {
     if (!chargePointId || !idTag) return;
 
     const fetchStatus = () => {
-      // 只查目前進行中的交易（不再抓度數）
       axios
         .get(`${BACKEND_API}/api/charge-points/${chargePointId}/current-transaction`)
         .then((res) => {
@@ -25,7 +24,7 @@ function LiveChargingStatus({ chargePointId, idTag }) {
     };
 
     fetchStatus();
-    const interval = setInterval(fetchStatus, 10000);
+    const interval = setInterval(fetchStatus, 10000); // ⏲️ 每 10 秒刷新
     return () => clearInterval(interval);
   }, [chargePointId, idTag]);
 
@@ -67,7 +66,7 @@ function LiveChargingStatus({ chargePointId, idTag }) {
             {startTime}
           </p>
         )}
-        {/* 移除「目前度數」 */}
+        {/* 已完全移除最新度數區塊 */}
         <button
           className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
           onClick={handleStopCharging}
