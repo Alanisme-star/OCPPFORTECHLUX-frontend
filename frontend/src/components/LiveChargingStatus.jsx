@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import axios from "../axiosInstance";
 
+const BACKEND_API = "https://ocppfortechlux-backend.onrender.com";
+
 function LiveChargingStatus({ chargePointId, idTag }) {
   const [latest, setLatest] = useState(null);
   const [isActive, setIsActive] = useState(false);
@@ -11,12 +13,12 @@ function LiveChargingStatus({ chargePointId, idTag }) {
 
     const fetchStatus = () => {
       axios
-        .get(`/api/charge-points/${chargePointId}/latest-meter`)
+        .get(`${BACKEND_API}/api/charge-points/${chargePointId}/latest-meter`)
         .then((res) => setLatest(res.data))
         .catch(() => setLatest(null));
 
       axios
-        .get(`/api/charge-points/${chargePointId}/current-transaction`)
+        .get(`${BACKEND_API}/api/charge-points/${chargePointId}/current-transaction`)
         .then((res) => {
           setIsActive(res.data.active);
           setStartTime(res.data.start_time);
@@ -35,10 +37,16 @@ function LiveChargingStatus({ chargePointId, idTag }) {
   const handleStopCharging = async () => {
     if (!chargePointId) return;
     try {
-      const res = await axios.post(`/api/charge-points/${chargePointId}/stop`);
+      const res = await axios.post(
+        `${BACKEND_API}/api/charge-points/${chargePointId}/stop`
+      );
       alert(res.data.message);
     } catch (error) {
-      alert("⚠️ 停止充電失敗：" + (error?.response?.data?.detail || error.message));
+      console.error(error);
+      alert(
+        "⚠️ 停止充電失敗：" +
+          (error?.response?.data?.detail || error.message || "Network Error")
+      );
     }
   };
 
