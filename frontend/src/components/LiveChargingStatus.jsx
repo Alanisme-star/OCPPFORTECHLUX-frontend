@@ -6,7 +6,6 @@ function LiveChargingStatus({ chargePointId, idTag }) {
   const [isActive, setIsActive] = useState(false);
   const [startTime, setStartTime] = useState(null);
 
-
   useEffect(() => {
     if (!chargePointId || !idTag) return;
 
@@ -26,14 +25,22 @@ function LiveChargingStatus({ chargePointId, idTag }) {
           setIsActive(false);
           setStartTime(null);
         });
-
-
     };
 
     fetchStatus();
     const interval = setInterval(fetchStatus, 10000); // ⏲️ 每 10 秒刷新
     return () => clearInterval(interval);
   }, [chargePointId, idTag]);
+
+  const handleStopCharging = async () => {
+    if (!chargePointId) return;
+    try {
+      const res = await axios.post(`/api/charge-points/${chargePointId}/stop`);
+      alert(res.data.message);
+    } catch (error) {
+      alert("⚠️ 停止充電失敗：" + (error?.response?.data?.detail || error.message));
+    }
+  };
 
   if (!chargePointId || !idTag) {
     return <div className="text-gray-500">請先選擇充電樁和用戶卡片</div>;
@@ -51,7 +58,25 @@ function LiveChargingStatus({ chargePointId, idTag }) {
           <strong>用戶 ID：</strong>
           {idTag}
         </p>
-
+        {startTime && (
+          <p>
+            <strong>啟動時間：</strong>
+            {startTime}
+          </p>
+        )}
+        {latest && (
+          <p>
+            <strong>目前度數：</strong>
+            {latest.value} {latest.unit}
+          </p>
+        )}
+        <button
+          className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+          onClick={handleStopCharging}
+          disabled={!isActive}
+        >
+          ⛔ 停止充電
+        </button>
       </div>
     </div>
   );
