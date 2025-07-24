@@ -4,7 +4,6 @@ import axios from "../axiosInstance";
 const BACKEND_API = "https://ocppfortechlux-backend.onrender.com";
 
 function LiveChargingStatus({ chargePointId, idTag }) {
-  const [latest, setLatest] = useState(null);
   const [isActive, setIsActive] = useState(false);
   const [startTime, setStartTime] = useState(null);
 
@@ -12,11 +11,7 @@ function LiveChargingStatus({ chargePointId, idTag }) {
     if (!chargePointId || !idTag) return;
 
     const fetchStatus = () => {
-      axios
-        .get(`${BACKEND_API}/api/charge-points/${chargePointId}/latest-meter`)
-        .then((res) => setLatest(res.data))
-        .catch(() => setLatest(null));
-
+      // 只查目前進行中的交易（不再抓度數）
       axios
         .get(`${BACKEND_API}/api/charge-points/${chargePointId}/current-transaction`)
         .then((res) => {
@@ -30,7 +25,7 @@ function LiveChargingStatus({ chargePointId, idTag }) {
     };
 
     fetchStatus();
-    const interval = setInterval(fetchStatus, 10000); // ⏲️ 每 10 秒刷新
+    const interval = setInterval(fetchStatus, 10000);
     return () => clearInterval(interval);
   }, [chargePointId, idTag]);
 
@@ -72,12 +67,7 @@ function LiveChargingStatus({ chargePointId, idTag }) {
             {startTime}
           </p>
         )}
-        {latest && (
-          <p>
-            <strong>目前度數：</strong>
-            {latest.value} {latest.unit}
-          </p>
-        )}
+        {/* 移除「目前度數」 */}
         <button
           className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
           onClick={handleStopCharging}
