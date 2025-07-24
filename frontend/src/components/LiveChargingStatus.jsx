@@ -78,5 +78,4 @@ function LiveChargingStatus({ chargePointId, idTag }) {
     </div>
   );
 }
-
 export default LiveChargingStatus;
