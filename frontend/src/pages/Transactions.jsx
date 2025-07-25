@@ -44,24 +44,43 @@ function Transactions() {
           </thead>
           <tbody>
             {Array.isArray(transactions) && transactions.length > 0 ? (
-              transactions.map((txn) => (
-                <tr
-                  key={txn.transactionId}
-                  className="border-b hover:bg-gray-700 cursor-pointer"
-                  onClick={() => setSelected(txn.transactionId)}
-                >
-                  <td className="p-2">{txn.transactionId}</td>
-                  <td className="p-2">{txn.chargePointId}</td>
-                  <td className="p-2">{txn.idTag}</td>
-                  <td className="p-2">{txn.startTimestamp}</td>
-                  <td className="p-2">{txn.stopTimestamp || "--"}</td>
-                  <td className="p-2">
-                    {txn.meterStop != null && txn.meterStart != null
-                      ? ((txn.meterStop - txn.meterStart) / 1000).toFixed(2)
-                      : "--"}
-                  </td>
-                </tr>
-              ))
+              transactions.map((txn, index) => {
+                if (!txn || typeof txn !== "object") return null;
+
+                const {
+                  transactionId,
+                  chargePointId,
+                  idTag,
+                  startTimestamp,
+                  stopTimestamp,
+                  meterStart,
+                  meterStop,
+                } = txn;
+
+                const energyUsed =
+                  meterStart != null &&
+                  meterStop != null &&
+                  !isNaN(meterStop - meterStart)
+                    ? ((meterStop - meterStart) / 1000).toFixed(2)
+                    : "--";
+
+                return (
+                  <tr
+                    key={transactionId ?? `txn-${index}`}
+                    className="border-b hover:bg-gray-700 cursor-pointer"
+                    onClick={() =>
+                      transactionId ? setSelected(transactionId) : null
+                    }
+                  >
+                    <td className="p-2">{transactionId ?? "--"}</td>
+                    <td className="p-2">{chargePointId ?? "--"}</td>
+                    <td className="p-2">{idTag ?? "--"}</td>
+                    <td className="p-2">{startTimestamp ?? "--"}</td>
+                    <td className="p-2">{stopTimestamp ?? "--"}</td>
+                    <td className="p-2">{energyUsed}</td>
+                  </tr>
+                );
+              })
             ) : (
               <tr>
                 <td colSpan="6" className="text-center py-4 text-gray-400">
