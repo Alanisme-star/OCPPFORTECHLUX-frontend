@@ -7,9 +7,24 @@ function Transactions() {
   const [selected, setSelected] = useState(null);
 
   useEffect(() => {
-    axios.get("/api/transactions").then((res) => {
-      setTransactions(Object.values(res.data));
-    });
+    axios
+      .get("/api/transactions")
+      .then((res) => {
+        const data = res.data;
+        if (Array.isArray(data)) {
+          setTransactions(data);
+        } else if (typeof data === "object" && data !== null) {
+          // 若是物件就轉為陣列
+          setTransactions(Object.values(data));
+        } else {
+          console.warn("⚠️ API 回傳格式非預期:", data);
+          setTransactions([]);
+        }
+      })
+      .catch((err) => {
+        console.error("❌ 取得交易資料失敗:", err);
+        setTransactions([]);
+      });
   }, []);
 
   return (
@@ -41,7 +56,7 @@ function Transactions() {
                   <td className="p-2">{txn.startTimestamp}</td>
                   <td className="p-2">{txn.stopTimestamp || "--"}</td>
                   <td className="p-2">
-                    {txn.meterStop && txn.meterStart
+                    {txn.meterStop != null && txn.meterStart != null
                       ? ((txn.meterStop - txn.meterStart) / 1000).toFixed(2)
                       : "--"}
                   </td>
