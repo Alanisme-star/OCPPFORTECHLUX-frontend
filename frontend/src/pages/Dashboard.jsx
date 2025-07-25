@@ -51,7 +51,7 @@ const Dashboard = () => {
     fetchAll();
   }, []);
 
-  const cpList = trend.length > 0
+  const cpList = Array.isArray(trend) && trend.length > 0 && typeof trend[0] === "object"
     ? Object.keys(trend[0]).filter((k) => k !== "period" && typeof k === "string")
     : [];
 
