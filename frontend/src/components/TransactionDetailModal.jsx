@@ -19,7 +19,7 @@ function TransactionDetailModal({ transactionId, onClose }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-gray-800 text-black dark:text-white rounded-lg p-6 w-[500px] max-h-[90vh] overflow-y-auto shadow-lg">
-        <h3 className="text-lg font-semibold mb-4">🔍 交易明細</h3>
+        <h3 className="text-lg font-semibold mb-4">交易明細</h3>
         <table className="w-full text-sm mb-4">
           <tbody>
             <tr>
@@ -73,7 +73,7 @@ function TransactionDetailModal({ transactionId, onClose }) {
                       </li>
                     ))
                   ) : (
-                    <li>⚠️ 無法讀取明細資料</li>
+                    <li>無法讀取明細資料</li>
                   )}
                 </ul>
               </td>
