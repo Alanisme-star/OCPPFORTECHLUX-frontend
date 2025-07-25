@@ -1,67 +1,62 @@
-// frontend/src/pages/Transactions.jsx
 import React, { useEffect, useState } from "react";
-import axios from "../axiosInstance";
-import TransactionDetailModal from "../components/TransactionDetailModal";
+import axios from "axios";
+import TransactionDetailModal from "./TransactionDetailModal";
 
-const Transactions = () => {
+function Transactions() {
   const [transactions, setTransactions] = useState([]);
   const [selected, setSelected] = useState(null);
-  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchTransactions();
+    axios.get("/api/transactions").then((res) => {
+      setTransactions(Object.values(res.data));
+    });
   }, []);
 
-  const fetchTransactions = async () => {
-    try {
-      const res = await axios.get("/api/transactions");
-      setTransactions(Object.values(res.data));
-    } catch (err) {
-      console.error("讀取交易紀錄失敗：", err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return (
-    <div>
-      <h2 className="text-2xl font-bold mb-4">交易紀錄</h2>
-      {loading ? (
-        <p>載入中...</p>
-      ) : (
-        <table className="table-auto w-full text-sm">
+    <div className="bg-white dark:bg-gray-900 text-black dark:text-white rounded-lg p-4 shadow-md">
+      <h2 className="text-xl font-bold mb-4">🔌 所有交易紀錄</h2>
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
           <thead>
-            <tr className="bg-gray-700 text-left">
-              <th className="p-2">交易 ID</th>
+            <tr className="bg-gray-200 dark:bg-gray-800 text-left">
+              <th className="p-2">交易編號</th>
               <th className="p-2">充電樁</th>
-              <th className="p-2">使用者</th>
+              <th className="p-2">卡號</th>
               <th className="p-2">開始時間</th>
               <th className="p-2">結束時間</th>
               <th className="p-2">用電量 (kWh)</th>
             </tr>
           </thead>
           <tbody>
-            {transactions.map((txn) => (
-              <tr
-                key={txn.transactionId}
-                className="border-b hover:bg-gray-700 cursor-pointer"
-                onClick={() => setSelected(txn.transactionId)}
-              >
-                <td className="p-2">{txn.transactionId}</td>
-                <td className="p-2">{txn.chargePointId}</td>
-                <td className="p-2">{txn.idTag}</td>
-                <td className="p-2">{txn.startTimestamp}</td>
-                <td className="p-2">{txn.stopTimestamp || "--"}</td>
-                <td className="p-2">
-                  {txn.meterStop && txn.meterStart
-                    ? ((txn.meterStop - txn.meterStart) / 1000).toFixed(2)
-                    : "--"}
+            {Array.isArray(transactions) && transactions.length > 0 ? (
+              transactions.map((txn) => (
+                <tr
+                  key={txn.transactionId}
+                  className="border-b hover:bg-gray-700 cursor-pointer"
+                  onClick={() => setSelected(txn.transactionId)}
+                >
+                  <td className="p-2">{txn.transactionId}</td>
+                  <td className="p-2">{txn.chargePointId}</td>
+                  <td className="p-2">{txn.idTag}</td>
+                  <td className="p-2">{txn.startTimestamp}</td>
+                  <td className="p-2">{txn.stopTimestamp || "--"}</td>
+                  <td className="p-2">
+                    {txn.meterStop && txn.meterStart
+                      ? ((txn.meterStop - txn.meterStart) / 1000).toFixed(2)
+                      : "--"}
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan="6" className="text-center py-4 text-gray-400">
+                  ⚠️ 無交易資料
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
-      )}
+      </div>
 
       {selected && (
         <TransactionDetailModal
@@ -71,6 +66,6 @@ const Transactions = () => {
       )}
     </div>
   );
-};
+}
 
 export default Transactions;
