@@ -12,6 +12,7 @@ const CostSummaryTable = () => {
     if (start && end) {
       fetchData();
     }
+    // eslint-disable-next-line
   }, [start, end]);
 
   const fetchData = async () => {
@@ -22,10 +23,15 @@ const CostSummaryTable = () => {
         `/api/transactions/cost-summary?start=${start}&end=${end}`,
         { timeout: 30000 }
       );
-      setData(res.data);
+      if (Array.isArray(res.data)) {
+        setData(res.data);
+      } else {
+        setData([]); // 防呆：不是 array 一律清空，避免 .map 出錯
+      }
     } catch (err) {
       console.error("❌ Failed to fetch cost summary:", err);
       setError("查詢失敗，請稍後再試");
+      setData([]); // 出錯時清空
     } finally {
       setLoading(false);
     }
@@ -70,25 +76,27 @@ const CostSummaryTable = () => {
               </tr>
             </thead>
             <tbody>
-              {data.length === 0 ? (
+              {Array.isArray(data) && data.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="text-center py-4 text-gray-400">
                     ⚠️ 無符合條件的交易資料
                   </td>
                 </tr>
               ) : (
-                data.map((item) => (
-                  <tr key={item.transactionId} className="border-t border-gray-600">
-                    <td className="px-3 py-1 border border-gray-600">{item.transactionId}</td>
-                    <td className="px-3 py-1 border border-gray-600">{item.totalKWh}</td>
-                    <td className="px-3 py-1 border border-gray-600">${item.basicFee}</td>
-                    <td className="px-3 py-1 border border-gray-600">${item.energyCost}</td>
-                    <td className="px-3 py-1 border border-gray-600">${item.overuseFee}</td>
-                    <td className="px-3 py-1 border border-gray-600 font-semibold text-right">
-                      ${item.totalCost}
-                    </td>
-                  </tr>
-                ))
+                Array.isArray(data)
+                  ? data.map((item) => (
+                      <tr key={item.transactionId} className="border-t border-gray-600">
+                        <td className="px-3 py-1 border border-gray-600">{item.transactionId}</td>
+                        <td className="px-3 py-1 border border-gray-600">{item.totalKWh}</td>
+                        <td className="px-3 py-1 border border-gray-600">${item.basicFee}</td>
+                        <td className="px-3 py-1 border border-gray-600">${item.energyCost}</td>
+                        <td className="px-3 py-1 border border-gray-600">${item.overuseFee}</td>
+                        <td className="px-3 py-1 border border-gray-600 font-semibold text-right">
+                          ${item.totalCost}
+                        </td>
+                      </tr>
+                    ))
+                  : null
               )}
             </tbody>
           </table>
