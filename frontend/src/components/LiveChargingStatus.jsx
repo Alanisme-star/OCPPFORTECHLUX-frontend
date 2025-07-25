@@ -29,11 +29,16 @@ function LiveChargingStatus({ chargePointId, idTag }) {
   }, [chargePointId, idTag]);
 
   const handleStopCharging = async () => {
-    if (!chargePointId) return;
+    if (!chargePointId) {
+      console.log("🔴 [Stop] 無 chargePointId，無法發送停止充電請求");
+      return;
+    }
+    console.log("[Stop] 發送停止充電請求:", chargePointId);
     try {
       const res = await axios.post(
         `${BACKEND_API}/api/charge-points/${chargePointId}/stop`
       );
+      console.log("[Stop] API回應:", res.data);
       alert(res.data.message);
     } catch (error) {
       console.error(error);
