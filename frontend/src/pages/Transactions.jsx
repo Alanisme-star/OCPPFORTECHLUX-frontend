@@ -14,7 +14,7 @@ function Transactions() {
 
   return (
     <div className="bg-white dark:bg-gray-900 text-black dark:text-white rounded-lg p-4 shadow-md">
-      <h2 className="text-xl font-bold mb-4">🔌 所有交易紀錄</h2>
+      <h2 className="text-xl font-bold mb-4">所有交易紀錄</h2>
       <div className="overflow-x-auto">
         <table className="min-w-full text-sm">
           <thead>
@@ -50,7 +50,7 @@ function Transactions() {
             ) : (
               <tr>
                 <td colSpan="6" className="text-center py-4 text-gray-400">
-                  ⚠️ 無交易資料
+                  無交易資料
                 </td>
               </tr>
             )}
