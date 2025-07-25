@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import TransactionDetailModal from "./TransactionDetailModal";
+import TransactionDetailModal from "@/components/TransactionDetailModal";
 
 function Transactions() {
   const [transactions, setTransactions] = useState([]);
