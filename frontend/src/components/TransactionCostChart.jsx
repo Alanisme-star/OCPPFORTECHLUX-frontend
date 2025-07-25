@@ -15,7 +15,12 @@ const TransactionCostChart = ({ transactionId }) => {
   const fetchCostData = async () => {
     try {
       const res = await axios.get(`/api/transactions/${transactionId}/cost`);
-      setData(res.data.details);
+      if (Array.isArray(res.data.details)) {
+        setData(res.data.details);
+      } else {
+        console.warn("⚠️ cost details 非陣列格式：", res.data.details);
+        setData([]);
+      }
       setTotal(res.data);
     } catch (err) {
       console.error("載入電費資料失敗：", err);
@@ -25,7 +30,7 @@ const TransactionCostChart = ({ transactionId }) => {
   return (
     <div className="mt-6 bg-gray-800 text-white p-4 rounded">
       <h3 className="text-lg font-bold mb-2">📈 用電分段圖表</h3>
-      {data.length === 0 ? (
+      {!Array.isArray(data) || data.length === 0 ? (
         <p>無資料</p>
       ) : (
         <ResponsiveContainer width="100%" height={300}>
@@ -43,7 +48,9 @@ const TransactionCostChart = ({ transactionId }) => {
       )}
       {total && (
         <div className="mt-2 text-sm">
-          💰 總電費：<strong>NT$ {total.totalCost}</strong>（基本費 {total.basicFee} + 能源費 {total.energyCost} + 超量費 {total.overuseFee}）
+          💰 總電費：
+          <strong>NT$ {total.totalCost}</strong>
+          （基本費 {total.basicFee} + 能源費 {total.energyCost} + 超量費 {total.overuseFee}）
         </div>
       )}
     </div>
