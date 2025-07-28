@@ -49,6 +49,28 @@ function LiveChargingStatus({ chargePointId, idTag }) {
     }
   };
 
+  const handleStartCharging = async () => {
+    if (!chargePointId || !idTag) {
+      alert("⚠️ 請先選擇充電樁與用戶卡片");
+      return;
+    }
+
+    try {
+      const res = await axios.post(
+        `${BACKEND_API}/api/charge-points/${chargePointId}/start`,
+        { idTag: idTag, connectorId: 1 }
+      );
+      console.log("[Start] API回應:", res.data);
+      alert(res.data.message);
+    } catch (error) {
+      console.error(error);
+      alert(
+        "⚠️ 啟動充電失敗：" +
+          (error?.response?.data?.detail || error.message || "Network Error")
+      );
+    }
+  };
+
   if (!chargePointId || !idTag) {
     return <div className="text-gray-500">請先選擇充電樁和用戶卡片</div>;
   }
@@ -71,9 +93,15 @@ function LiveChargingStatus({ chargePointId, idTag }) {
             {startTime}
           </p>
         )}
-        {/* 已完全移除最新度數區塊 */}
         <button
-          className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+          className="mt-4 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"
+          onClick={handleStartCharging}
+          disabled={isActive}
+        >
+          🚀 開始充電
+        </button>
+        <button
+          className="mt-4 bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 ml-2"
           onClick={handleStopCharging}
           disabled={!isActive}
         >
