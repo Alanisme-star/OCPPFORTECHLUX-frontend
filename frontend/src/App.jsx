@@ -18,7 +18,6 @@ import MonthlyReportDownload from './pages/MonthlyReportDownload';
 import PaymentHistory from './pages/PaymentHistory';
 import Reservations from './pages/Reservations';
 import StatusLogs from './pages/StatusLogs';
-import TopEnergyChart from './pages/TopEnergyChart';
 import Transactions from './pages/Transactions';
 import ChargePoints from './pages/ChargePoints';
 import RealtimeStatusPage from "./pages/RealtimeStatusPage";
@@ -49,7 +48,6 @@ export default function App() {
             <Route path="/live-demo" element={<LiveDemo />} />
             <Route path="/status-logs" element={<StatusLogs />} />
             <Route path="/chargepoint-comparison" element={<ChargePointComparisonChart />} />
-            <Route path="/top-energy-chart" element={<TopEnergyChart />} />
             <Route path="/login" element={<Login />} />
             <Route path="*" element={<div className="text-red-400 text-xl">404 找不到頁面</div>} />
             <Route path="/daily-pricing" element={<DailyPricingSettings />} />
