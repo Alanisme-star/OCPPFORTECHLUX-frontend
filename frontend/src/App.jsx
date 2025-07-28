@@ -9,7 +9,6 @@ import ChargePointComparisonChart from './pages/ChargePointComparisonChart';
 import CostSummaryPage from './pages/CostSummaryPage';
 import CostSummaryTable from './pages/CostSummaryTable';
 import Dashboard from './pages/Dashboard';
-import DashboardCards from './components/DashboardCards';
 import ExportReservations from './pages/ExportReservations';
 import ExportTransactions from './pages/ExportTransactions';
 import HolidayChecker from './pages/HolidayChecker';
@@ -40,7 +39,6 @@ export default function App() {
         <main className="ml-60 flex-1 p-6 overflow-y-auto">
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/dashboard-cards" element={<DashboardCards />} />
             <Route path="/users" element={<Users />} />
             <Route path="/bound-users" element={<BoundUsers />} />
             <Route path="/transactions" element={<Transactions />} />

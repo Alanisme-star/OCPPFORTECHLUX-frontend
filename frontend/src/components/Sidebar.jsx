@@ -20,7 +20,6 @@ import {
 const menu = [
   // 儀表板區
   { path: "/", label: "Dashboard", icon: <Home size={18} /> },
-  { path: "/dashboard-cards", label: "Dashboard 卡片", icon: <Home size={18} /> },
 
   // 使用者與交易管理
   { path: "/users", label: "Users", icon: <UsersIcon size={18} /> },
