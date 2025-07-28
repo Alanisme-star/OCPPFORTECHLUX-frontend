@@ -21,7 +21,6 @@ import Reservations from './pages/Reservations';
 import StatusLogs from './pages/StatusLogs';
 import TopEnergyChart from './pages/TopEnergyChart';
 import Transactions from './pages/Transactions';
-import WeeklyPricingSettings from './pages/WeeklyPricingSettings';
 import ChargePoints from './pages/ChargePoints';
 import RealtimeStatusPage from "./pages/RealtimeStatusPage";
 
@@ -39,7 +38,6 @@ export default function App() {
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/cards" element={<Cards />} />
             <Route path="/card-topup" element={<CardTopUp />} />
-            <Route path="/weekly-pricing" element={<WeeklyPricingSettings />} />
             <Route path="/pricing-rule-chart" element={<PricingRuleChart />} />
             <Route path="/cost-summary" element={<CostSummaryPage />} />
             <Route path="/cost-summary-table" element={<CostSummaryTable />} />
@@ -49,7 +47,6 @@ export default function App() {
             <Route path="/export-reservations" element={<ExportReservations />} />
             <Route path="/export-transactions" element={<ExportTransactions />} />
             <Route path="/holiday-checker" element={<HolidayChecker />} />
-            
             <Route path="/line-push" element={<LinePush />} />
             <Route path="/live-demo" element={<LiveDemo />} />
             <Route path="/status-logs" element={<StatusLogs />} />
