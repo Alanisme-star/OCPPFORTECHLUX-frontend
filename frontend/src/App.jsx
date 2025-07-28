@@ -23,7 +23,6 @@ import Reservations from './pages/Reservations';
 import StatusLogs from './pages/StatusLogs';
 import TopEnergyChart from './pages/TopEnergyChart';
 import Transactions from './pages/Transactions';
-import Users from './pages/Users';
 import WeeklyPricingSettings from './pages/WeeklyPricingSettings';
 import ChargePoints from './pages/ChargePoints';
 import RealtimeStatusPage from "./pages/RealtimeStatusPage";
@@ -39,7 +38,6 @@ export default function App() {
         <main className="ml-60 flex-1 p-6 overflow-y-auto">
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/users" element={<Users />} />
             <Route path="/bound-users" element={<BoundUsers />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/cards" element={<Cards />} />
