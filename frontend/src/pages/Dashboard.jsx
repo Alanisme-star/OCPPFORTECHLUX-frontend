@@ -5,7 +5,6 @@ import {
   Tooltip, ResponsiveContainer, Legend
 } from "recharts";
 
-import ChargePointComparisonChart from "./ChargePointComparisonChart";
 import CostSummaryTable from "./CostSummaryTable";
 
 const Dashboard = () => {
@@ -170,7 +169,6 @@ const Dashboard = () => {
 
           {/* 其他元件 */}
           <div className="bg-white rounded">
-            <ChargePointComparisonChart />
           </div>
           <div className="bg-white rounded">
             <CostSummaryTable />
