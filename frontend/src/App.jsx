@@ -3,7 +3,6 @@ import Sidebar from "./components/Sidebar";
 import DailyPricingSettings from "./pages/DailyPricingSettings";
 import Cards from './pages/Cards';
 import CardTopUp from './pages/CardTopUp';
-import ChargePointComparisonChart from './pages/ChargePointComparisonChart';
 import CostSummaryPage from './pages/CostSummaryPage';
 import CostSummaryTable from './pages/CostSummaryTable';
 import Dashboard from './pages/Dashboard';
@@ -47,7 +46,6 @@ export default function App() {
             <Route path="/line-push" element={<LinePush />} />
             <Route path="/live-demo" element={<LiveDemo />} />
             <Route path="/status-logs" element={<StatusLogs />} />
-            <Route path="/chargepoint-comparison" element={<ChargePointComparisonChart />} />
             <Route path="/login" element={<Login />} />
             <Route path="*" element={<div className="text-red-400 text-xl">404 找不到頁面</div>} />
             <Route path="/daily-pricing" element={<DailyPricingSettings />} />
