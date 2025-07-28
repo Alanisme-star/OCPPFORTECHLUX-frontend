@@ -28,7 +28,6 @@ const menu = [
 
   // 電價設定與圖表
   { path: "/daily-pricing", label: "每日電價設定", icon: <Clock size={18} /> },
-  { path: "/pricing-rule-chart", label: "電價圖表", icon: <DollarSign size={18} /> },
   { path: "/top-energy-chart", label: "用電排行圖表", icon: <BarChart3 size={18} /> },
   { path: "/chargepoint-comparison", label: "樁用電對比", icon: <ActivitySquare size={18} /> },
 

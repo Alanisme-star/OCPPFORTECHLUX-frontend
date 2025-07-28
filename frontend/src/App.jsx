@@ -16,7 +16,6 @@ import LiveDemo from './pages/LiveDemo';
 import Login from './pages/Login';
 import MonthlyReportDownload from './pages/MonthlyReportDownload';
 import PaymentHistory from './pages/PaymentHistory';
-import PricingRuleChart from './pages/PricingRuleChart';
 import Reservations from './pages/Reservations';
 import StatusLogs from './pages/StatusLogs';
 import TopEnergyChart from './pages/TopEnergyChart';
@@ -38,7 +37,6 @@ export default function App() {
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/cards" element={<Cards />} />
             <Route path="/card-topup" element={<CardTopUp />} />
-            <Route path="/pricing-rule-chart" element={<PricingRuleChart />} />
             <Route path="/cost-summary" element={<CostSummaryPage />} />
             <Route path="/cost-summary-table" element={<CostSummaryTable />} />
             <Route path="/payment-history" element={<PaymentHistory />} />
