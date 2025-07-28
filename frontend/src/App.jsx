@@ -1,8 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
 import DailyPricingSettings from "./pages/DailyPricingSettings";
-
-import BoundUsers from './pages/BoundUsers';
 import Cards from './pages/Cards';
 import CardTopUp from './pages/CardTopUp';
 import ChargePointComparisonChart from './pages/ChargePointComparisonChart';
@@ -38,7 +36,6 @@ export default function App() {
         <main className="ml-60 flex-1 p-6 overflow-y-auto">
           <Routes>
             <Route path="/" element={<Dashboard />} />
-            <Route path="/bound-users" element={<BoundUsers />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/cards" element={<Cards />} />
             <Route path="/card-topup" element={<CardTopUp />} />

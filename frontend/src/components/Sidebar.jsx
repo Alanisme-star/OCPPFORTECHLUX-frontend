@@ -22,7 +22,6 @@ const menu = [
   { path: "/", label: "Dashboard", icon: <Home size={18} /> },
 
   // 使用者與交易管理
-  { path: "/bound-users", label: "身分綁定", icon: <UsersIcon size={18} /> },
   { path: "/transactions", label: "交易紀錄", icon: <FileText size={18} /> },
   { path: "/cards", label: "卡片管理", icon: <CreditCard size={18} /> },
   { path: "/card-topup", label: "卡片儲值", icon: <CreditCard size={18} /> },
