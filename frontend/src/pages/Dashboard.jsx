@@ -5,8 +5,6 @@ import {
   Tooltip, ResponsiveContainer, Legend
 } from "recharts";
 
-import CostSummaryTable from "./CostSummaryTable";
-
 const Dashboard = () => {
   const [summary, setSummary] = useState([]);
   const [topList, setTopList] = useState([]);
@@ -171,7 +169,6 @@ const Dashboard = () => {
           <div className="bg-white rounded">
           </div>
           <div className="bg-white rounded">
-            <CostSummaryTable />
           </div>
         </div>
       )}
