@@ -3,8 +3,6 @@ import Sidebar from "./components/Sidebar";
 import DailyPricingSettings from "./pages/DailyPricingSettings";
 import Cards from './pages/Cards';
 import CardTopUp from './pages/CardTopUp';
-import CostSummaryPage from './pages/CostSummaryPage';
-import CostSummaryTable from './pages/CostSummaryTable';
 import Dashboard from './pages/Dashboard';
 import ExportReservations from './pages/ExportReservations';
 import ExportTransactions from './pages/ExportTransactions';
@@ -35,8 +33,6 @@ export default function App() {
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/cards" element={<Cards />} />
             <Route path="/card-topup" element={<CardTopUp />} />
-            <Route path="/cost-summary" element={<CostSummaryPage />} />
-            <Route path="/cost-summary-table" element={<CostSummaryTable />} />
             <Route path="/payment-history" element={<PaymentHistory />} />
             <Route path="/monthly-report" element={<MonthlyReportDownload />} />
             <Route path="/reservations" element={<Reservations />} />
