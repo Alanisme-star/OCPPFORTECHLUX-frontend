@@ -29,10 +29,7 @@ const menu = [
   // 電價設定與圖表
   { path: "/daily-pricing", label: "每日電價設定", icon: <Clock size={18} /> },
 
-  // 成本與報表
-
   // 預約與匯出
-  { path: "/reservations", label: "預約記錄", icon: <Calendar size={18} /> },
   { path: "/export-reservations", label: "匯出預約", icon: <DownloadIcon size={18} /> },
   { path: "/export-transactions", label: "匯出交易資料", icon: <FileText size={18} /> },
 

@@ -11,7 +11,6 @@ import LinePush from './pages/LinePush';
 import LiveChargingStatus from './components/LiveChargingStatus';
 import LiveDemo from './pages/LiveDemo';
 import Login from './pages/Login';
-import Reservations from './pages/Reservations';
 import StatusLogs from './pages/StatusLogs';
 import Transactions from './pages/Transactions';
 import ChargePoints from './pages/ChargePoints';
@@ -31,7 +30,6 @@ export default function App() {
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/cards" element={<Cards />} />
             <Route path="/card-topup" element={<CardTopUp />} />
-            <Route path="/reservations" element={<Reservations />} />
             <Route path="/export-reservations" element={<ExportReservations />} />
             <Route path="/export-transactions" element={<ExportTransactions />} />
             <Route path="/holiday-checker" element={<HolidayChecker />} />
