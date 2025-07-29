@@ -7,7 +7,6 @@ import Dashboard from './pages/Dashboard';
 import HolidayChecker from './pages/HolidayChecker';
 import LinePush from './pages/LinePush';
 import LiveChargingStatus from './components/LiveChargingStatus';
-import LiveDemo from './pages/LiveDemo';
 import Login from './pages/Login';
 import StatusLogs from './pages/StatusLogs';
 import Transactions from './pages/Transactions';
@@ -30,7 +29,6 @@ export default function App() {
             <Route path="/card-topup" element={<CardTopUp />} />
             <Route path="/holiday-checker" element={<HolidayChecker />} />
             <Route path="/line-push" element={<LinePush />} />
-            <Route path="/live-demo" element={<LiveDemo />} />
             <Route path="/status-logs" element={<StatusLogs />} />
             <Route path="/login" element={<Login />} />
             <Route path="*" element={<div className="text-red-400 text-xl">404 找不到頁面</div>} />
