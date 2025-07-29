@@ -29,8 +29,6 @@ const menu = [
   // 電價設定與圖表
   { path: "/daily-pricing", label: "每日電價設定", icon: <Clock size={18} /> },
 
-  // 預約與匯出
-  { path: "/export-transactions", label: "匯出交易資料", icon: <FileText size={18} /> },
 
   // 即時/工具
   { path: "/realtime-status", label: "即時充電狀態", icon: <ActivitySquare size={18} /> },

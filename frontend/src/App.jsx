@@ -4,7 +4,6 @@ import DailyPricingSettings from "./pages/DailyPricingSettings";
 import Cards from './pages/Cards';
 import CardTopUp from './pages/CardTopUp';
 import Dashboard from './pages/Dashboard';
-import ExportTransactions from './pages/ExportTransactions';
 import HolidayChecker from './pages/HolidayChecker';
 import LinePush from './pages/LinePush';
 import LiveChargingStatus from './components/LiveChargingStatus';
@@ -29,7 +28,6 @@ export default function App() {
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/cards" element={<Cards />} />
             <Route path="/card-topup" element={<CardTopUp />} />
-            <Route path="/export-transactions" element={<ExportTransactions />} />
             <Route path="/holiday-checker" element={<HolidayChecker />} />
             <Route path="/line-push" element={<LinePush />} />
             <Route path="/live-demo" element={<LiveDemo />} />
