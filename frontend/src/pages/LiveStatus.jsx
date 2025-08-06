@@ -9,7 +9,7 @@ const LiveStatus = () => {
   const power = 7; // kW，固定功率
   const [intervalId, setIntervalId] = useState(null);
 
-  // 取得所有卡片
+  // 取得所有卡片清單
   useEffect(() => {
     const fetchCardList = async () => {
       try {
@@ -52,7 +52,7 @@ const LiveStatus = () => {
     fetchPricing();
   }, [cardId]);
 
-  // 模擬扣款（僅充電狀態應該運作，這邊預設為開啟）
+  // 模擬餘額扣款邏輯（每秒依據電價扣除費用）
   useEffect(() => {
     if (!cardId || balance === null || pricePerKWh === null) return;
 
@@ -75,20 +75,10 @@ const LiveStatus = () => {
         id="card"
         value={cardId}
         onChange={(e) => setCardId(e.target.value)}
-        style={{ width: "100%", padding: "8px", margin: "8px 0" }}
-      >
-        {cardList.map((card) => (
-          <option key={card.card_id} value={card.card_id}>
-            {card.card_id}
-          </option>
-        ))}
-      </select>
-
-      <p>💳 餘額：{balance !== null ? `${balance.toFixed(2)} 元` : "讀取中..."}</p>
-      <p>⚡ 當前電價：{pricePerKWh !== null ? `${pricePerKWh} 元/kWh` : "讀取中..."}</p>
-      <p>🔋 充電功率：{power} kW</p>
-    </div>
-  );
-};
-
-export default LiveStatus;
+        style={{
+          width: "100%",
+          padding: "8px",
+          margin: "8px 0",
+          backgroundColor: "#1e1e1e",
+          color: "#fff",
+          border: "1px sol
