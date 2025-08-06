@@ -3,68 +3,49 @@ import axios from "../axiosInstance";
 
 const LiveStatus = () => {
   const [cardId, setCardId] = useState("");
-  const [cardList, setCardList] = useState([]);
   const [balance, setBalance] = useState(null);
   const [pricePerKWh, setPricePerKWh] = useState(null);
-  const power = 7; // kW，固定功率
-  const [intervalId, setIntervalId] = useState(null);
+  const [cardList, setCardList] = useState([]);
 
   // 取得所有卡片清單
-  useEffect(() => {
-    const fetchCardList = async () => {
-      try {
-        const res = await axios.get("/api/cards");
-        setCardList(res.data || []);
-        if (res.data.length > 0) setCardId(res.data[0].card_id);
-      } catch (error) {
-        console.error("載入卡片列表失敗：", error);
+  const fetchCardList = async () => {
+    try {
+      const res = await axios.get("/api/cards");
+      setCardList(res.data || []);
+      if (res.data.length > 0) {
+        setCardId(res.data[0].card_id);
       }
-    };
+    } catch (error) {
+      console.error("讀取卡片清單失敗：", error);
+    }
+  };
+
+  // 取得餘額與電價
+  const fetchLiveStatus = async () => {
+    if (!cardId) return;
+
+    try {
+      const [balanceRes, priceRes] = await Promise.all([
+        axios.get(`/api/balance/${cardId}`),
+        axios.get("/api/price/current")
+      ]);
+
+      setBalance(balanceRes.data.balance);
+      setPricePerKWh(priceRes.data.price);
+    } catch (error) {
+      console.error("讀取即時狀態失敗：", error);
+    }
+  };
+
+  useEffect(() => {
     fetchCardList();
   }, []);
 
-  // 根據 cardId 載入餘額與電價
   useEffect(() => {
-    if (!cardId) return;
-
-    const fetchBalance = async () => {
-      try {
-        const res = await axios.get(`/api/card-balance/${cardId}`);
-        setBalance(res.data.balance);
-      } catch (error) {
-        console.error("讀取卡片餘額失敗：", error);
-      }
-    };
-
-    const fetchPricing = async () => {
-      try {
-        const res = await axios.get("/api/daily-pricing");
-        const hour = new Date().getHours();
-        const hourStr = hour.toString().padStart(2, "0");
-        const matched = res.data.find((item) => item.start_hour === hourStr);
-        if (matched) setPricePerKWh(matched.price);
-      } catch (error) {
-        console.error("讀取電價失敗：", error);
-      }
-    };
-
-    fetchBalance();
-    fetchPricing();
+    fetchLiveStatus();
+    const interval = setInterval(fetchLiveStatus, 5000); // 每5秒更新
+    return () => clearInterval(interval);
   }, [cardId]);
-
-  // 模擬餘額扣款邏輯（每秒依據電價扣除費用）
-  useEffect(() => {
-    if (!cardId || balance === null || pricePerKWh === null) return;
-
-    const id = setInterval(() => {
-      const energyUsedPerSecond = power / 3600; // kWh
-      const costPerSecond = energyUsedPerSecond * pricePerKWh;
-      setBalance((prev) => Math.max(0, prev - costPerSecond));
-    }, 1000);
-
-    setIntervalId(id);
-    return () => clearInterval(id);
-  }, [cardId, balance, pricePerKWh]);
 
   return (
     <div style={{ padding: "20px", color: "#fff" }}>
@@ -82,3 +63,19 @@ const LiveStatus = () => {
           backgroundColor: "#1e1e1e",
           color: "#fff",
           border: "1px solid #ccc"
+        }}
+      >
+        {cardList.map((card) => (
+          <option key={card.card_id} value={card.card_id}>
+            {card.card_id}
+          </option>
+        ))}
+      </select>
+
+      <p>💰 餘額：{balance !== null ? balance.toFixed(2) : "載入中..."} 元</p>
+      <p>⚡ 每度電價：{pricePerKWh !== null ? pricePerKWh + " 元/kWh" : "載入中..."}</p>
+    </div>
+  );
+};
+
+export default LiveStatus;
