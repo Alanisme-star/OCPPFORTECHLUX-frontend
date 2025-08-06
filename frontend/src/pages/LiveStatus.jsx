@@ -81,4 +81,4 @@ const LiveStatus = () => {
           margin: "8px 0",
           backgroundColor: "#1e1e1e",
           color: "#fff",
-          border: "1px sol
+          border: "1px solid #ccc"
