@@ -26,8 +26,8 @@ const LiveStatus = () => {
 
     try {
       const [balanceRes, priceRes] = await Promise.all([
-        axios.get("/api/card-balance/${cardId}"),
-        axios.get("/api/current_price")
+        axios.get(`/api/card-balance/${cardId}`),
+        axios.get("/api/current_price")  //⚠️ 請確認 main.py 中有此 API
       ]);
 
       setBalance(balanceRes.data.balance);
@@ -66,8 +66,8 @@ const LiveStatus = () => {
         }}
       >
         {cardList.map((card) => (
-          <option key={card.cardId} value={card.cardId}>
-            {card.cardId}
+          <option key={card.card_id} value={card.card_id}>
+            {card.card_id}
           </option>
         ))}
       </select>
