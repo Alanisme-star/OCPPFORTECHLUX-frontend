@@ -27,7 +27,7 @@ const LiveStatus = () => {
     try {
       const [balanceRes, priceRes] = await Promise.all([
         axios.get(`/api/balance/${cardId}`),
-        axios.get("/api/price/current")
+        axios.get("/api/current_price")
       ]);
 
       setBalance(balanceRes.data.balance);
