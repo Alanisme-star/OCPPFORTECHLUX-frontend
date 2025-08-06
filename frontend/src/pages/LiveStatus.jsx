@@ -26,7 +26,7 @@ const LiveStatus = () => {
 
     try {
       const [balanceRes, priceRes] = await Promise.all([
-        axios.get("/api/card-balance/${card_id}"),
+        axios.get("/api/card-balance/${cardId}"),
         axios.get("/api/current_price")
       ]);
 
@@ -66,8 +66,8 @@ const LiveStatus = () => {
         }}
       >
         {cardList.map((card) => (
-          <option key={card.card_id} value={card.card_id}>
-            {card.card_id}
+          <option key={card.cardId} value={card.cardId}>
+            {card.cardId}
           </option>
         ))}
       </select>
