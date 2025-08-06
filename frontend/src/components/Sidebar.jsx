@@ -32,6 +32,7 @@ const menu = [
 
   // 即時/工具
   { path: "/realtime-status", label: "預約充電", icon: <ActivitySquare size={18} /> },
+  { path: "/live-status", label: "即時狀態", icon: <ActivitySquare size={18} /> },
   { path: "/line-push", label: "LINE 通知推送", icon: <MessageSquare size={18} /> },
   { path: "/holiday-checker", label: "假日查詢", icon: <CalendarDays size={18} /> },
 

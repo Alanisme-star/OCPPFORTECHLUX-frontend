@@ -12,6 +12,7 @@ import StatusLogs from './pages/StatusLogs';
 import Transactions from './pages/Transactions';
 import ChargePoints from './pages/ChargePoints';
 import RealtimeStatusPage from "./pages/RealtimeStatusPage";
+import LiveStatus from "./pages/LiveStatus";
 
 export default function App() {
   return (
@@ -35,6 +36,7 @@ export default function App() {
             <Route path="/daily-pricing" element={<DailyPricingSettings />} />
             <Route path="/charge-points" element={<ChargePoints />} />
             <Route path="/realtime-status" element={<RealtimeStatusPage />} />
+            <Route path="/live-status" element={<LiveStatus />} />
           </Routes>
         </main>
       </div>
