@@ -26,7 +26,7 @@ const LiveStatus = () => {
 
     try {
       const [balanceRes, priceRes] = await Promise.all([
-        axios.get(`/api/balance/${cardId}`),
+        axios.get("/api/card-balance/${card_id}"),
         axios.get("/api/current_price")
       ]);
 
