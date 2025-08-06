@@ -77,7 +77,7 @@ function LiveChargingStatus({ chargePointId, idTag }) {
 
   return (
     <div className="bg-white text-black p-4 rounded-xl shadow-lg w-full max-w-xl">
-      <h2 className="text-lg font-bold mb-2">🔌 即時充電狀態</h2>
+      <h2 className="text-lg font-bold mb-2">📅 預約充電</h2>
       <div className="space-y-2">
         <p>
           <strong>充電樁 ID：</strong>
