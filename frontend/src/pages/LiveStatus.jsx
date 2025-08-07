@@ -3,9 +3,16 @@ import axios from "../axiosInstance";
 
 const LiveStatus = () => {
   const [cardId, setCardId] = useState("");
-  const [balance, setBalance] = useState(null);
-  const [pricePerKWh, setPricePerKWh] = useState(null);
   const [cardList, setCardList] = useState([]);
+
+  const [startTime, setStartTime] = useState(null);
+  const [initialBalance, setInitialBalance] = useState(100); // 假設初始餘額（可由儲值頁面同步）
+  const [simulatedBalance, setSimulatedBalance] = useState(100); // 初始模擬餘額
+  const [pricePerKWh, setPricePerKWh] = useState(6); // 假設固定電價（元/kWh）
+  const [power, setPower] = useState(7.2); // 假設充電功率（kW）
+
+  // 模擬是否正在充電（實務可由 API 判斷）
+  const [charging, setCharging] = useState(true); //⚠️ 若需模擬非充電中，改為 false
 
   // 取得所有卡片清單
   const fetchCardList = async () => {
@@ -20,36 +27,38 @@ const LiveStatus = () => {
     }
   };
 
-  // 取得餘額與電價
-  const fetchLiveStatus = async () => {
-    if (!cardId) return;
-
-    try {
-      const [balanceRes, priceRes] = await Promise.all([
-        axios.get(`/api/card_balance/${cardId}`),
-        axios.get("/api/current_price")  //⚠️ 請確認 main.py 中有此 API
-      ]);
-
-      setBalance(balanceRes.data.balance);
-      setPricePerKWh(priceRes.data.price);
-    } catch (error) {
-      console.error("讀取即時狀態失敗：", error);
-    }
-  };
-
   useEffect(() => {
     fetchCardList();
   }, []);
 
+  // 初始化模擬時間
   useEffect(() => {
-    fetchLiveStatus();
-    const interval = setInterval(fetchLiveStatus, 5000); // 每5秒更新
+    if (charging) {
+      setStartTime(new Date());
+    } else {
+      setStartTime(null);
+    }
+  }, [charging]);
+
+  // 模擬餘額每秒遞減
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (charging && startTime && pricePerKWh !== null) {
+        const now = new Date();
+        const durationHours = (now - new Date(startTime)) / (1000 * 3600);
+        const consumedKWh = durationHours * power;
+        const cost = consumedKWh * pricePerKWh;
+        const newBalance = Math.max(initialBalance - cost, 0);
+        setSimulatedBalance(newBalance);
+      }
+    }, 1000);
+
     return () => clearInterval(interval);
-  }, [cardId]);
+  }, [charging, startTime, pricePerKWh, power, initialBalance]);
 
   return (
     <div style={{ padding: "20px", color: "#fff" }}>
-      <h2>📡 即時狀態</h2>
+      <h2>📡 即時狀態（前端模擬）</h2>
 
       <label htmlFor="card">卡片 ID：</label>
       <select
@@ -72,8 +81,11 @@ const LiveStatus = () => {
         ))}
       </select>
 
-      <p>💰 餘額：{balance !== null ? balance.toFixed(2) : "載入中..."} 元</p>
-      <p>⚡ 每度電價：{pricePerKWh !== null ? pricePerKWh + " 元/kWh" : "載入中..."}</p>
+      <p>💰 初始餘額：{initialBalance.toFixed(2)} 元</p>
+      <p>⚡ 電價：{pricePerKWh.toFixed(2)} 元/kWh</p>
+      <p>🔌 假設功率：{power} kW</p>
+      <p>⏱️ 充電開始時間：{startTime ? new Date(startTime).toLocaleTimeString() : "未啟動"}</p>
+      <p>🧮 模擬餘額：{simulatedBalance.toFixed(2)} 元</p>
     </div>
   );
 };
