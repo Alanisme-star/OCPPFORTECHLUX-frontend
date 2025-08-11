@@ -1,12 +1,12 @@
 import React, { useEffect, useState } from "react";
-import axios from "../axiosInstance"; // 若你的路徑不同請調整
+import axios from "../axiosInstance"; // 路徑依專案調整
 
 export default function LiveStatus() {
   // 卡片
   const [cardId, setCardId] = useState("");
   const [cardList, setCardList] = useState([]);
 
-  // 充電樁（不顯示下拉，背景自動選第一支）
+  // 充電樁（背景自動選第一支）
   const [cpList, setCpList] = useState([]);
   const [cpId, setCpId] = useState("");
 
@@ -21,6 +21,10 @@ export default function LiveStatus() {
   const [liveCurrentA, setLiveCurrentA] = useState(0); // A
   const [cpStatus, setCpStatus] = useState("Unknown"); // OCPP 樁態
 
+  // 餘額（raw：從後端來；display：畫面估算用）
+  const [rawBalance, setRawBalance] = useState(0);
+  const [displayBalance, setDisplayBalance] = useState(0);
+
   // 初始化：卡片與充電樁清單（自動選第一個）
   useEffect(() => {
     (async () => {
@@ -33,15 +37,21 @@ export default function LiveStatus() {
         const cpsData = cps.data || [];
         setCardList(cardsData);
         setCpList(cpsData);
-        if (cardsData.length) setCardId(cardsData[0].card_id ?? cardsData[0].cardId ?? "");
-        if (cpsData.length) setCpId(cpsData[0].chargePointId ?? cpsData[0].id ?? "");
+        if (cardsData.length) {
+          const firstId = cardsData[0].card_id ?? cardsData[0].cardId ?? "";
+          setCardId(firstId);
+        }
+        if (cpsData.length) {
+          const firstCp = cpsData[0].chargePointId ?? cpsData[0].id ?? "";
+          setCpId(firstCp);
+        }
       } catch (e) {
         console.error("初始化清單失敗", e);
       }
     })();
   }, []);
 
-  // 60 秒抓一次：現在的電價（依每日電價設定）
+  // 60 秒抓一次：現在的電價
   useEffect(() => {
     let cancelled = false;
     const fetchPrice = async () => {
@@ -99,7 +109,41 @@ export default function LiveStatus() {
     return () => clearInterval(t);
   }, [cpId]);
 
-  // 切樁時歸零顯示
+  // 取得卡片餘額：切換卡片立即抓、並且每 5 秒校正一次
+  useEffect(() => {
+    if (!cardId) return;
+    let cancelled = false;
+
+    const fetchBalance = async () => {
+      try {
+        const { data } = await axios.get(`/api/cards/${encodeURIComponent(cardId)}/balance`);
+        const bal = Number(data?.balance) || 0;
+        if (!cancelled) {
+          setRawBalance(bal);
+          setDisplayBalance(bal); // 每次校正時，把顯示值拉回真實餘額
+        }
+      } catch (e) {
+        console.warn("讀取卡片餘額失敗", e);
+      }
+    };
+
+    fetchBalance();
+    const timer = setInterval(fetchBalance, 5000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [cardId]);
+
+  // 每秒「估算」扣款：Charging 且有功率時才遞減顯示餘額
+  useEffect(() => {
+    const t = setInterval(() => {
+      const charging = cpStatus === "Charging" && livePowerKw > 0;
+      if (!charging) return;
+      const delta = (livePowerKw * pricePerKWh) / 3600; // 元/秒
+      setDisplayBalance((prev) => Math.max(0, prev - delta));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [cpStatus, livePowerKw, pricePerKWh]);
+
+  // 切樁時歸零即時量測
   useEffect(() => {
     setLivePowerKw(0);
     setLiveVoltageV(0);
@@ -139,12 +183,16 @@ export default function LiveStatus() {
         })}
       </select>
 
-      {/* 不顯示充電樁下拉；背景自動選第一支（cpId） */}
+      {/* 背景自動選第一支充電樁（不顯示下拉） */}
 
       <p>
         ⚡ 電價：{pricePerKWh.toFixed(2)} 元/kWh
-        {priceLabel ? `（${priceLabel}）` : ""}
-        {priceFallback ? "（預設）" : ""}
+        {priceLabel ? `（${priceLabel}）` : ""}{priceFallback ? "（預設）" : ""}
+      </p>
+
+      <p>💳 卡片餘額：{displayBalance.toFixed(3)} 元</p>
+      <p style={{ opacity: 0.7, fontSize: 12 }}>
+        （每秒估算扣款 = 即時功率 × 電價 ÷ 3600）
       </p>
 
       <p>🔌 即時功率：{livePowerKw.toFixed(2)} kW</p>
