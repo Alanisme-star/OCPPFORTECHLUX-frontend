@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from "react";
-import axios from "../axiosInstance"; // 若路徑不同請調整
+import axios from "../axiosInstance"; // 若你的路徑不同請調整
 
 export default function LiveStatus() {
-  // 基本選單
+  // 卡片
   const [cardId, setCardId] = useState("");
   const [cardList, setCardList] = useState([]);
+
+  // 充電樁（不顯示下拉，背景自動選第一支）
   const [cpList, setCpList] = useState([]);
   const [cpId, setCpId] = useState("");
 
-  // 電價（從後端「每日電價設定」即時取得）
+  // 電價（每日電價設定）
   const [pricePerKWh, setPricePerKWh] = useState(6);
   const [priceLabel, setPriceLabel] = useState("");
   const [priceFallback, setPriceFallback] = useState(false);
@@ -19,7 +21,7 @@ export default function LiveStatus() {
   const [liveCurrentA, setLiveCurrentA] = useState(0); // A
   const [cpStatus, setCpStatus] = useState("Unknown"); // OCPP 樁態
 
-  // 初始化清單（自動選用第一支樁，不顯示下拉）
+  // 初始化：卡片與充電樁清單（自動選第一個）
   useEffect(() => {
     (async () => {
       try {
@@ -44,12 +46,12 @@ export default function LiveStatus() {
     let cancelled = false;
     const fetchPrice = async () => {
       try {
-        const res = await axios.get("/api/pricing/price-now");
-        const p = Number(res.data?.price);
+        const { data } = await axios.get("/api/pricing/price-now");
+        const p = Number(data?.price);
         if (!cancelled && Number.isFinite(p)) {
           setPricePerKWh(p);
-          setPriceLabel(res.data?.label || "");
-          setPriceFallback(!!res.data?.fallback);
+          setPriceLabel(data?.label || "");
+          setPriceFallback(!!data?.fallback);
         }
       } catch (e) {
         console.warn("讀取現在電價失敗", e);
@@ -97,12 +99,14 @@ export default function LiveStatus() {
     return () => clearInterval(t);
   }, [cpId]);
 
-  // 切換樁時先清空顯示值（雖無 UI，但若自動換樁仍能歸零）
+  // 切樁時歸零顯示
   useEffect(() => {
-    setLivePowerKw(0); setLiveVoltageV(0); setLiveCurrentA(0);
+    setLivePowerKw(0);
+    setLiveVoltageV(0);
+    setLiveCurrentA(0);
   }, [cpId]);
 
-  // 中文顯示
+  // OCPP 樁態中文顯示
   const statusLabel = (s) => {
     const map = {
       Available: "可用",
@@ -135,7 +139,7 @@ export default function LiveStatus() {
         })}
       </select>
 
-      {/* 充電樁下拉已移除；背景自動選用第一支樁（cpId） */}
+      {/* 不顯示充電樁下拉；背景自動選第一支（cpId） */}
 
       <p>
         ⚡ 電價：{pricePerKWh.toFixed(2)} 元/kWh
