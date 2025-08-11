@@ -19,7 +19,7 @@ export default function LiveStatus() {
   const [liveCurrentA, setLiveCurrentA] = useState(0); // A
   const [cpStatus, setCpStatus] = useState("Unknown"); // OCPP 樁態
 
-  // 初始化清單
+  // 初始化清單（自動選用第一支樁，不顯示下拉）
   useEffect(() => {
     (async () => {
       try {
@@ -97,7 +97,7 @@ export default function LiveStatus() {
     return () => clearInterval(t);
   }, [cpId]);
 
-  // 切換樁時先清空顯示值
+  // 切換樁時先清空顯示值（雖無 UI，但若自動換樁仍能歸零）
   useEffect(() => {
     setLivePowerKw(0); setLiveVoltageV(0); setLiveCurrentA(0);
   }, [cpId]);
@@ -135,13 +135,7 @@ export default function LiveStatus() {
         })}
       </select>
 
-      <label>充電樁：</label>
-      <select value={cpId} onChange={(e) => setCpId(e.target.value)} style={inputStyle}>
-        {cpList.map((cp) => {
-          const id = cp.chargePointId ?? cp.id ?? "";
-          return <option key={id} value={id}>{id}</option>;
-        })}
-      </select>
+      {/* 充電樁下拉已移除；背景自動選用第一支樁（cpId） */}
 
       <p>
         ⚡ 電價：{pricePerKWh.toFixed(2)} 元/kWh
