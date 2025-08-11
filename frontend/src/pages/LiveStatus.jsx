@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import axios from "../axiosInstance"; // 若你的路徑不同，請改成實際位置
+import axios from "../axiosInstance"; // 若你的路徑不同，請改為實際位置
 
 export default function LiveStatus() {
   // 基本選單
@@ -9,7 +9,9 @@ export default function LiveStatus() {
   const [cpId, setCpId] = useState("");
 
   // 計費參數與餘額
-  const [pricePerKWh, setPricePerKWh] = useState(6);   // 元/kWh
+  const [pricePerKWh, setPricePerKWh] = useState(6);   // 元/kWh（會由 API 覆蓋）
+  const [priceLabel, setPriceLabel] = useState("");    // 每日電價設定的標籤（可選）
+  const [priceFallback, setPriceFallback] = useState(false); // 是否為預設回退
   const [initialBalance, setInitialBalance] = useState(100);
   const [simBalance, setSimBalance] = useState(100);
 
@@ -42,6 +44,29 @@ export default function LiveStatus() {
         console.error("初始化清單失敗", e);
       }
     })();
+  }, []);
+
+  // 60 秒抓一次「每日電價設定」當下單價（初始化也抓一次）
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchPrice = async () => {
+      try {
+        const res = await axios.get("/api/pricing/price-now");
+        const p = Number(res.data?.price);
+        if (!cancelled && Number.isFinite(p)) {
+          setPricePerKWh(p);
+          setPriceLabel(res.data?.label || "");
+          setPriceFallback(!!res.data?.fallback);
+        }
+      } catch (e) {
+        console.warn("讀取現在電價失敗", e);
+      }
+    };
+
+    fetchPrice();
+    const timer = setInterval(fetchPrice, 60000);
+    return () => { cancelled = true; clearInterval(timer); };
   }, []);
 
   // 2 秒一次：查詢是否有進行中交易 -> 控制「扣款狀態」
@@ -109,7 +134,7 @@ export default function LiveStatus() {
     return () => clearInterval(t);
   }, [charging, cpId]);
 
-  // 1 秒一次：扣款（以實際功率計算）
+  // 1 秒一次：扣款（以實際功率計算；電價會隨 pricePerKWh 狀態而更新）
   useEffect(() => {
     if (!charging) return;
     const t = setInterval(() => {
@@ -130,7 +155,7 @@ export default function LiveStatus() {
     setSimBalance(initialBalance);
   }, [cardId, initialBalance]);
 
-  // 中文顯示對照（可依需求再補）
+  // 中文顯示對照
   const statusLabel = (s) => {
     const map = {
       Available: "可用",
@@ -180,7 +205,12 @@ export default function LiveStatus() {
       </select>
 
       <p>💰 初始餘額：{initialBalance.toFixed(2)} 元</p>
-      <p>⚡ 電價：{pricePerKWh.toFixed(2)} 元/kWh</p>
+
+      <p>
+        ⚡ 電價：{pricePerKWh.toFixed(2)} 元/kWh
+        {priceLabel ? `（${priceLabel}）` : ""}
+        {priceFallback ? "（預設）" : ""}
+      </p>
 
       <p>🔌 即時功率：{livePowerKw.toFixed(2)} kW</p>
       <p>🔋 電壓：{liveVoltageV.toFixed(1)} V</p>
