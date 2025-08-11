@@ -15,6 +15,8 @@ export default function LiveStatus() {
 
   // 即時數據
   const [livePowerKw, setLivePowerKw] = useState(0);   // 後端正規化為 kW
+  const [liveVoltageV, setLiveVoltageV] = useState(0); // V
+  const [liveCurrentA, setLiveCurrentA] = useState(0); // A
   const [cpStatus, setCpStatus] = useState("Unknown"); // OCPP 樁態
 
   // 扣款狀態（是否有進行中交易）
@@ -58,6 +60,8 @@ export default function LiveStatus() {
             startedAtRef.current = null;
             lastTickRef.current = null;
             setLivePowerKw(0);
+            setLiveVoltageV(0);
+            setLiveCurrentA(0);
           }
           return active;
         });
@@ -82,16 +86,24 @@ export default function LiveStatus() {
     return () => clearInterval(t);
   }, [cpId]);
 
-  // 1 秒一次：若在充電，抓最新「實際功率」
+  // 1 秒一次：若在充電，抓最新「功率 / 電壓 / 電流」
   useEffect(() => {
     if (!charging || !cpId) return;
     const t = setInterval(async () => {
       try {
-        const res = await axios.get(`/api/charge-points/${cpId}/latest-power`);
-        const kw = Number(res.data?.value);
+        const [p, v, a] = await Promise.all([
+          axios.get(`/api/charge-points/${cpId}/latest-power`),
+          axios.get(`/api/charge-points/${cpId}/latest-voltage`),
+          axios.get(`/api/charge-points/${cpId}/latest-current`),
+        ]);
+        const kw = Number(p.data?.value);
+        const vv = Number(v.data?.value);
+        const aa = Number(a.data?.value);
         setLivePowerKw(Number.isFinite(kw) ? kw : 0);
+        setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
+        setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
       } catch (e) {
-        console.warn("讀取即時功率失敗", e);
+        console.warn("讀取即時功率/電壓/電流失敗", e);
       }
     }, 1000);
     return () => clearInterval(t);
@@ -169,7 +181,11 @@ export default function LiveStatus() {
 
       <p>💰 初始餘額：{initialBalance.toFixed(2)} 元</p>
       <p>⚡ 電價：{pricePerKWh.toFixed(2)} 元/kWh</p>
+
       <p>🔌 即時功率：{livePowerKw.toFixed(2)} kW</p>
+      <p>🔋 電壓：{liveVoltageV.toFixed(1)} V</p>
+      <p>🔧 電流：{liveCurrentA.toFixed(2)} A</p>
+
       <p>🏷️ 樁態：{statusLabel(cpStatus)}</p>
       <p>⏱️ 扣款狀態：{charging ? "充電中（扣款進行中）" : "未充電（不扣款）"}</p>
       <p>🧮 模擬餘額：{simBalance.toFixed(2)} 元</p>
