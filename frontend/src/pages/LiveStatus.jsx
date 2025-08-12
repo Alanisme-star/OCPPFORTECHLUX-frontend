@@ -1,31 +1,29 @@
 import React, { useEffect, useState } from "react";
-import axios from "../axiosInstance"; // ← 依專案調整
+import axios from "../axiosInstance";
 
 export default function LiveStatus() {
-  // 卡片 / 充電樁清單
   const [cardId, setCardId] = useState("");
   const [cardList, setCardList] = useState([]);
   const [cpList, setCpList] = useState([]);
   const [cpId, setCpId] = useState("");
 
-  // 電價
   const [pricePerKWh, setPricePerKWh] = useState(6);
   const [priceLabel, setPriceLabel] = useState("");
   const [priceFallback, setPriceFallback] = useState(false);
 
-  // 即時量測
   const [livePowerKw, setLivePowerKw] = useState(0);
   const [liveVoltageV, setLiveVoltageV] = useState(0);
   const [liveCurrentA, setLiveCurrentA] = useState(0);
 
-  // 樁態
   const [cpStatus, setCpStatus] = useState("Unknown");
 
-  // 餘額（raw 後端值；display 視覺估算動畫）
   const [rawBalance, setRawBalance] = useState(0);
   const [displayBalance, setDisplayBalance] = useState(0);
 
-  // ---------- 初始化：卡片與充電樁清單 ----------
+  // 餘額歸零自動停樁 flag
+  const [sentAutoStop, setSentAutoStop] = useState(false);
+
+  // 初始化清單
   useEffect(() => {
     (async () => {
       try {
@@ -53,10 +51,9 @@ export default function LiveStatus() {
     })();
   }, []);
 
-  // ---------- 電價：每 60 秒更新 ----------
+  // 電價
   useEffect(() => {
     let cancelled = false;
-
     const fetchPrice = async () => {
       try {
         const { data } = await axios.get("/api/pricing/price-now");
@@ -70,59 +67,44 @@ export default function LiveStatus() {
         console.warn("讀取電價失敗：", err);
       }
     };
-
     fetchPrice();
-    const t = setInterval(fetchPrice, 60_000);
+    const t = setInterval(fetchPrice, 60000);
     return () => {
       cancelled = true;
       clearInterval(t);
     };
   }, []);
 
-  // ---------- 樁態：每 2 秒同時取 DB 與快取，選較新 ----------
+  // 樁態
   useEffect(() => {
     if (!cpId) return;
     let cancelled = false;
-
     const safeParseTime = (ts) => {
       if (!ts) return 0;
       const v = Date.parse(ts);
       return Number.isFinite(v) ? v : 0;
     };
-
     const fetchStatus = async () => {
       try {
         const [dbRes, cacheRes] = await Promise.allSettled([
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-status`), // DB(status_logs)
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/status`),        // Cache(mock-status)
+          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-status`),
+          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/status`),
         ]);
-
-        // DB
-        let dbStatus = "Unknown";
-        let dbTs = 0;
+        let dbStatus = "Unknown", dbTs = 0;
         if (dbRes.status === "fulfilled") {
           const d = dbRes.value?.data;
           dbStatus = (d?.status ?? d ?? "Unknown") || "Unknown";
           dbTs = safeParseTime(d?.timestamp);
         }
-
-        // Cache
-        let cacheStatus = "Unknown";
-        let cacheTs = 0;
+        let cacheStatus = "Unknown", cacheTs = 0;
         if (cacheRes.status === "fulfilled") {
           const c = cacheRes.value?.data;
-          if (typeof c === "string") {
-            cacheStatus = c || "Unknown";
-          } else {
+          if (typeof c === "string") cacheStatus = c || "Unknown";
+          else {
             cacheStatus = c?.status || "Unknown";
             cacheTs = safeParseTime(c?.timestamp);
           }
         }
-
-        // 選擇邏輯：
-        // 1) 有一個 Unknown → 用另一個
-        // 2) 兩者皆有值 → 以 timestamp 較新者為準
-        // 3) timestamp 無法判斷 → 若 DB=Available 且 Cache=Charging，優先用 Charging；否則以 DB 為預設
         let chosen = "Unknown";
         if (dbStatus === "Unknown" && cacheStatus !== "Unknown") {
           chosen = cacheStatus;
@@ -137,26 +119,23 @@ export default function LiveStatus() {
             chosen = dbStatus;
           }
         }
-
         if (!cancelled) setCpStatus(chosen);
-      } catch (err) {
+      } catch {
         if (!cancelled) setCpStatus("Unknown");
       }
     };
-
     fetchStatus();
-    const t = setInterval(fetchStatus, 2_000);
+    const t = setInterval(fetchStatus, 2000);
     return () => {
       cancelled = true;
       clearInterval(t);
     };
   }, [cpId]);
 
-  // ---------- 即時量測：每 1 秒 ----------
+  // 即時量測
   useEffect(() => {
     if (!cpId) return;
     let cancelled = false;
-
     const tick = async () => {
       try {
         const [p, v, a] = await Promise.all([
@@ -164,36 +143,28 @@ export default function LiveStatus() {
           axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-voltage`),
           axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-current`),
         ]);
-
         const kw = Number(p.data?.value ?? p.data);
         const vv = Number(v.data?.value ?? v.data);
         const aa = Number(a.data?.value ?? a.data);
-
         if (!cancelled) {
           setLivePowerKw(Number.isFinite(kw) ? kw : 0);
           setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
           setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
         }
-      } catch (err) {
-        if (!cancelled) {
-          // 保持上次數值即可
-        }
-      }
+      } catch {}
     };
-
     tick();
-    const t = setInterval(tick, 1_000);
+    const t = setInterval(tick, 1000);
     return () => {
       cancelled = true;
       clearInterval(t);
     };
   }, [cpId]);
 
-  // ---------- 餘額：切卡即抓，且每 5 秒校正 ----------
+  // 餘額校正
   useEffect(() => {
     if (!cardId) return;
     let cancelled = false;
-
     const fetchBalance = async () => {
       try {
         const { data } = await axios.get(
@@ -202,40 +173,57 @@ export default function LiveStatus() {
         const bal = Number(data?.balance ?? data ?? 0);
         if (!cancelled) {
           setRawBalance(bal);
-          setDisplayBalance(bal); // 校正時將顯示值拉回真實餘額
+          setDisplayBalance(bal);
         }
-      } catch (err) {
-        // 忽略一次，保持舊值
-      }
+      } catch {}
     };
-
     fetchBalance();
-    const t = setInterval(fetchBalance, 5_000);
+    const t = setInterval(fetchBalance, 5000);
     return () => {
       cancelled = true;
       clearInterval(t);
     };
   }, [cardId]);
 
-  // ---------- 視覺每秒估算扣款（Charging 且有功率才扣） ----------
+  // 每秒估算扣款
   useEffect(() => {
     const t = setInterval(() => {
       const charging = cpStatus === "Charging" && livePowerKw > 0;
       if (!charging) return;
-      const delta = (livePowerKw * pricePerKWh) / 3600; // 元/秒
+      const delta = (livePowerKw * pricePerKWh) / 3600;
       setDisplayBalance((prev) => Math.max(0, prev - delta));
-    }, 1_000);
+    }, 1000);
     return () => clearInterval(t);
   }, [cpStatus, livePowerKw, pricePerKWh]);
 
-  // 切換樁時重置量測
+  // 餘額歸零自動停樁
+  useEffect(() => {
+    if (sentAutoStop) return;
+    if (cpStatus !== "Charging") return;
+    const nearZero = (x) => Number.isFinite(x) && x <= 0.001;
+    if (nearZero(displayBalance) || nearZero(rawBalance)) {
+      (async () => {
+        try {
+          const res = await axios.post(
+            `/api/charge-points/${encodeURIComponent(cpId)}/stop`
+          );
+          console.log("Auto stop sent:", res.data);
+          setSentAutoStop(true);
+        } catch (e) {
+          console.warn("Auto stop failed:", e?.response?.status, e?.response?.data);
+        }
+      })();
+    }
+  }, [displayBalance, rawBalance, cpStatus, cpId, sentAutoStop]);
+
+  // 切換樁時重置
   useEffect(() => {
     setLivePowerKw(0);
     setLiveVoltageV(0);
     setLiveCurrentA(0);
+    setSentAutoStop(false); // 換樁重置 flag
   }, [cpId]);
 
-  // 狀態中文
   const statusLabel = (s) => {
     const map = {
       Available: "可用",
@@ -266,7 +254,6 @@ export default function LiveStatus() {
   return (
     <div style={wrap}>
       <h2>📡 即時狀態</h2>
-
       <label>卡片 ID：</label>
       <select
         value={cardId}
@@ -282,8 +269,6 @@ export default function LiveStatus() {
           );
         })}
       </select>
-
-      {/* 如需讓使用者選樁，可在此加上 select；目前維持自動選第一支 */}
 
       <p>
         ⚡ 電價：{pricePerKWh.toFixed(2)} 元/kWh
