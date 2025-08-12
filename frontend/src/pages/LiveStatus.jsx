@@ -26,87 +26,66 @@ export default function LiveStatus() {
   const [displayBalance, setDisplayBalance] = useState(0);
 
   // 初始化：卡片與充電樁清單（自動選第一個）
-  useEffect(() => {
-    (async () => {
-      try {
-        const [cards, cps] = await Promise.all([
-          axios.get("/api/cards"),
-          axios.get("/api/charge-points"),
-        ]);
-        const cardsData = cards.data || [];
-        const cpsData = cps.data || [];
-        setCardList(cardsData);
-        setCpList(cpsData);
-        if (cardsData.length) {
-          const firstId = cardsData[0].card_id ?? cardsData[0].cardId ?? "";
-          setCardId(firstId);
-        }
-        if (cpsData.length) {
-          const firstCp = cpsData[0].chargePointId ?? cpsData[0].id ?? "";
-          setCpId(firstCp);
-        }
-      } catch (e) {
-        console.error("初始化清單失敗", e);
-      }
-    })();
-  }, []);
+  // 2 秒抓一次：樁態（同時抓 DB 與快取，選較新的）
+useEffect(() => {
+  if (!cpId) return;
+  let cancelled = false;
 
-  // 60 秒抓一次：現在的電價
-  useEffect(() => {
-    let cancelled = false;
-    const fetchPrice = async () => {
-      try {
-        const { data } = await axios.get("/api/pricing/price-now");
-        const p = Number(data?.price);
-        if (!cancelled && Number.isFinite(p)) {
-          setPricePerKWh(p);
-          setPriceLabel(data?.label || "");
-          setPriceFallback(!!data?.fallback);
+  const fetchStatus = async () => {
+    try {
+      const [dbRes, cacheRes] = await Promise.allSettled([
+        axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-status`), // DB: status_logs
+        axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/status`),        // Cache: mock-status
+      ]);
+
+      // 解析 DB 結果
+      let dbStatus = "Unknown", dbTs = 0;
+      if (dbRes.status === "fulfilled") {
+        const s = dbRes.value?.data?.status ?? dbRes.value?.data ?? "Unknown";
+        const t = dbRes.value?.data?.timestamp;
+        dbStatus = s || "Unknown";
+        dbTs = t ? Date.parse(t) || 0 : 0;
+      }
+
+      // 解析快取結果
+      let cacheStatus = "Unknown", cacheTs = 0;
+      if (cacheRes.status === "fulfilled") {
+        const d = cacheRes.value?.data || {};
+        // 兼容 {status: 'Charging', timestamp: '...'} 或直接字串
+        cacheStatus = (typeof d === "string" ? d : (d.status || "Unknown")) || "Unknown";
+        const ct = typeof d === "string" ? undefined : d.timestamp;
+        cacheTs = ct ? Date.parse(ct) || 0 : 0;
+      }
+
+      // 選擇邏輯：
+      // 1) 兩者其一為 Unknown，就選另一個
+      // 2) 兩者皆有值 → 取時間較新者
+      // 3) 若時間無法判斷 → 若 DB 是 Available 但快取是 Charging，優先用快取
+      let chosen = "Unknown";
+      if (dbStatus === "Unknown" && cacheStatus !== "Unknown") {
+        chosen = cacheStatus;
+      } else if (cacheStatus === "Unknown" && dbStatus !== "Unknown") {
+        chosen = dbStatus;
+      } else if (dbStatus !== "Unknown" && cacheStatus !== "Unknown") {
+        if (cacheTs && dbTs) {
+          chosen = cacheTs >= dbTs ? cacheStatus : dbStatus;
+        } else if (dbStatus === "Available" && cacheStatus === "Charging") {
+          chosen = cacheStatus;
+        } else {
+          chosen = dbStatus; // 預設回 DB
         }
-      } catch (e) {
-        console.warn("讀取現在電價失敗", e);
       }
-    };
-    fetchPrice();
-    const timer = setInterval(fetchPrice, 60000);
-    return () => { cancelled = true; clearInterval(timer); };
-  }, []);
 
-  // 2 秒抓一次：OCPP 樁態（先 DB /latest-status，未知或失敗則抓快取 /status）
-  useEffect(() => {
-    if (!cpId) return;
-    let cancelled = false;
+      if (!cancelled) setCpStatus(chosen);
+    } catch {
+      if (!cancelled) setCpStatus("Unknown");
+    }
+  };
 
-    const fetchStatus = async () => {
-      // 1) 先讀 DB（真機最可靠）
-      try {
-        const res = await axios.get(
-          `/api/charge-points/${encodeURIComponent(cpId)}/latest-status`
-        );
-        const s1 = res?.data?.status ?? res?.data ?? "Unknown";
-        if (!cancelled && s1 && s1 !== "Unknown") {
-          setCpStatus(s1);
-          return;
-        }
-      } catch (_) {
-        // 忽略，改走 fallback
-      }
-      // 2) fallback：讀快取（for 模擬器 mock-status）
-      try {
-        const fast = await axios.get(
-          `/api/charge-points/${encodeURIComponent(cpId)}/status`
-        );
-        const s2 = fast?.data?.status ?? fast?.data ?? "Unknown";
-        if (!cancelled) setCpStatus(s2);
-      } catch (e) {
-        if (!cancelled) setCpStatus("Unknown");
-      }
-    };
-
-    fetchStatus();
-    const t = setInterval(fetchStatus, 2000);
-    return () => { cancelled = true; clearInterval(t); };
-  }, [cpId]);
+  fetchStatus();
+  const t = setInterval(fetchStatus, 2000);
+  return () => { cancelled = true; clearInterval(t); };
+}, [cpId]);
 
   // 1 秒抓一次：功率 / 電壓 / 電流
   useEffect(() => {
