@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import axios from "../axiosInstance"; // ← 依你的專案實際路徑調整
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import axios from "./axiosInstance"; // ← 依你的專案實際路徑
 
 export default function LiveStatus() {
   // 卡片 / 充電樁
@@ -29,6 +29,11 @@ export default function LiveStatus() {
   const [sentAutoStop, setSentAutoStop] = useState(false);
   // UI 提示訊息（一次性）
   const [stopMsg, setStopMsg] = useState("");
+
+  // === 新增：充電時間（秒） ===
+  const [chargeSeconds, setChargeSeconds] = useState(0);
+  // 以 ms 保存校正後的起點時間（UTC）
+  const chargeStartMsRef = useRef(null);
 
   // ---------- 初始化：卡片 / 充電樁清單 ----------
   useEffect(() => {
@@ -116,10 +121,7 @@ export default function LiveStatus() {
           }
         }
 
-        // 選擇邏輯：
-        // 1) 其中一個 Unknown → 用另一個
-        // 2) 兩者皆有值 → 用 timestamp 較新者
-        // 3) 無法判斷 → 若 DB=Available 且 Cache=Charging，優先 Charging；否則預設 DB
+        // 選擇邏輯
         let chosen = "Unknown";
         if (dbStatus === "Unknown" && cacheStatus !== "Unknown") {
           chosen = cacheStatus;
@@ -190,7 +192,6 @@ export default function LiveStatus() {
         const bal = Number(data?.balance ?? data ?? 0);
         if (!cancelled) {
           setRawBalance(bal);
-          // 充電中避免把畫面餘額往上拉，僅向下夾；停止後再一次性對齊
           setDisplayBalance((prev) => (cpStatus === "Charging" ? Math.min(prev, bal) : bal));
         }
       } catch (err) {
@@ -212,38 +213,81 @@ export default function LiveStatus() {
       setDisplayBalance((prev) => Math.max(0, prev - delta));
     }, 1_000);
     return () => clearInterval(t);
-  }, [cpStatus, livePowerKw, pricePerKWh]);
+  }, [cpStatus, livePowerKw, pricePerKWh]); // :contentReference[oaicite:2]{index=2}
 
-  // ---------- 餘額歸零自動停樁（RemoteStopTransaction） ----------
+  // ---------- 新增：充電時間（從交易開始計秒） ----------
+  // 1) 每 5 秒校正「進行中交易」的 startTimestamp
   useEffect(() => {
-    if (sentAutoStop) return;
-    if (cpStatus !== "Charging") return;
+    let cancelled = false;
 
-    const nearZero = (x) => Number.isFinite(x) && x <= 0.001;
-    if (nearZero(displayBalance) || nearZero(rawBalance)) {
-      (async () => {
-        try {
-          const res = await axios.post(
-            `/api/charge-points/${encodeURIComponent(cpId)}/stop`
-          );
-          setSentAutoStop(true);
-          setStopMsg("已送出停止充電指令（RemoteStopTransaction）。");
-          console.log("Auto stop sent:", res.data);
-        } catch (e) {
-          setStopMsg(`停止充電指令失敗：${e?.response?.status || ""} ${e?.response?.data || ""}`);
-          console.warn("Auto stop failed:", e?.response?.status, e?.response?.data);
+    const fetchOngoingStart = async () => {
+      if (cpStatus !== "Charging" || !cpId) return;
+      try {
+        const { data } = await axios.get(
+          `/api/transactions`,
+          { params: { chargePointId: cpId } }
+        );
+        // data 是 {txnId: { startTimestamp, stopTimestamp, ...}, ...}
+        let latestStartMs = null;
+        for (const k of Object.keys(data || {})) {
+          const tx = data[k];
+          if (!tx?.stopTimestamp) {
+            const ms = Date.parse(tx.startTimestamp);
+            if (Number.isFinite(ms)) {
+              // 選擇最新一筆尚未結束的交易
+              if (latestStartMs === null || ms > latestStartMs) latestStartMs = ms;
+            }
+          }
         }
-      })();
-    }
-  }, [displayBalance, rawBalance, cpStatus, cpId, sentAutoStop]);
+        if (!cancelled) {
+          if (latestStartMs) {
+            chargeStartMsRef.current = latestStartMs;
+          } else {
+            // 沒有進行中 → 清空
+            chargeStartMsRef.current = null;
+            setChargeSeconds(0);
+          }
+        }
+      } catch (e) {
+        // 忽略一次
+      }
+    };
+
+    fetchOngoingStart();
+    const t = setInterval(fetchOngoingStart, 5_000);
+    return () => { cancelled = true; clearInterval(t); };
+  }, [cpId, cpStatus]); // 依賴狀態與樁
+
+  // 2) 每秒累積顯示（Charging 且有起點）
+  useEffect(() => {
+    const tick = () => {
+      if (cpStatus !== "Charging") {
+        setChargeSeconds(0);
+        return;
+      }
+      const startMs = chargeStartMsRef.current;
+      if (startMs && Number.isFinite(startMs)) {
+        const sec = Math.max(0, Math.floor((Date.now() - startMs) / 1000));
+        setChargeSeconds(sec);
+      } else {
+        setChargeSeconds(0);
+      }
+    };
+    tick();
+    const t = setInterval(tick, 1_000);
+    return () => clearInterval(t);
+  }, [cpStatus]);
 
   // ---------- 切換樁時重置 ----------
   useEffect(() => {
     setLivePowerKw(0);
     setLiveVoltageV(0);
     setLiveCurrentA(0);
-    setSentAutoStop(false); // 換樁重置 auto-stop 鎖
-    setStopMsg("");         // 清除提示
+    setSentAutoStop(false);
+    setStopMsg("");
+    // 新增：重置計時
+    chargeStartMsRef.current = null;
+    setChargeSeconds(0);
   }, [cpId]);
 
   // 狀態中文
@@ -262,7 +306,6 @@ export default function LiveStatus() {
     return map[s] || s || "未知";
   };
 
-  // Styles
   const wrap = { padding: 20, color: "#fff" };
   const inputStyle = {
     width: "100%",
@@ -274,6 +317,18 @@ export default function LiveStatus() {
     borderRadius: 6,
   };
   const hint = { opacity: 0.7, fontSize: 12 };
+
+  const hhmmss = useMemo(() => {
+    const s = Math.max(0, Number(chargerSafeInt(chargeSeconds)));
+    const hh = String(Math.floor(s / 3600)).padStart(2, "0");
+    const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
+    const ss = String(s % 60).padStart(2, "0");
+    return `${hh}:${mm}:${ss}`;
+  }, [chargeSeconds]);
+
+  function chargerSafeInt(n) {
+    return Number.isFinite(n) ? Math.floor(n) : 0;
+  }
 
   return (
     <div style={wrap}>
@@ -308,6 +363,10 @@ export default function LiveStatus() {
       <p>🔌 即時功率：{livePowerKw.toFixed(2)} kW</p>
       <p>🔋 電壓：{liveVoltageV.toFixed(1)} V</p>
       <p>🔧 電流：{liveCurrentA.toFixed(2)} A</p>
+
+      {/* 新增：充電時間 */}
+      <p>⏱️ 充電時間：{hhmmss}</p>
+
       <p>🏷️ 樁態：{statusLabel(cpStatus)}</p>
 
       {stopMsg && <p style={{ color: "#ffd54f", marginTop: 8 }}>🔔 {stopMsg}</p>}
