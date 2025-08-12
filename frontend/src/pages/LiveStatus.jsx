@@ -72,18 +72,40 @@ export default function LiveStatus() {
     return () => { cancelled = true; clearInterval(timer); };
   }, []);
 
-  // 2 秒抓一次：OCPP 樁態
+  // 2 秒抓一次：OCPP 樁態（先 DB /latest-status，未知或失敗則抓快取 /status）
   useEffect(() => {
     if (!cpId) return;
-    const t = setInterval(async () => {
+    let cancelled = false;
+
+    const fetchStatus = async () => {
+      // 1) 先讀 DB（真機最可靠）
       try {
-        const res = await axios.get(`/api/charge-points/${cpId}/latest-status`);
-        setCpStatus(res.data?.status || "Unknown");
-      } catch (e) {
-        console.warn("讀取樁態失敗", e);
+        const res = await axios.get(
+          `/api/charge-points/${encodeURIComponent(cpId)}/latest-status`
+        );
+        const s1 = res?.data?.status ?? res?.data ?? "Unknown";
+        if (!cancelled && s1 && s1 !== "Unknown") {
+          setCpStatus(s1);
+          return;
+        }
+      } catch (_) {
+        // 忽略，改走 fallback
       }
-    }, 2000);
-    return () => clearInterval(t);
+      // 2) fallback：讀快取（for 模擬器 mock-status）
+      try {
+        const fast = await axios.get(
+          `/api/charge-points/${encodeURIComponent(cpId)}/status`
+        );
+        const s2 = fast?.data?.status ?? fast?.data ?? "Unknown";
+        if (!cancelled) setCpStatus(s2);
+      } catch (e) {
+        if (!cancelled) setCpStatus("Unknown");
+      }
+    };
+
+    fetchStatus();
+    const t = setInterval(fetchStatus, 2000);
+    return () => { cancelled = true; clearInterval(t); };
   }, [cpId]);
 
   // 1 秒抓一次：功率 / 電壓 / 電流
@@ -92,13 +114,13 @@ export default function LiveStatus() {
     const t = setInterval(async () => {
       try {
         const [p, v, a] = await Promise.all([
-          axios.get(`/api/charge-points/${cpId}/latest-power`),
-          axios.get(`/api/charge-points/${cpId}/latest-voltage`),
-          axios.get(`/api/charge-points/${cpId}/latest-current`),
+          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-power`),
+          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-voltage`),
+          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-current`),
         ]);
-        const kw = Number(p.data?.value);
-        const vv = Number(v.data?.value);
-        const aa = Number(a.data?.value);
+        const kw = Number(p.data?.value ?? p.data);
+        const vv = Number(v.data?.value ?? v.data);
+        const aa = Number(a.data?.value ?? a.data);
         setLivePowerKw(Number.isFinite(kw) ? kw : 0);
         setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
         setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
@@ -116,8 +138,10 @@ export default function LiveStatus() {
 
     const fetchBalance = async () => {
       try {
-        const { data } = await axios.get(`/api/cards/${encodeURIComponent(cardId)}/balance`);
-        const bal = Number(data?.balance) || 0;
+        const { data } = await axios.get(
+          `/api/cards/${encodeURIComponent(cardId)}/balance`
+        );
+        const bal = Number(data?.balance ?? data ?? 0);
         if (!cancelled) {
           setRawBalance(bal);
           setDisplayBalance(bal); // 每次校正時，把顯示值拉回真實餘額
@@ -167,8 +191,12 @@ export default function LiveStatus() {
   };
 
   const inputStyle = {
-    width: "100%", padding: 8, margin: "8px 0",
-    background: "#1e1e1e", color: "#fff", border: "1px solid #ccc"
+    width: "100%",
+    padding: 8,
+    margin: "8px 0",
+    background: "#1e1e1e",
+    color: "#fff",
+    border: "1px solid #ccc",
   };
 
   return (
@@ -176,10 +204,18 @@ export default function LiveStatus() {
       <h2>📡 即時狀態</h2>
 
       <label>卡片 ID：</label>
-      <select value={cardId} onChange={(e) => setCardId(e.target.value)} style={inputStyle}>
+      <select
+        value={cardId}
+        onChange={(e) => setCardId(e.target.value)}
+        style={inputStyle}
+      >
         {cardList.map((c) => {
           const id = c.card_id ?? c.cardId ?? "";
-          return <option key={id} value={id}>{id}</option>;
+          return (
+            <option key={id} value={id}>
+              {id}
+            </option>
+          );
         })}
       </select>
 
@@ -187,7 +223,8 @@ export default function LiveStatus() {
 
       <p>
         ⚡ 電價：{pricePerKWh.toFixed(2)} 元/kWh
-        {priceLabel ? `（${priceLabel}）` : ""}{priceFallback ? "（預設）" : ""}
+        {priceLabel ? `（${priceLabel}）` : ""}
+        {priceFallback ? "（預設）" : ""}
       </p>
 
       <p>💳 卡片餘額：{displayBalance.toFixed(3)} 元</p>
