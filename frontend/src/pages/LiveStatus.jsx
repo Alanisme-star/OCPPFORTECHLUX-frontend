@@ -299,7 +299,6 @@ export default function LiveStatus() {
 
       <p>
         ⚡ 電價：{pricePerKWh.toFixed(2)} 元/kWh
-        {priceLabel ? `（${priceLabel}）` : ""}
         {priceFallback ? "（預設）" : ""}
       </p>
 
