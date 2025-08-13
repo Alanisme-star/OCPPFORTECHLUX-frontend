@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import axios from "./axiosInstance"; // ← 依你的專案實際路徑
+import axios from "../axiosInstance"; // ← 你的檔案在 src/，所以從 pages/ 回到上一層
 
 export default function LiveStatus() {
   // 卡片 / 充電樁
@@ -83,61 +83,18 @@ export default function LiveStatus() {
     return () => { cancelled = true; clearInterval(t); };
   }, []);
 
-  // ---------- 樁態：同時取 DB 與快取，選較新；每 2 秒 ----------
+  // ---------- 樁態：每 2 秒 ----------
   useEffect(() => {
     if (!cpId) return;
     let cancelled = false;
 
-    const safeParseTime = (ts) => {
-      if (!ts) return 0;
-      const v = Date.parse(ts);
-      return Number.isFinite(v) ? v : 0;
-    };
-
     const fetchStatus = async () => {
       try {
-        const [dbRes, cacheRes] = await Promise.allSettled([
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-status`), // DB(status_logs)
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/status`),        // Cache(mock-status)
-        ]);
-
-        // DB 結果
-        let dbStatus = "Unknown", dbTs = 0;
-        if (dbRes.status === "fulfilled") {
-          const d = dbRes.value?.data;
-          dbStatus = (d?.status ?? d ?? "Unknown") || "Unknown";
-          dbTs = safeParseTime(d?.timestamp);
-        }
-
-        // 快取結果
-        let cacheStatus = "Unknown", cacheTs = 0;
-        if (cacheRes.status === "fulfilled") {
-          const c = cacheRes.value?.data;
-          if (typeof c === "string") {
-            cacheStatus = c || "Unknown";
-          } else {
-            cacheStatus = c?.status || "Unknown";
-            cacheTs = safeParseTime(c?.timestamp);
-          }
-        }
-
-        // 選擇邏輯
-        let chosen = "Unknown";
-        if (dbStatus === "Unknown" && cacheStatus !== "Unknown") {
-          chosen = cacheStatus;
-        } else if (cacheStatus === "Unknown" && dbStatus !== "Unknown") {
-          chosen = dbStatus;
-        } else if (dbStatus !== "Unknown" && cacheStatus !== "Unknown") {
-          if (cacheTs && dbTs) {
-            chosen = cacheTs >= dbTs ? cacheStatus : dbStatus;
-          } else if (dbStatus === "Available" && cacheStatus === "Charging") {
-            chosen = cacheStatus;
-          } else {
-            chosen = dbStatus;
-          }
-        }
-
-        if (!cancelled) setCpStatus(chosen);
+        const { data } = await axios.get(
+          `/api/charge-points/${encodeURIComponent(cpId)}/latest-status`
+        );
+        const s = typeof data === "string" ? data : (data?.status ?? "Unknown");
+        if (!cancelled) setCpStatus(s || "Unknown");
       } catch {
         if (!cancelled) setCpStatus("Unknown");
       }
@@ -213,7 +170,7 @@ export default function LiveStatus() {
       setDisplayBalance((prev) => Math.max(0, prev - delta));
     }, 1_000);
     return () => clearInterval(t);
-  }, [cpStatus, livePowerKw, pricePerKWh]); // :contentReference[oaicite:2]{index=2}
+  }, [cpStatus, livePowerKw, pricePerKWh]);
 
   // ---------- 新增：充電時間（從交易開始計秒） ----------
   // 1) 每 5 秒校正「進行中交易」的 startTimestamp
@@ -223,10 +180,9 @@ export default function LiveStatus() {
     const fetchOngoingStart = async () => {
       if (cpStatus !== "Charging" || !cpId) return;
       try {
-        const { data } = await axios.get(
-          `/api/transactions`,
-          { params: { chargePointId: cpId } }
-        );
+        const { data } = await axios.get("/api/transactions", {
+          params: { chargePointId: cpId },
+        });
         // data 是 {txnId: { startTimestamp, stopTimestamp, ...}, ...}
         let latestStartMs = null;
         for (const k of Object.keys(data || {})) {
@@ -234,7 +190,6 @@ export default function LiveStatus() {
           if (!tx?.stopTimestamp) {
             const ms = Date.parse(tx.startTimestamp);
             if (Number.isFinite(ms)) {
-              // 選擇最新一筆尚未結束的交易
               if (latestStartMs === null || ms > latestStartMs) latestStartMs = ms;
             }
           }
@@ -319,7 +274,7 @@ export default function LiveStatus() {
   const hint = { opacity: 0.7, fontSize: 12 };
 
   const hhmmss = useMemo(() => {
-    const s = Math.max(0, Number(chargerSafeInt(chargeSeconds)));
+    const s = Math.max(0, Number.isFinite(chargerSafeInt(chargeSeconds)) ? chargeSeconds : 0);
     const hh = String(Math.floor(s / 3600)).padStart(2, "0");
     const mm = String(Math.floor((s % 3600) / 60)).padStart(2, "0");
     const ss = String(s % 60).padStart(2, "0");
@@ -350,11 +305,11 @@ export default function LiveStatus() {
         })}
       </select>
 
-      {/* 如需加入充電樁下拉，可在此補一個 select。此處維持自動選第一支 */}
+      {/* 若要顯示充電樁下拉，可在此補一個 select；目前自動抓第一支 */}
 
       <p>
         ⚡ 電價：{pricePerKWh.toFixed(2)} 元/kWh
-        {priceFallback ? "（預設）" : ""}
+        {priceFallback ? "（預設）" : priceLabel ? `（${priceLabel}）` : ""}
       </p>
 
       <p>💳 卡片餘額：{displayBalance.toFixed(3)} 元</p>
