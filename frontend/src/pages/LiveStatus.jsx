@@ -17,6 +17,8 @@ export default function LiveStatus() {
   const [livePowerKw, setLivePowerKw] = useState(0);
   const [liveVoltageV, setLiveVoltageV] = useState(0);
   const [liveCurrentA, setLiveCurrentA] = useState(0);
+  const [liveEnergyKWh, setLiveEnergyKWh] = useState(0);
+
 
   // 樁態
   const [cpStatus, setCpStatus] = useState("Unknown");
@@ -153,19 +155,30 @@ export default function LiveStatus() {
 
     const tick = async () => {
       try {
-        const [p, v, a] = await Promise.all([
+        const [p, v, a, e] = await Promise.all([
           axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-power`),
           axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-voltage`),
           axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-current`),
+          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-energy`), // ★ 新增：抓用電量
         ]);
+
         const kw = Number(p.data?.value ?? p.data);
         const vv = Number(v.data?.value ?? v.data);
         const aa = Number(a.data?.value ?? a.data);
+
+        // total 或 session 二擇一顯示：優先顯示本次充電用電量，否則顯示總表值
+        const session = Number(e.data?.sessionEnergyKWh);
+        const total = Number(e.data?.totalEnergyKWh ?? e.data?.value ?? e.data);
 
         if (!cancelled) {
           setLivePowerKw(Number.isFinite(kw) ? kw : 0);
           setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
           setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
+
+          const energyVal = Number.isFinite(session)
+            ? session
+            : (Number.isFinite(total) ? total : 0);
+          setLiveEnergyKWh(energyVal);
         }
       } catch (err) {
         // 忽略一次，保持前次值
@@ -305,10 +318,11 @@ export default function LiveStatus() {
       <p>💳 卡片餘額：{displayBalance.toFixed(3)} 元</p>
       <p style={hint}>（每秒估算扣款 = 即時功率 × 電價 ÷ 3600；充電中每 5 秒以下夾對齊後端）</p>
 
-      <p>🔌 即時功率：{livePowerKw.toFixed(2)} kW</p>
+      <p>🔌 功率：{livePowerKw.toFixed(2)} kW</p>
       <p>🔋 電壓：{liveVoltageV.toFixed(1)} V</p>
       <p>🔧 電流：{liveCurrentA.toFixed(2)} A</p>
       <p>🏷️ 樁態：{statusLabel(cpStatus)}</p>
+      <p>🔋 用電量：{liveEnergyKWh.toFixed(4)} kWh</p>
 
       {stopMsg && <p style={{ color: "#ffd54f", marginTop: 8 }}>🔔 {stopMsg}</p>}
     </div>
