@@ -25,7 +25,7 @@ export default function LiveStatus() {
   // 樁態
   const [cpStatus, setCpStatus] = useState("Unknown");
 
-  // 餘額（raw 後端；display 視覺估算）
+  // 餘額（raw 後端；display 顯示值 = rawBalance - liveCost）
   const [rawBalance, setRawBalance] = useState(0);
   const [displayBalance, setDisplayBalance] = useState(0);
 
@@ -148,7 +148,7 @@ export default function LiveStatus() {
     fetchStatus();
     const t = setInterval(fetchStatus, 2_000);
     return () => { cancelled = true; clearInterval(t); };
-  }, [cpId, pricePerKWh]);
+  }, [cpId]); // 不需依賴 pricePerKWh
 
   // ---------- 即時量測：每 1 秒 ----------
   useEffect(() => {
@@ -161,7 +161,7 @@ export default function LiveStatus() {
           axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-power`),
           axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-voltage`),
           axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-current`),
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-energy`), // ★ 新增：抓用電量
+          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-energy`), // 抓用電量
         ]);
 
         const kw = Number(p.data?.value ?? p.data);
@@ -182,11 +182,9 @@ export default function LiveStatus() {
             : (Number.isFinite(total) ? total : 0);
           setLiveEnergyKWh(energyVal);
 
-
           // 電費 = 用電量(kWh) × 單價(元/kWh)
           const fee = (Number.isFinite(energyVal) ? energyVal : 0) * (Number.isFinite(pricePerKWh) ? pricePerKWh : 0);
           setLiveCost(fee);
-
         }
       } catch (err) {
         // 忽略一次，保持前次值
@@ -196,9 +194,9 @@ export default function LiveStatus() {
     tick();
     const t = setInterval(tick, 1_000);
     return () => { cancelled = true; clearInterval(t); };
-  }, [cpId]);
+  }, [cpId, pricePerKWh]); // 單價變動也會即時反映電費
 
-  // ---------- 餘額：切卡即抓 & 每 5 秒校正（充電中僅往下夾） ----------
+  // ---------- 餘額：切卡即抓 & 每 5 秒校正 ----------
   useEffect(() => {
     if (!cardId) return;
     let cancelled = false;
@@ -210,9 +208,8 @@ export default function LiveStatus() {
         );
         const bal = Number(data?.balance ?? data ?? 0);
         if (!cancelled) {
-          setRawBalance(bal);
-          // 充電中避免把畫面餘額往上拉，僅向下夾；停止後再一次性對齊
-          setDisplayBalance((prev) => (cpStatus === "Charging" ? Math.min(prev, bal) : bal));
+          // 僅更新 rawBalance；displayBalance 統一由「rawBalance - liveCost」推導
+          setRawBalance(Number.isFinite(bal) ? bal : 0);
         }
       } catch (err) {
         // 忽略一次，保持前次值
@@ -222,18 +219,13 @@ export default function LiveStatus() {
     fetchBalance();
     const t = setInterval(fetchBalance, 5_000);
     return () => { cancelled = true; clearInterval(t); };
-  }, [cardId, cpStatus]);
+  }, [cardId]);
 
-  // ---------- 視覺每秒估算扣款（Charging 且有功率） ----------
+  // ---------- 顯示餘額：最後金額 - 電費 ----------
   useEffect(() => {
-    const t = setInterval(() => {
-      const charging = cpStatus === "Charging" && livePowerKw > 0;
-      if (!charging) return;
-      const delta = (livePowerKw * pricePerKWh) / 3600; // 元/秒
-      setDisplayBalance((prev) => Math.max(0, prev - delta));
-    }, 1_000);
-    return () => clearInterval(t);
-  }, [cpStatus, livePowerKw, pricePerKWh]);
+    const newBalance = (Number.isFinite(rawBalance) ? rawBalance : 0) - (Number.isFinite(liveCost) ? liveCost : 0);
+    setDisplayBalance(newBalance > 0 ? newBalance : 0);
+  }, [rawBalance, liveCost]);
 
   // ---------- 餘額歸零自動停樁（RemoteStopTransaction） ----------
   useEffect(() => {
@@ -294,7 +286,6 @@ export default function LiveStatus() {
     border: "1px solid #ccc",
     borderRadius: 6,
   };
-  const hint = { opacity: 0.7, fontSize: 12 };
 
   return (
     <div style={wrap}>
@@ -320,11 +311,13 @@ export default function LiveStatus() {
 
       <p>
         ⚡ 電價：{pricePerKWh.toFixed(2)} 元/kWh
-        {priceFallback ? "（預設）" : ""}
+        {priceFallback ? "（預設）" : ""} {priceLabel ? `｜${priceLabel}` : ""}
       </p>
 
       <p>💳 卡片餘額：{displayBalance.toFixed(3)} 元</p>
-      <p style={hint}>（每秒估算扣款 = 即時功率 × 電價 ÷ 3600；充電中每 5 秒以下夾對齊後端）</p>
+      <p style={{ opacity: 0.7, fontSize: 12 }}>
+        （顯示餘額 = 卡片最後金額 − 電費；電費 = 用電量(kWh) × 單價）
+      </p>
 
       <p>🔌 功率：{livePowerKw.toFixed(2)} kW</p>
       <p>🔋 電壓：{liveVoltageV.toFixed(1)} V</p>
