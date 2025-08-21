@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import axios from "../axiosInstance"; // ← 依你的專案實際路徑調整
 
 export default function LiveStatus() {
@@ -28,6 +28,12 @@ export default function LiveStatus() {
   // 餘額（raw 後端；display 顯示值 = rawBalance - liveCost）
   const [rawBalance, setRawBalance] = useState(0);
   const [displayBalance, setDisplayBalance] = useState(0);
+
+  // 停充後畫面凍結：避免回彈
+  const [frozenAfterStop, setFrozenAfterStop] = useState(false);
+  const [frozenCost, setFrozenCost] = useState(0);
+  const [rawAtFreeze, setRawAtFreeze] = useState(null);
+  const prevStatusRef = useRef(cpStatus);
 
   // 自動停樁：避免重複觸發
   const [sentAutoStop, setSentAutoStop] = useState(false);
@@ -221,34 +227,37 @@ export default function LiveStatus() {
     return () => { cancelled = true; clearInterval(t); };
   }, [cardId]);
 
-  // ---------- 顯示餘額：最後金額 - 電費 ----------
-  useEffect(() => {
-    const newBalance = (Number.isFinite(rawBalance) ? rawBalance : 0) - (Number.isFinite(liveCost) ? liveCost : 0);
-    setDisplayBalance(newBalance > 0 ? newBalance : 0);
-  }, [rawBalance, liveCost]);
 
-  // ---------- 餘額歸零自動停樁（RemoteStopTransaction） ----------
+  // 充電狀態從 Charging -> 非 Charging 時，凍結顯示用數值，避免回彈
   useEffect(() => {
-    if (sentAutoStop) return;
-    if (cpStatus !== "Charging") return;
-
-    const nearZero = (x) => Number.isFinite(x) && x <= 0.001;
-    if (nearZero(displayBalance) || nearZero(rawBalance)) {
-      (async () => {
-        try {
-          const res = await axios.post(
-            `/api/charge-points/${encodeURIComponent(cpId)}/stop`
-          );
-          setSentAutoStop(true);
-          setStopMsg("已送出停止充電指令（RemoteStopTransaction）。");
-          console.log("Auto stop sent:", res.data);
-        } catch (e) {
-          setStopMsg(`停止充電指令失敗：${e?.response?.status || ""} ${e?.response?.data || ""}`);
-          console.warn("Auto stop failed:", e?.response?.status, e?.response?.data);
-        }
-      })();
+    const prev = prevStatusRef.current;
+    if (prev === "Charging" && cpStatus !== "Charging") {
+      setFrozenAfterStop(true);
+      setFrozenCost(Number.isFinite(liveCost) ? liveCost : 0);
+      setRawAtFreeze(Number.isFinite(rawBalance) ? rawBalance : 0);
     }
-  }, [displayBalance, rawBalance, cpStatus, cpId, sentAutoStop]);
+    prevStatusRef.current = cpStatus;
+  }, [cpStatus, liveCost, rawBalance]);
+
+  // 後端扣款後（rawBalance 變小）解除凍結
+  useEffect(() => {
+    if (!frozenAfterStop || rawAtFreeze == null) return;
+    if (Number.isFinite(rawBalance) && rawBalance < (rawAtFreeze - 0.01)) {
+      setFrozenAfterStop(false);
+      setFrozenCost(0);
+      setRawAtFreeze(null);
+    }
+  }, [rawBalance, frozenAfterStop, rawAtFreeze]);
+
+
+  // ---------- 顯示餘額：充電中用 raw - liveCost；停充後用凍結值 ----------
+  useEffect(() => {
+    const base = (frozenAfterStop && rawAtFreeze != null) ? rawAtFreeze : rawBalance;
+    const cost = frozenAfterStop ? frozenCost : liveCost;
+    const nb = (Number.isFinite(base) ? base : 0) - (Number.isFinite(cost) ? cost : 0);
+    setDisplayBalance(nb > 0 ? nb : 0);
+  }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
+
 
   // ---------- 切換樁時重置 ----------
   useEffect(() => {
