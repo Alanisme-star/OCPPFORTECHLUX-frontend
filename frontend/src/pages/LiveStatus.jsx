@@ -19,6 +19,8 @@ export default function LiveStatus() {
   const [liveCurrentA, setLiveCurrentA] = useState(0);
   const [liveEnergyKWh, setLiveEnergyKWh] = useState(0);
 
+  // 電費
+  const [liveCost, setLiveCost] = useState(0);
 
   // 樁態
   const [cpStatus, setCpStatus] = useState("Unknown");
@@ -146,7 +148,7 @@ export default function LiveStatus() {
     fetchStatus();
     const t = setInterval(fetchStatus, 2_000);
     return () => { cancelled = true; clearInterval(t); };
-  }, [cpId]);
+  }, [cpId, pricePerKWh]);
 
   // ---------- 即時量測：每 1 秒 ----------
   useEffect(() => {
@@ -179,6 +181,12 @@ export default function LiveStatus() {
             ? session
             : (Number.isFinite(total) ? total : 0);
           setLiveEnergyKWh(energyVal);
+
+
+          // 電費 = 用電量(kWh) × 單價(元/kWh)
+          const fee = (Number.isFinite(energyVal) ? energyVal : 0) * (Number.isFinite(pricePerKWh) ? pricePerKWh : 0);
+          setLiveCost(fee);
+
         }
       } catch (err) {
         // 忽略一次，保持前次值
@@ -323,6 +331,7 @@ export default function LiveStatus() {
       <p>🔧 電流：{liveCurrentA.toFixed(2)} A</p>
       <p>🏷️ 樁態：{statusLabel(cpStatus)}</p>
       <p>🔋 用電量：{liveEnergyKWh.toFixed(4)} kWh</p>
+      <p>💰 電費：{liveCost.toFixed(2)} 元</p>
 
       {stopMsg && <p style={{ color: "#ffd54f", marginTop: 8 }}>🔔 {stopMsg}</p>}
     </div>
