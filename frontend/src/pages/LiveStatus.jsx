@@ -330,7 +330,7 @@ export default function LiveStatus() {
       <p>🔋 電壓：{liveVoltageV.toFixed(1)} V</p>
       <p>🔧 電流：{liveCurrentA.toFixed(2)} A</p>
       <p>🏷️ 樁態：{statusLabel(cpStatus)}</p>
-      <p>🔋 用電量：{liveEnergyKWh.toFixed(4)} kWh</p>
+      <p>🔋 電量：{liveEnergyKWh.toFixed(4)} kWh</p>
       <p>💰 電費：{liveCost.toFixed(2)} 元</p>
 
       {stopMsg && <p style={{ color: "#ffd54f", marginTop: 8 }}>🔔 {stopMsg}</p>}
