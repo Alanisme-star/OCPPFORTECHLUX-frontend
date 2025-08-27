@@ -85,10 +85,13 @@ export default function LiveStatus() {
     };
     fetchPrice();
     const t = setInterval(fetchPrice, 60_000);
-    return () => { cancelled = true; clearInterval(t); };
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
   }, []);
 
-  // ---------- 樁態：同時取 DB 與快取，選較新；每 2 秒 ----------
+  // ---------- 樁態：每 2 秒 ----------
   useEffect(() => {
     if (!cpId) return;
     let cancelled = false;
@@ -102,12 +105,15 @@ export default function LiveStatus() {
     const fetchStatus = async () => {
       try {
         const [dbRes, cacheRes] = await Promise.allSettled([
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-status`), // DB(status_logs)
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/status`),        // Cache(mock-status)
+          axios.get(
+            `/api/charge-points/${encodeURIComponent(cpId)}/latest-status`
+          ), // DB(status_logs)
+          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/status`), // Cache(mock-status)
         ]);
 
         // DB 結果
-        let dbStatus = "Unknown", dbTs = 0;
+        let dbStatus = "Unknown",
+          dbTs = 0;
         if (dbRes.status === "fulfilled") {
           const d = dbRes.value?.data;
           dbStatus = (d?.status ?? d ?? "Unknown") || "Unknown";
@@ -115,7 +121,8 @@ export default function LiveStatus() {
         }
 
         // 快取結果
-        let cacheStatus = "Unknown", cacheTs = 0;
+        let cacheStatus = "Unknown",
+          cacheTs = 0;
         if (cacheRes.status === "fulfilled") {
           const c = cacheRes.value?.data;
           if (typeof c === "string") {
@@ -126,10 +133,7 @@ export default function LiveStatus() {
           }
         }
 
-        // 選擇邏輯：
-        // 1) 其中一個 Unknown → 用另一個
-        // 2) 兩者皆有值 → 用 timestamp 較新者
-        // 3) 無法判斷 → 若 DB=Available 且 Cache=Charging，優先 Charging；否則預設 DB
+        // 選擇邏輯
         let chosen = "Unknown";
         if (dbStatus === "Unknown" && cacheStatus !== "Unknown") {
           chosen = cacheStatus;
@@ -153,43 +157,37 @@ export default function LiveStatus() {
 
     fetchStatus();
     const t = setInterval(fetchStatus, 2_000);
-    return () => { cancelled = true; clearInterval(t); };
-  }, [cpId]); // 不需依賴 pricePerKWh
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [cpId]);
 
-  // ---------- 即時量測：每 1 秒 ----------
+  // ---------- 即時量測：改用 live-status，每 1 秒 ----------
   useEffect(() => {
     if (!cpId) return;
     let cancelled = false;
 
     const tick = async () => {
       try {
-        const [p, v, a, e] = await Promise.all([
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-power`),
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-voltage`),
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-current`),
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-energy`), // 抓用電量
-        ]);
-
-        const kw = Number(p.data?.value ?? p.data);
-        const vv = Number(v.data?.value ?? v.data);
-        const aa = Number(a.data?.value ?? a.data);
-
-        // total 或 session 二擇一顯示：優先顯示本次充電用電量，否則顯示總表值
-        const session = Number(e.data?.sessionEnergyKWh);
-        const total = Number(e.data?.totalEnergyKWh ?? e.data?.value ?? e.data);
+        const { data } = await axios.get(
+          `/api/charge-points/${encodeURIComponent(cpId)}/live-status`
+        );
 
         if (!cancelled) {
+          const kw = Number(data?.power ?? 0);
+          const vv = Number(data?.voltage ?? 0);
+          const aa = Number(data?.current ?? 0);
+          const ee = Number(data?.energy ?? 0);
+
           setLivePowerKw(Number.isFinite(kw) ? kw : 0);
           setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
           setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
+          setLiveEnergyKWh(Number.isFinite(ee) ? ee : 0);
 
-          const energyVal = Number.isFinite(session)
-            ? session
-            : (Number.isFinite(total) ? total : 0);
-          setLiveEnergyKWh(energyVal);
-
-          // 電費 = 用電量(kWh) × 單價(元/kWh)
-          const fee = (Number.isFinite(energyVal) ? energyVal : 0) * (Number.isFinite(pricePerKWh) ? pricePerKWh : 0);
+          const fee =
+            (Number.isFinite(ee) ? ee : 0) *
+            (Number.isFinite(pricePerKWh) ? pricePerKWh : 0);
           setLiveCost(fee);
         }
       } catch (err) {
@@ -199,10 +197,13 @@ export default function LiveStatus() {
 
     tick();
     const t = setInterval(tick, 1_000);
-    return () => { cancelled = true; clearInterval(t); };
-  }, [cpId, pricePerKWh]); // 單價變動也會即時反映電費
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [cpId, pricePerKWh]);
 
-  // ---------- 餘額：切卡即抓 & 每 5 秒校正 ----------
+  // ---------- 餘額：每 5 秒 ----------
   useEffect(() => {
     if (!cardId) return;
     let cancelled = false;
@@ -214,7 +215,6 @@ export default function LiveStatus() {
         );
         const bal = Number(data?.balance ?? data ?? 0);
         if (!cancelled) {
-          // 僅更新 rawBalance；displayBalance 統一由「rawBalance - liveCost」推導
           setRawBalance(Number.isFinite(bal) ? bal : 0);
         }
       } catch (err) {
@@ -224,11 +224,13 @@ export default function LiveStatus() {
 
     fetchBalance();
     const t = setInterval(fetchBalance, 5_000);
-    return () => { cancelled = true; clearInterval(t); };
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
   }, [cardId]);
 
-
-  // 充電狀態從 Charging -> 非 Charging 時，凍結顯示用數值，避免回彈
+  // 充電狀態從 Charging -> 非 Charging 時，凍結顯示
   useEffect(() => {
     const prev = prevStatusRef.current;
     if (prev === "Charging" && cpStatus !== "Charging") {
@@ -239,33 +241,34 @@ export default function LiveStatus() {
     prevStatusRef.current = cpStatus;
   }, [cpStatus, liveCost, rawBalance]);
 
-  // 後端扣款後（rawBalance 變小）解除凍結
+  // 後端扣款後解除凍結
   useEffect(() => {
     if (!frozenAfterStop || rawAtFreeze == null) return;
-    if (Number.isFinite(rawBalance) && rawBalance < (rawAtFreeze - 0.01)) {
+    if (Number.isFinite(rawBalance) && rawBalance < rawAtFreeze - 0.01) {
       setFrozenAfterStop(false);
       setFrozenCost(0);
       setRawAtFreeze(null);
     }
   }, [rawBalance, frozenAfterStop, rawAtFreeze]);
 
-
-  // ---------- 顯示餘額：充電中用 raw - liveCost；停充後用凍結值 ----------
+  // ---------- 顯示餘額 ----------
   useEffect(() => {
-    const base = (frozenAfterStop && rawAtFreeze != null) ? rawAtFreeze : rawBalance;
+    const base =
+      frozenAfterStop && rawAtFreeze != null ? rawAtFreeze : rawBalance;
     const cost = frozenAfterStop ? frozenCost : liveCost;
-    const nb = (Number.isFinite(base) ? base : 0) - (Number.isFinite(cost) ? cost : 0);
+    const nb =
+      (Number.isFinite(base) ? base : 0) -
+      (Number.isFinite(cost) ? cost : 0);
     setDisplayBalance(nb > 0 ? nb : 0);
   }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
-
 
   // ---------- 切換樁時重置 ----------
   useEffect(() => {
     setLivePowerKw(0);
     setLiveVoltageV(0);
     setLiveCurrentA(0);
-    setSentAutoStop(false); // 換樁重置 auto-stop 鎖
-    setStopMsg("");         // 清除提示
+    setSentAutoStop(false);
+    setStopMsg("");
   }, [cpId]);
 
   // 狀態中文
@@ -316,8 +319,6 @@ export default function LiveStatus() {
         })}
       </select>
 
-      {/* 如需加入充電樁下拉，可在此補一個 select。此處維持自動選第一支 */}
-
       <p>
         ⚡ 電價：{pricePerKWh.toFixed(2)} 元/kWh
         {priceFallback ? "（預設）" : ""} {priceLabel ? `｜${priceLabel}` : ""}
@@ -335,7 +336,9 @@ export default function LiveStatus() {
       <p>🔋 電量：{liveEnergyKWh.toFixed(4)} kWh</p>
       <p>💰 電費：{liveCost.toFixed(2)} 元</p>
 
-      {stopMsg && <p style={{ color: "#ffd54f", marginTop: 8 }}>🔔 {stopMsg}</p>}
+      {stopMsg && (
+        <p style={{ color: "#ffd54f", marginTop: 8 }}>🔔 {stopMsg}</p>
+      )}
     </div>
   );
 }
