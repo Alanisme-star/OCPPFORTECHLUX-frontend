@@ -149,7 +149,11 @@ export default function LiveStatus() {
           }
         }
 
-        if (!cancelled) setCpStatus(chosen);
+        if (!cancelled) {
+          if (chosen === "未知") chosen = "Unknown";
+          setCpStatus(chosen);
+        }
+
       } catch {
         if (!cancelled) setCpStatus("Unknown");
       }
