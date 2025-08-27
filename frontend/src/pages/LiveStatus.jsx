@@ -163,35 +163,44 @@ export default function LiveStatus() {
     };
   }, [cpId]);
 
-  // ---------- 即時量測：改用 live-status，每 1 秒 ----------
+  // ---------- 即時量測：live-status + latest-energy，每 1 秒 ----------
   useEffect(() => {
     if (!cpId) return;
     let cancelled = false;
 
     const tick = async () => {
       try {
-        const { data } = await axios.get(
-          `/api/charge-points/${encodeURIComponent(cpId)}/live-status`
+        const [liveRes, energyRes] = await Promise.all([
+          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/live-status`),
+          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-energy`),
+        ]);
+
+        if (cancelled) return;
+
+        // 即時功率/電壓/電流
+        const live = liveRes.data || {};
+        const kw = Number(live?.power ?? 0);
+        const vv = Number(live?.voltage ?? 0);
+        const aa = Number(live?.current ?? 0);
+        setLivePowerKw(Number.isFinite(kw) ? kw : 0);
+        setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
+        setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
+
+        // 以 DB 的「本次用電量」為主；沒有時再退回其他來源
+        const e = energyRes.data || {};
+        const session = Number(
+          e?.sessionEnergyKWh ??
+          e?.totalEnergyKWh ?? // 退而求其次：總表
+          live?.energy ??       // 再退：即時回傳的能量
+          0
         );
+        const kwh = Number.isFinite(session) ? session : 0;
+        setLiveEnergyKWh(kwh);
 
-        if (!cancelled) {
-          const kw = Number(data?.power ?? 0);
-          const vv = Number(data?.voltage ?? 0);
-          const aa = Number(data?.current ?? 0);
-          const ee = Number(data?.energy ?? 0);
-
-          setLivePowerKw(Number.isFinite(kw) ? kw : 0);
-          setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
-          setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
-          setLiveEnergyKWh(Number.isFinite(ee) ? ee : 0);
-
-          const fee =
-            (Number.isFinite(ee) ? ee : 0) *
-            (Number.isFinite(pricePerKWh) ? pricePerKWh : 0);
-          setLiveCost(fee);
-        }
+        const price = Number.isFinite(pricePerKWh) ? pricePerKWh : 0;
+        setLiveCost(kwh * price);
       } catch (err) {
-        // 忽略一次，保持前次值
+        // 忽略一次，保留前次值
       }
     };
 
@@ -202,6 +211,7 @@ export default function LiveStatus() {
       clearInterval(t);
     };
   }, [cpId, pricePerKWh]);
+
 
   // ---------- 餘額：每 5 秒 ----------
   useEffect(() => {
