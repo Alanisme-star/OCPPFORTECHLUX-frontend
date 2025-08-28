@@ -244,18 +244,30 @@ export default function LiveStatus() {
     };
   }, [cardId]);
 
-  // 充電狀態從 Charging -> 非 Charging 時，凍結顯示
+  // 充電狀態由 Charging → 非 Charging 時才評估是否顯示提醒（加條件）
   useEffect(() => {
     const prev = prevStatusRef.current;
     if (prev === "Charging" && cpStatus !== "Charging") {
+      // 凍結顯示，避免回彈
       setFrozenAfterStop(true);
       setFrozenCost(Number.isFinite(liveCost) ? liveCost : 0);
       setRawAtFreeze(Number.isFinite(rawBalance) ? rawBalance : 0);
-      // ⬇️ 新增：提示訊息
-      setStopMsg("充電已自動停止（餘額不足或後端命令）");
+
+      // 只有疑似「餘額用盡」或（未來）我們真的送過遠端停充才顯示黃字
+      const nearZero =
+        (Number.isFinite(displayBalance) ? displayBalance : 0) <= 0.01;
+
+      if (nearZero || sentAutoStop) {
+        setStopMsg(
+          nearZero ? "充電已自動停止（餘額不足）" : "充電已自動停止（後端遠端命令）"
+        );
+      } else {
+        // 其他原因（拔槍、車端停止、模擬器結束…）不顯示誤導訊息
+        setStopMsg("");
+      }
     }
     prevStatusRef.current = cpStatus;
-  }, [cpStatus, liveCost, rawBalance]);
+   }, [cpStatus, liveCost, rawBalance, displayBalance, sentAutoStop]);
 
   // 後端扣款後解除凍結
   useEffect(() => {
