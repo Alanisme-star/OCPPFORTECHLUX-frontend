@@ -251,6 +251,8 @@ export default function LiveStatus() {
       setFrozenAfterStop(true);
       setFrozenCost(Number.isFinite(liveCost) ? liveCost : 0);
       setRawAtFreeze(Number.isFinite(rawBalance) ? rawBalance : 0);
+      // ⬇️ 新增：提示訊息
+      setStopMsg("充電已自動停止（餘額不足或後端命令）");
     }
     prevStatusRef.current = cpStatus;
   }, [cpStatus, liveCost, rawBalance]);
