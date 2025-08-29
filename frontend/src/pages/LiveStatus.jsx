@@ -39,6 +39,8 @@ export default function LiveStatus() {
   const [sentAutoStop, setSentAutoStop] = useState(false);
   // UI 提示訊息（一次性）
   const [stopMsg, setStopMsg] = useState("");
+  // 小工具：判斷接近 0（避免浮點誤差）
+  const nearZero = (v) => v !== null && v !== undefined && Number(v) <= 0.001;
 
   // ---------- 初始化：卡片 / 充電樁清單 ----------
   useEffect(() => {
@@ -289,6 +291,37 @@ export default function LiveStatus() {
       (Number.isFinite(cost) ? cost : 0);
     setDisplayBalance(nb > 0 ? nb : 0);
   }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
+
+
+
+  // ---------- 餘額到 0 立刻停樁（只送一次） ----------
+  useEffect(() => {
+    if (!cpId) return;
+    if (sentAutoStop) return;                    // 已送過就不要重送
+    if (cpStatus !== "Charging") return;         // 只在充電中才觸發
+
+    const disp = Number.isFinite(displayBalance) ? displayBalance : 0;
+    const raw  = Number.isFinite(rawBalance)     ? rawBalance     : 0;
+
+    if (nearZero(disp) || nearZero(raw)) {
+      (async () => {
+        try {
+          setSentAutoStop(true); // 先鎖住，避免重覆送
+          await axios.post(`/api/charge-points/${encodeURIComponent(cpId)}/stop`, {
+            reason: "balance_exhausted"
+          });
+          // 立刻給使用者回饋（真正停下來的黃字，仍由既有狀態轉換 effect 顯示）
+          setStopMsg("已自動送出停止充電（餘額不足）");
+        } catch (err) {
+          console.error("auto stop failed:", err);
+          // 視需求決定要不要解鎖重試；若留著 true，就交給後端保險機制處理
+          // setSentAutoStop(false);
+        }
+      })();
+    }
+  }, [cpId, cpStatus, displayBalance, rawBalance, sentAutoStop]);
+
+
 
   // ---------- 切換樁時重置 ----------
   useEffect(() => {
