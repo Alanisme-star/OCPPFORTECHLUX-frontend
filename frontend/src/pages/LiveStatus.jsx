@@ -265,7 +265,7 @@ export default function LiveStatus() {
         );
       } else {
         // 其他原因（拔槍、車端停止、模擬器結束…）不顯示誤導訊息
-        setStopMsg("");
+        setStopMsg("充電已停止");
       }
     }
     prevStatusRef.current = cpStatus;
