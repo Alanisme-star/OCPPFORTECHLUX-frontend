@@ -155,7 +155,6 @@ export default function LiveStatus() {
           if (chosen === "未知") chosen = "Unknown";
           setCpStatus(chosen);
         }
-
       } catch {
         if (!cancelled) setCpStatus("Unknown");
       }
@@ -203,9 +202,12 @@ export default function LiveStatus() {
         const kwh = Number.isFinite(session) ? session : 0;
         setLiveEnergyKWh(kwh);
 
-        const price = Number.isFinite(pricePerKWh) ? pricePerKWh : 0;
-        setLiveCost(kwh * price);
-      } catch (err) {
+        // ✅ 只在「未凍結」時才用前端估算電費，避免停充後用估算覆蓋後端結算
+        if (!frozenAfterStop) {
+          const price = Number.isFinite(pricePerKWh) ? pricePerKWh : 0;
+          setLiveCost(kwh * price);
+        }
+      } catch {
         // 忽略一次，保留前次值
       }
     };
@@ -216,8 +218,7 @@ export default function LiveStatus() {
       cancelled = true;
       clearInterval(t);
     };
-  }, [cpId, pricePerKWh]);
-
+  }, [cpId, pricePerKWh, frozenAfterStop]);
 
   // ---------- 餘額：每 5 秒 ----------
   useEffect(() => {
@@ -233,7 +234,7 @@ export default function LiveStatus() {
         if (!cancelled) {
           setRawBalance(Number.isFinite(bal) ? bal : 0);
         }
-      } catch (err) {
+      } catch {
         // 忽略一次，保持前次值
       }
     };
@@ -246,30 +247,47 @@ export default function LiveStatus() {
     };
   }, [cardId]);
 
-  // 充電狀態由 Charging → 非 Charging 時才評估是否顯示提醒（加條件）
+  // 充電狀態由 Charging → 非 Charging：凍結 + 立刻用後端結算覆蓋 frozenCost/rawBalance
   useEffect(() => {
     const prev = prevStatusRef.current;
     if (prev === "Charging" && cpStatus !== "Charging") {
-      // 凍結顯示，避免回彈
+      // 先凍結，避免畫面回彈
       setFrozenAfterStop(true);
       setFrozenCost(Number.isFinite(liveCost) ? liveCost : 0);
       setRawAtFreeze(Number.isFinite(rawBalance) ? rawBalance : 0);
 
-      // 只有疑似「餘額用盡」或（未來）我們真的送過遠端停充才顯示黃字
-      const nearZero =
+      // 只有疑似「餘額用盡」或我們真的送過遠端停充才顯示黃字
+      const nearZeroDisp =
         (Number.isFinite(displayBalance) ? displayBalance : 0) <= 0.01;
-
-      if (nearZero || sentAutoStop) {
+      if (nearZeroDisp || sentAutoStop) {
         setStopMsg(
-          nearZero ? "充電已自動停止（餘額不足）" : "充電已自動停止（後端遠端命令）"
+          nearZeroDisp ? "充電已自動停止（餘額不足）" : "充電已自動停止（後端遠端命令）"
         );
       } else {
-        // 其他原因（拔槍、車端停止、模擬器結束…）不顯示誤導訊息
         setStopMsg("充電已停止");
       }
+
+      // ✅ 新增：停充當下向後端要最近一筆已結束交易結算，覆蓋凍結金額與餘額
+      (async () => {
+        try {
+          const { data } = await axios.get(
+            `/api/charge-points/${encodeURIComponent(cpId)}/last-transaction/summary`
+          );
+          if (data?.found) {
+            if (Number.isFinite(data.total_amount)) {
+              setFrozenCost(data.total_amount);
+            }
+            if (Number.isFinite(data.balance)) {
+              setRawBalance(data.balance); // 讓「扣款後」餘額即時反映
+            }
+          }
+        } catch {
+          // 忽略：若讀取失敗就沿用原本凍結值，等下一輪餘額輪詢更新
+        }
+      })();
     }
     prevStatusRef.current = cpStatus;
-   }, [cpStatus, liveCost, rawBalance, displayBalance, sentAutoStop]);
+  }, [cpStatus, liveCost, rawBalance, displayBalance, sentAutoStop, cpId]);
 
   // 後端扣款後解除凍結
   useEffect(() => {
@@ -281,7 +299,7 @@ export default function LiveStatus() {
     }
   }, [rawBalance, frozenAfterStop, rawAtFreeze]);
 
-  // ---------- 顯示餘額 ----------
+  // ---------- 顯示餘額（凍結時固定值；未凍結用即時估算） ----------
   useEffect(() => {
     const base =
       frozenAfterStop && rawAtFreeze != null ? rawAtFreeze : rawBalance;
@@ -291,8 +309,6 @@ export default function LiveStatus() {
       (Number.isFinite(cost) ? cost : 0);
     setDisplayBalance(nb > 0 ? nb : 0);
   }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
-
-
 
   // ---------- 餘額到 0 立刻停樁（只送一次） ----------
   useEffect(() => {
@@ -310,18 +326,15 @@ export default function LiveStatus() {
           await axios.post(`/api/charge-points/${encodeURIComponent(cpId)}/stop`, {
             reason: "balance_exhausted"
           });
-          // 立刻給使用者回饋（真正停下來的黃字，仍由既有狀態轉換 effect 顯示）
           setStopMsg("已自動送出停止充電（餘額不足）");
         } catch (err) {
           console.error("auto stop failed:", err);
-          // 視需求決定要不要解鎖重試；若留著 true，就交給後端保險機制處理
+          // 視需求決定是否解鎖重試
           // setSentAutoStop(false);
         }
       })();
     }
   }, [cpId, cpStatus, displayBalance, rawBalance, sentAutoStop]);
-
-
 
   // ---------- 切換樁時重置 ----------
   useEffect(() => {
@@ -372,6 +385,22 @@ export default function LiveStatus() {
       >
         {cardList.map((c) => {
           const id = c.card_id ?? c.cardId ?? "";
+          return (
+            <option key={id} value={id}>
+              {id}
+            </option>
+          );
+        })}
+      </select>
+
+      <label>充電樁：</label>
+      <select
+        value={cpId}
+        onChange={(e) => setCpId(e.target.value)}
+        style={inputStyle}
+      >
+        {cpList.map((c) => {
+          const id = c.chargePointId ?? c.id ?? "";
           return (
             <option key={id} value={id}>
               {id}
