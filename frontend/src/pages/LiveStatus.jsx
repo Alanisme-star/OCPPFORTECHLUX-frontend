@@ -35,8 +35,6 @@ export default function LiveStatus() {
   const [rawAtFreeze, setRawAtFreeze] = useState(null);
   const prevStatusRef = useRef(cpStatus);
 
-  // 自動停樁：避免重複觸發
-  const [sentAutoStop, setSentAutoStop] = useState(false);
   // UI 提示訊息（一次性）
   const [stopMsg, setStopMsg] = useState("");
   // 小工具：判斷接近 0（避免浮點誤差）
@@ -109,8 +107,8 @@ export default function LiveStatus() {
         const [dbRes, cacheRes] = await Promise.allSettled([
           axios.get(
             `/api/charge-points/${encodeURIComponent(cpId)}/latest-status`
-          ), // DB(status_logs)
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/status`), // Cache(mock-status)
+          ),
+          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/status`),
         ]);
 
         // DB 結果
@@ -182,7 +180,6 @@ export default function LiveStatus() {
 
         if (cancelled) return;
 
-        // 即時功率/電壓/電流
         const live = liveRes.data || {};
         const kw = Number(live?.power ?? 0);
         const vv = Number(live?.voltage ?? 0);
@@ -191,24 +188,22 @@ export default function LiveStatus() {
         setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
         setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
 
-        // 以 DB 的「本次用電量」為主；沒有時再退回其他來源
         const e = energyRes.data || {};
         const session = Number(
           e?.sessionEnergyKWh ??
-          e?.totalEnergyKWh ?? // 退而求其次：總表
-          live?.energy ??       // 再退：即時回傳的能量
+          e?.totalEnergyKWh ??
+          live?.energy ??
           0
         );
         const kwh = Number.isFinite(session) ? session : 0;
         setLiveEnergyKWh(kwh);
 
-        // ✅ 只在「未凍結」時才用前端估算電費，避免停充後用估算覆蓋後端結算
         if (!frozenAfterStop) {
           const price = Number.isFinite(pricePerKWh) ? pricePerKWh : 0;
           setLiveCost(kwh * price);
         }
       } catch {
-        // 忽略一次，保留前次值
+        // 忽略一次
       }
     };
 
@@ -235,7 +230,7 @@ export default function LiveStatus() {
           setRawBalance(Number.isFinite(bal) ? bal : 0);
         }
       } catch {
-        // 忽略一次，保持前次值
+        // 忽略一次
       }
     };
 
@@ -247,27 +242,22 @@ export default function LiveStatus() {
     };
   }, [cardId]);
 
-  // 充電狀態由 Charging → 非 Charging：凍結 + 立刻用後端結算覆蓋 frozenCost/rawBalance
+  // ---------- 停充凍結處理 ----------
   useEffect(() => {
     const prev = prevStatusRef.current;
     if (prev === "Charging" && cpStatus !== "Charging") {
-      // 先凍結，避免畫面回彈
       setFrozenAfterStop(true);
       setFrozenCost(Number.isFinite(liveCost) ? liveCost : 0);
       setRawAtFreeze(Number.isFinite(rawBalance) ? rawBalance : 0);
 
-      // 只有疑似「餘額用盡」或我們真的送過遠端停充才顯示黃字
       const nearZeroDisp =
         (Number.isFinite(displayBalance) ? displayBalance : 0) <= 0.01;
-      if (nearZeroDisp || sentAutoStop) {
-        setStopMsg(
-          nearZeroDisp ? "充電已自動停止（餘額不足）" : "充電已自動停止（後端遠端命令）"
-        );
+      if (nearZeroDisp) {
+        setStopMsg("充電已自動停止（餘額不足）");
       } else {
         setStopMsg("充電已停止");
       }
 
-      // ✅ 新增：停充當下向後端要最近一筆已結束交易結算，覆蓋凍結金額與餘額
       (async () => {
         try {
           const { data } = await axios.get(
@@ -278,16 +268,16 @@ export default function LiveStatus() {
               setFrozenCost(data.total_amount);
             }
             if (Number.isFinite(data.balance)) {
-              setRawBalance(data.balance); // 讓「扣款後」餘額即時反映
+              setRawBalance(data.balance);
             }
           }
         } catch {
-          // 忽略：若讀取失敗就沿用原本凍結值，等下一輪餘額輪詢更新
+          // 忽略
         }
       })();
     }
     prevStatusRef.current = cpStatus;
-  }, [cpStatus, liveCost, rawBalance, displayBalance, sentAutoStop, cpId]);
+  }, [cpStatus, liveCost, rawBalance, displayBalance, cpId]);
 
   // 後端扣款後解除凍結
   useEffect(() => {
@@ -299,7 +289,7 @@ export default function LiveStatus() {
     }
   }, [rawBalance, frozenAfterStop, rawAtFreeze]);
 
-  // ---------- 顯示餘額（凍結時固定值；未凍結用即時估算） ----------
+  // ---------- 顯示餘額 ----------
   useEffect(() => {
     const base =
       frozenAfterStop && rawAtFreeze != null ? rawAtFreeze : rawBalance;
@@ -310,38 +300,24 @@ export default function LiveStatus() {
     setDisplayBalance(nb > 0 ? nb : 0);
   }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
 
-  // ---------- 餘額到 0 立刻停樁（只送一次） ----------
+  // ---------- 餘額警告（不再自動送停充） ----------
   useEffect(() => {
     if (!cpId) return;
-    if (sentAutoStop) return;                    // 已送過就不要重送
-    if (cpStatus !== "Charging") return;         // 只在充電中才觸發
+    if (cpStatus !== "Charging") return;
 
     const disp = Number.isFinite(displayBalance) ? displayBalance : 0;
-    const raw  = Number.isFinite(rawBalance)     ? rawBalance     : 0;
+    const raw = Number.isFinite(rawBalance) ? rawBalance : 0;
 
     if (nearZero(disp) || nearZero(raw)) {
-      (async () => {
-        try {
-          setSentAutoStop(true); // 先鎖住，避免重覆送
-          await axios.post(`/api/charge-points/${encodeURIComponent(cpId)}/stop`, {
-            reason: "balance_exhausted"
-          });
-          setStopMsg("已自動送出停止充電（餘額不足）");
-        } catch (err) {
-          console.error("auto stop failed:", err);
-          // 視需求決定是否解鎖重試
-          // setSentAutoStop(false);
-        }
-      })();
+      setStopMsg("⚠️ 餘額即將不足，後端可能隨時自動停止充電");
     }
-  }, [cpId, cpStatus, displayBalance, rawBalance, sentAutoStop]);
+  }, [cpId, cpStatus, displayBalance, rawBalance]);
 
   // ---------- 切換樁時重置 ----------
   useEffect(() => {
     setLivePowerKw(0);
     setLiveVoltageV(0);
     setLiveCurrentA(0);
-    setSentAutoStop(false);
     setStopMsg("");
   }, [cpId]);
 
@@ -361,7 +337,6 @@ export default function LiveStatus() {
     return map[s] || s || "未知";
   };
 
-  // Styles
   const wrap = { padding: 20, color: "#fff" };
   const inputStyle = {
     width: "100%",
