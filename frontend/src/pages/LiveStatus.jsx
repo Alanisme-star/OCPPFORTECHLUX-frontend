@@ -189,12 +189,15 @@ export default function LiveStatus() {
         setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
 
         const e = energyRes.data || {};
-        const session = Number(
-          e?.sessionEnergyKWh ??
-          e?.totalEnergyKWh ??
-          live?.energy ??
-          0
-        );
+
+        let session = 0;
+        if (e?.sessionEnergyKWh !== undefined && e?.sessionEnergyKWh !== null) {
+          session = Number(e.sessionEnergyKWh);
+        } else if (cpStatus === "Charging") {
+          // 只有充電中才用 totalEnergyKWh / live.energy
+          session = Number(e?.totalEnergyKWh ?? live?.energy ?? 0);
+        }
+
         const kwh = Number.isFinite(session) ? session : 0;
         setLiveEnergyKWh(kwh);
 
