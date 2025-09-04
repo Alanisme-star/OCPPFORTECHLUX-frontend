@@ -40,9 +40,6 @@ export default function LiveStatus() {
   // 小工具：判斷接近 0（避免浮點誤差）
   const nearZero = (v) => v !== null && v !== undefined && Number(v) <= 0.001;
 
-  // 新增：目前交易 ID
-  const [transactionId, setTransactionId] = useState(null);
-
   // ---------- 初始化：卡片 / 充電樁清單 ----------
   useEffect(() => {
     (async () => {
@@ -114,6 +111,7 @@ export default function LiveStatus() {
           axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/status`),
         ]);
 
+        // DB 結果
         let dbStatus = "Unknown",
           dbTs = 0;
         if (dbRes.status === "fulfilled") {
@@ -122,6 +120,7 @@ export default function LiveStatus() {
           dbTs = safeParseTime(d?.timestamp);
         }
 
+        // 快取結果
         let cacheStatus = "Unknown",
           cacheTs = 0;
         if (cacheRes.status === "fulfilled") {
@@ -134,6 +133,7 @@ export default function LiveStatus() {
           }
         }
 
+        // 選擇邏輯
         let chosen = "Unknown";
         if (dbStatus === "Unknown" && cacheStatus !== "Unknown") {
           chosen = cacheStatus;
@@ -166,54 +166,44 @@ export default function LiveStatus() {
     };
   }, [cpId]);
 
-  // ---------- 取得當前交易 ID ----------
+  // ---------- 即時量測：live-status + latest-energy，每 1 秒 ----------
   useEffect(() => {
     if (!cpId) return;
     let cancelled = false;
 
-    const fetchTx = async () => {
-      try {
-        const { data } = await axios.get(
-          `/api/charge-points/${encodeURIComponent(cpId)}/last-transaction/summary`
-        );
-        if (!cancelled && data?.found) {
-          setTransactionId(data.transaction_id);
-        }
-      } catch {
-        // 忽略
-      }
-    };
-
-    fetchTx();
-    const t = setInterval(fetchTx, 5_000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, [cpId]);
-
-  // ---------- 即時量測：透過 live-cost API ----------
-  useEffect(() => {
-    if (!transactionId) return;
-    let cancelled = false;
-
     const tick = async () => {
       try {
-        const { data } = await axios.get(
-          `/api/transactions/${transactionId}/live-cost`
-        );
+        const [liveRes, energyRes] = await Promise.all([
+          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/live-status`),
+          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-energy`),
+        ]);
+
         if (cancelled) return;
 
-        if (data?.final) {
-          setFrozenAfterStop(true);
-          setFrozenCost(data.cost_so_far ?? 0);
-          setRawBalance(data.balance ?? 0);
-          setLiveEnergyKWh(data.used_kwh ?? 0);
-          setLiveCost(data.cost_so_far ?? 0);
-        } else {
-          setLiveEnergyKWh(data.used_kwh ?? 0);
-          setLiveCost(data.cost_so_far ?? 0);
-          setRawBalance(data.balance ?? 0);
+        const live = liveRes.data || {};
+        const kw = Number(live?.power ?? 0);
+        const vv = Number(live?.voltage ?? 0);
+        const aa = Number(live?.current ?? 0);
+        setLivePowerKw(Number.isFinite(kw) ? kw : 0);
+        setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
+        setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
+
+        const e = energyRes.data || {};
+
+        let session = 0;
+        if (e?.sessionEnergyKWh !== undefined && e?.sessionEnergyKWh !== null) {
+          session = Number(e.sessionEnergyKWh);
+        } else if (cpStatus === "Charging") {
+          // 只有充電中才用 totalEnergyKWh / live.energy
+          session = Number(e?.totalEnergyKWh ?? live?.energy ?? 0);
+        }
+
+        const kwh = Number.isFinite(session) ? session : 0;
+        setLiveEnergyKWh(kwh);
+
+        if (!frozenAfterStop) {
+          const price = Number.isFinite(pricePerKWh) ? pricePerKWh : 0;
+          setLiveCost(kwh * price);
         }
       } catch {
         // 忽略一次
@@ -226,7 +216,7 @@ export default function LiveStatus() {
       cancelled = true;
       clearInterval(t);
     };
-  }, [transactionId]);
+  }, [cpId, pricePerKWh, frozenAfterStop]);
 
   // ---------- 餘額：每 5 秒 ----------
   useEffect(() => {
@@ -270,6 +260,24 @@ export default function LiveStatus() {
       } else {
         setStopMsg("充電已停止");
       }
+
+      (async () => {
+        try {
+          const { data } = await axios.get(
+            `/api/charge-points/${encodeURIComponent(cpId)}/last-transaction/summary`
+          );
+          if (data?.found) {
+            if (Number.isFinite(data.total_amount)) {
+              setFrozenCost(data.total_amount);
+            }
+            if (Number.isFinite(data.balance)) {
+              setRawBalance(data.balance);
+            }
+          }
+        } catch {
+          // 忽略
+        }
+      })();
     }
     prevStatusRef.current = cpStatus;
   }, [cpStatus, liveCost, rawBalance, displayBalance, cpId]);
@@ -295,7 +303,7 @@ export default function LiveStatus() {
     setDisplayBalance(nb > 0 ? nb : 0);
   }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
 
-  // ---------- 餘額警告 ----------
+  // ---------- 餘額警告（不再自動送停充） ----------
   useEffect(() => {
     if (!cpId) return;
     if (cpStatus !== "Charging") return;
@@ -386,7 +394,7 @@ export default function LiveStatus() {
 
       <p>💳 卡片餘額：{displayBalance.toFixed(3)} 元</p>
       <p style={{ opacity: 0.7, fontSize: 12 }}>
-        （顯示餘額 = 卡片最後金額 − 電費；電費由後端 API 提供）
+        （顯示餘額 = 卡片最後金額 − 電費；電費 = 用電量(kWh) × 單價）
       </p>
 
       <p>🔌 功率：{livePowerKw.toFixed(2)} kW</p>
