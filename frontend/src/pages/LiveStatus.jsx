@@ -54,9 +54,15 @@ export default function LiveStatus() {
         setCpList(cpsData);
 
         if (cardsData.length) {
-          const firstId = cardsData[0].card_id ?? cardsData[0].cardId ?? "";
-          setCardId(firstId);
+          const firstId =
+            cardsData.find(c => c.card_id)?.card_id ??
+            cardsData.find(c => c.cardId)?.cardId ??
+            "";
+          if (firstId) {
+            setCardId(firstId);
+          }
         }
+
         if (cpsData.length) {
           const firstCp = cpsData[0].chargePointId ?? cpsData[0].id ?? "";
           setCpId(firstCp);
