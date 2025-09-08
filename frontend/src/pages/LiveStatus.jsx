@@ -253,6 +253,9 @@ export default function LiveStatus() {
       setFrozenCost(Number.isFinite(liveCost) ? liveCost : 0);
       setRawAtFreeze(Number.isFinite(rawBalance) ? rawBalance : 0);
 
+      // 🚀 新增：停充後直接凍結顯示餘額，避免回彈
+      setDisplayBalance(0);
+
       const nearZeroDisp =
         (Number.isFinite(displayBalance) ? displayBalance : 0) <= 0.01;
       if (nearZeroDisp) {
