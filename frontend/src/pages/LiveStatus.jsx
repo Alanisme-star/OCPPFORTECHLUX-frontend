@@ -35,10 +35,10 @@ export default function LiveStatus() {
   const [rawAtFreeze, setRawAtFreeze] = useState(null);
   const prevStatusRef = useRef(cpStatus);
 
+  // 自動停樁：避免重複觸發
+  const [sentAutoStop, setSentAutoStop] = useState(false);
   // UI 提示訊息（一次性）
   const [stopMsg, setStopMsg] = useState("");
-  // 小工具：判斷接近 0（避免浮點誤差）
-  const nearZero = (v) => v !== null && v !== undefined && Number(v) <= 0.001;
 
   // ---------- 初始化：卡片 / 充電樁清單 ----------
   useEffect(() => {
@@ -54,15 +54,9 @@ export default function LiveStatus() {
         setCpList(cpsData);
 
         if (cardsData.length) {
-          const firstId =
-            cardsData.find(c => c.card_id)?.card_id ??
-            cardsData.find(c => c.cardId)?.cardId ??
-            "";
-          if (firstId) {
-            setCardId(firstId);
-          }
+          const firstId = cardsData[0].card_id ?? cardsData[0].cardId ?? "";
+          setCardId(firstId);
         }
-
         if (cpsData.length) {
           const firstCp = cpsData[0].chargePointId ?? cpsData[0].id ?? "";
           setCpId(firstCp);
@@ -111,8 +105,10 @@ export default function LiveStatus() {
     const fetchStatus = async () => {
       try {
         const [dbRes, cacheRes] = await Promise.allSettled([
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/live-status`),
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/status`),
+          axios.get(
+            `/api/charge-points/${encodeURIComponent(cpId)}/latest-status`
+          ), // DB(status_logs)
+          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/status`), // Cache(mock-status)
         ]);
 
         // DB 結果
@@ -157,6 +153,7 @@ export default function LiveStatus() {
           if (chosen === "未知") chosen = "Unknown";
           setCpStatus(chosen);
         }
+
       } catch {
         if (!cancelled) setCpStatus("Unknown");
       }
@@ -184,6 +181,7 @@ export default function LiveStatus() {
 
         if (cancelled) return;
 
+        // 即時功率/電壓/電流
         const live = liveRes.data || {};
         const kw = Number(live?.power ?? 0);
         const vv = Number(live?.voltage ?? 0);
@@ -192,25 +190,21 @@ export default function LiveStatus() {
         setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
         setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
 
+        // 以 DB 的「本次用電量」為主；沒有時再退回其他來源
         const e = energyRes.data || {};
-
-        let session = 0;
-        if (e?.sessionEnergyKWh !== undefined && e?.sessionEnergyKWh !== null) {
-          session = Number(e.sessionEnergyKWh);
-        } else if (cpStatus === "Charging") {
-          // 只有充電中才用 totalEnergyKWh / live.energy
-          session = Number(e?.totalEnergyKWh ?? live?.energy ?? 0);
-        }
-
+        const session = Number(
+          e?.sessionEnergyKWh ??
+          e?.totalEnergyKWh ?? // 退而求其次：總表
+          live?.energy ??       // 再退：即時回傳的能量
+          0
+        );
         const kwh = Number.isFinite(session) ? session : 0;
         setLiveEnergyKWh(kwh);
 
-        if (!frozenAfterStop) {
-          const price = Number.isFinite(pricePerKWh) ? pricePerKWh : 0;
-          setLiveCost(kwh * price);
-        }
-      } catch {
-        // 忽略一次
+        const price = Number.isFinite(pricePerKWh) ? pricePerKWh : 0;
+        setLiveCost(kwh * price);
+      } catch (err) {
+        // 忽略一次，保留前次值
       }
     };
 
@@ -220,7 +214,8 @@ export default function LiveStatus() {
       cancelled = true;
       clearInterval(t);
     };
-  }, [cpId, pricePerKWh, frozenAfterStop]);
+  }, [cpId, pricePerKWh]);
+
 
   // ---------- 餘額：每 5 秒 ----------
   useEffect(() => {
@@ -236,8 +231,8 @@ export default function LiveStatus() {
         if (!cancelled) {
           setRawBalance(Number.isFinite(bal) ? bal : 0);
         }
-      } catch {
-        // 忽略一次
+      } catch (err) {
+        // 忽略一次，保持前次值
       }
     };
 
@@ -249,45 +244,18 @@ export default function LiveStatus() {
     };
   }, [cardId]);
 
-  // ---------- 停充凍結處理 ----------
+  // 充電狀態從 Charging -> 非 Charging 時，凍結顯示
   useEffect(() => {
     const prev = prevStatusRef.current;
     if (prev === "Charging" && cpStatus !== "Charging") {
       setFrozenAfterStop(true);
       setFrozenCost(Number.isFinite(liveCost) ? liveCost : 0);
       setRawAtFreeze(Number.isFinite(rawBalance) ? rawBalance : 0);
-
-      // 🚀 新增：停充後直接凍結顯示餘額，避免回彈
-      setDisplayBalance(0);
-
-      const nearZeroDisp =
-        (Number.isFinite(displayBalance) ? displayBalance : 0) <= 0.01;
-      if (nearZeroDisp) {
-        setStopMsg("充電已自動停止（餘額不足）");
-      } else {
-        setStopMsg("充電已停止");
-      }
-
-      (async () => {
-        try {
-          const { data } = await axios.get(
-            `/api/charge-points/${encodeURIComponent(cpId)}/last-transaction/summary`
-          );
-          if (data?.found) {
-            if (Number.isFinite(data.total_amount)) {
-              setFrozenCost(data.total_amount);
-            }
-            if (Number.isFinite(data.balance)) {
-              setRawBalance(data.balance);
-            }
-          }
-        } catch {
-          // 忽略
-        }
-      })();
+      // ⬇️ 新增：提示訊息
+      setStopMsg("充電已自動停止（餘額不足或後端命令）");
     }
     prevStatusRef.current = cpStatus;
-  }, [cpStatus, liveCost, rawBalance, displayBalance, cpId]);
+  }, [cpStatus, liveCost, rawBalance]);
 
   // 後端扣款後解除凍結
   useEffect(() => {
@@ -310,24 +278,12 @@ export default function LiveStatus() {
     setDisplayBalance(nb > 0 ? nb : 0);
   }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
 
-  // ---------- 餘額警告（不再自動送停充） ----------
-  useEffect(() => {
-    if (!cpId) return;
-    if (cpStatus !== "Charging") return;
-
-    const disp = Number.isFinite(displayBalance) ? displayBalance : 0;
-    const raw = Number.isFinite(rawBalance) ? rawBalance : 0;
-
-    if (nearZero(disp) || nearZero(raw)) {
-      setStopMsg("⚠️ 餘額即將不足，後端可能隨時自動停止充電");
-    }
-  }, [cpId, cpStatus, displayBalance, rawBalance]);
-
   // ---------- 切換樁時重置 ----------
   useEffect(() => {
     setLivePowerKw(0);
     setLiveVoltageV(0);
     setLiveCurrentA(0);
+    setSentAutoStop(false);
     setStopMsg("");
   }, [cpId]);
 
@@ -347,6 +303,7 @@ export default function LiveStatus() {
     return map[s] || s || "未知";
   };
 
+  // Styles
   const wrap = { padding: 20, color: "#fff" };
   const inputStyle = {
     width: "100%",
@@ -370,22 +327,6 @@ export default function LiveStatus() {
       >
         {cardList.map((c) => {
           const id = c.card_id ?? c.cardId ?? "";
-          return (
-            <option key={id} value={id}>
-              {id}
-            </option>
-          );
-        })}
-      </select>
-
-      <label>充電樁：</label>
-      <select
-        value={cpId}
-        onChange={(e) => setCpId(e.target.value)}
-        style={inputStyle}
-      >
-        {cpList.map((c) => {
-          const id = c.chargePointId ?? c.id ?? "";
           return (
             <option key={id} value={id}>
               {id}
