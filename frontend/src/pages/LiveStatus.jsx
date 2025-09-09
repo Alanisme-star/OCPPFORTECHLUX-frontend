@@ -40,6 +40,11 @@ export default function LiveStatus() {
   // UI 提示訊息（一次性）
   const [stopMsg, setStopMsg] = useState("");
 
+  // ★ 修改：新增 state
+  const [startTime, setStartTime] = useState("");
+  const [stopTime, setStopTime] = useState("");
+
+
   // ---------- 初始化：卡片 / 充電樁清單 ----------
   useEffect(() => {
     (async () => {
@@ -287,6 +292,32 @@ export default function LiveStatus() {
     setStopMsg("");
   }, [cpId]);
 
+
+  // ★ 修改：在 useEffect 裡面撈最近一次交易的起止時間
+  useEffect(() => {
+    if (!cpId) return;
+    const fetchTxSummary = async () => {
+      try {
+        const res = await axios.get(
+          `/api/charge-points/${encodeURIComponent(cpId)}/last-transaction/summary`
+        );
+        if (res.data && res.data.found) {
+          setStartTime(res.data.start_timestamp || "");
+          setStopTime(res.data.stop_timestamp || "");
+        } else {
+          setStartTime("");
+          setStopTime("");
+        }
+      } catch (err) {
+        console.error("讀取交易摘要失敗:", err);
+      }
+    };
+    fetchTxSummary();
+  }, [cpId]);
+
+
+
+
   // 狀態中文
   const statusLabel = (s) => {
     const map = {
@@ -351,6 +382,12 @@ export default function LiveStatus() {
       <p>🏷️ 樁態：{statusLabel(cpStatus)}</p>
       <p>🔋 電量：{liveEnergyKWh.toFixed(4)} kWh</p>
       <p>💰 電費：{liveCost.toFixed(2)} 元</p>
+
+
+            {/* ★ 修改：新增顯示充電起始/結束時間 */}
+            <p>⏱️ 充電起始時間：{startTime || "—"}</p>
+            <p>⏱️ 充電結束時間：{stopTime || "—"}</p>
+
 
       {stopMsg && (
         <p style={{ color: "#ffd54f", marginTop: 8 }}>🔔 {stopMsg}</p>
