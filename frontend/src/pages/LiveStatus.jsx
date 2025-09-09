@@ -111,9 +111,7 @@ export default function LiveStatus() {
     const fetchStatus = async () => {
       try {
         const [dbRes, cacheRes] = await Promise.allSettled([
-          axios.get(
-            `/api/charge-points/${encodeURIComponent(cpId)}/latest-status`
-          ),
+          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/live-status`),
           axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/status`),
         ]);
 
