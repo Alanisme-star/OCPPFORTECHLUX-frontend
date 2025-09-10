@@ -302,18 +302,21 @@ export default function LiveStatus() {
           `/api/charge-points/${encodeURIComponent(cpId)}/last-transaction/summary`
         );
         if (res.data && res.data.found) {
-          setStartTime(res.data.start_timestamp || "");
-          setStopTime(res.data.stop_timestamp || "");
-        } else {
-          setStartTime("");
-          setStopTime("");
+          // ★ 修改：起始時間只在尚未設定時才更新，避免被覆蓋掉
+          if (!startTime && res.data.start_timestamp) {
+            setStartTime(res.data.start_timestamp);
+          }
+          // ★ 修改：結束時間只有在後端有值時才設定，且一旦設定後保持固定
+          if (res.data.stop_timestamp && !stopTime) {
+            setStopTime(res.data.stop_timestamp);
+          }
         }
       } catch (err) {
         console.error("讀取交易摘要失敗:", err);
       }
     };
     fetchTxSummary();
-  }, [cpId]);
+  }, [cpId, startTime, stopTime]); // ★ 修改：把 startTime / stopTime 加入依賴
 
 
 
