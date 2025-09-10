@@ -40,9 +40,28 @@ export default function LiveStatus() {
   // UI 提示訊息（一次性）
   const [stopMsg, setStopMsg] = useState("");
 
-  // ★ 新增 state：交易時間
+  // 交易時間
   const [startTime, setStartTime] = useState("");
   const [stopTime, setStopTime] = useState("");
+
+  // ---------- 格式化時間 ----------
+  const formatTime = (isoString) => {
+    if (!isoString) return "—";
+    try {
+      const d = new Date(isoString);
+      return d.toLocaleString("zh-TW", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      });
+    } catch {
+      return isoString;
+    }
+  };
 
   // ---------- 初始化：卡片 / 充電樁清單 ----------
   useEffect(() => {
@@ -111,11 +130,10 @@ export default function LiveStatus() {
         const [dbRes, cacheRes] = await Promise.allSettled([
           axios.get(
             `/api/charge-points/${encodeURIComponent(cpId)}/latest-status`
-          ), // DB(status_logs)
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/status`), // Cache(mock-status)
+          ),
+          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/status`),
         ]);
 
-        // DB 結果
         let dbStatus = "Unknown",
           dbTs = 0;
         if (dbRes.status === "fulfilled") {
@@ -124,7 +142,6 @@ export default function LiveStatus() {
           dbTs = safeParseTime(d?.timestamp);
         }
 
-        // 快取結果
         let cacheStatus = "Unknown",
           cacheTs = 0;
         if (cacheRes.status === "fulfilled") {
@@ -137,7 +154,6 @@ export default function LiveStatus() {
           }
         }
 
-        // 選擇邏輯
         let chosen = "Unknown";
         if (dbStatus === "Unknown" && cacheStatus !== "Unknown") {
           chosen = cacheStatus;
@@ -170,7 +186,7 @@ export default function LiveStatus() {
     };
   }, [cpId]);
 
-  // ---------- 即時量測：live-status + latest-energy，每 1 秒 ----------
+  // ---------- 即時量測：每 1 秒 ----------
   useEffect(() => {
     if (!cpId) return;
     let cancelled = false;
@@ -184,7 +200,6 @@ export default function LiveStatus() {
 
         if (cancelled) return;
 
-        // 即時功率/電壓/電流
         const live = liveRes.data || {};
         const kw = Number(live?.power ?? 0);
         const vv = Number(live?.voltage ?? 0);
@@ -193,12 +208,11 @@ export default function LiveStatus() {
         setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
         setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
 
-        // 以 DB 的「本次用電量」為主；沒有時再退回其他來源
         const e = energyRes.data || {};
         const session = Number(
           e?.sessionEnergyKWh ??
-          e?.totalEnergyKWh ?? // 退而求其次：總表
-          live?.energy ??       // 再退：即時回傳的能量
+          e?.totalEnergyKWh ??
+          live?.energy ??
           0
         );
         const kwh = Number.isFinite(session) ? session : 0;
@@ -206,9 +220,7 @@ export default function LiveStatus() {
 
         const price = Number.isFinite(pricePerKWh) ? pricePerKWh : 0;
         setLiveCost(kwh * price);
-      } catch (err) {
-        // 忽略一次，保留前次值
-      }
+      } catch {}
     };
 
     tick();
@@ -233,9 +245,7 @@ export default function LiveStatus() {
         if (!cancelled) {
           setRawBalance(Number.isFinite(bal) ? bal : 0);
         }
-      } catch (err) {
-        // 忽略一次，保持前次值
-      }
+      } catch {}
     };
 
     fetchBalance();
@@ -246,7 +256,7 @@ export default function LiveStatus() {
     };
   }, [cardId]);
 
-  // 充電狀態從 Charging -> 非 Charging 時，凍結顯示
+  // 充電狀態從 Charging -> 非 Charging
   useEffect(() => {
     const prev = prevStatusRef.current;
     if (prev === "Charging" && cpStatus !== "Charging") {
@@ -268,7 +278,7 @@ export default function LiveStatus() {
     }
   }, [rawBalance, frozenAfterStop, rawAtFreeze]);
 
-  // ---------- 顯示餘額 ----------
+  // 顯示餘額
   useEffect(() => {
     const base =
       frozenAfterStop && rawAtFreeze != null ? rawAtFreeze : rawBalance;
@@ -279,34 +289,30 @@ export default function LiveStatus() {
     setDisplayBalance(nb > 0 ? nb : 0);
   }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
 
-  // ---------- 切換樁時重置 ----------
+  // 切換樁時重置
   useEffect(() => {
     setLivePowerKw(0);
     setLiveVoltageV(0);
     setLiveCurrentA(0);
     setSentAutoStop(false);
     setStopMsg("");
-    setStartTime("");   // ★ 重置
-    setStopTime("");    // ★ 重置
+    setStartTime("");
+    setStopTime("");
   }, [cpId]);
 
-  // ---------- 抓取交易時間 ----------
+  // 抓取交易時間
   useEffect(() => {
     if (!cpId) return;
 
     const fetchTxInfo = async () => {
       try {
-        // 進行中
         const currentRes = await axios.get(
           `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction`
         );
-        if (currentRes.data?.found) {
-          if (currentRes.data.start_timestamp) {
-            setStartTime(currentRes.data.start_timestamp);
-          }
+        if (currentRes.data?.found && currentRes.data.start_timestamp) {
+          setStartTime(currentRes.data.start_timestamp);
         }
 
-        // 最後一筆
         const lastRes = await axios.get(
           `/api/charge-points/${encodeURIComponent(cpId)}/last-transaction/summary`
         );
@@ -324,11 +330,10 @@ export default function LiveStatus() {
     };
 
     fetchTxInfo();
-    const t = setInterval(fetchTxInfo, 5_000); // 每 5 秒更新一次
+    const t = setInterval(fetchTxInfo, 5_000);
     return () => clearInterval(t);
   }, [cpId]);
 
-  // 狀態中文
   const statusLabel = (s) => {
     const map = {
       Available: "可用",
@@ -344,7 +349,6 @@ export default function LiveStatus() {
     return map[s] || s || "未知";
   };
 
-  // Styles
   const wrap = { padding: 20, color: "#fff" };
   const inputStyle = {
     width: "100%",
@@ -393,9 +397,9 @@ export default function LiveStatus() {
       <p>🔋 電量：{liveEnergyKWh.toFixed(4)} kWh</p>
       <p>💰 電費：{liveCost.toFixed(2)} 元</p>
 
-      {/* ★ 新增顯示充電起始/結束時間 */}
-      <p>⏱️ 充電起始時間：{startTime || "—"}</p>
-      <p>⏱️ 充電結束時間：{stopTime || "—"}</p>
+      {/* ★ 修改：套用格式化時間 */}
+      <p>⏱️ 充電起始時間：{formatTime(startTime)}</p>
+      <p>⏱️ 充電結束時間：{formatTime(stopTime)}</p>
 
       {stopMsg && (
         <p style={{ color: "#ffd54f", marginTop: 8 }}>🔔 {stopMsg}</p>
