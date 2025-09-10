@@ -40,7 +40,7 @@ export default function LiveStatus() {
   // UI 提示訊息（一次性）
   const [stopMsg, setStopMsg] = useState("");
 
-  // ★ 修改：新增 state
+  // ★ 新增 state：交易時間
   const [startTime, setStartTime] = useState("");
   const [stopTime, setStopTime] = useState("");
 
@@ -286,34 +286,36 @@ export default function LiveStatus() {
     setLiveCurrentA(0);
     setSentAutoStop(false);
     setStopMsg("");
+    setStartTime("");   // ★ 重置
+    setStopTime("");    // ★ 重置
   }, [cpId]);
 
-  // ★ 修改：在 useEffect 裡同時撈 current-transaction 與 last-transaction
+  // ---------- 抓取交易時間 ----------
   useEffect(() => {
     if (!cpId) return;
 
     const fetchTxInfo = async () => {
       try {
-        // 撈進行中
+        // 進行中
         const currentRes = await axios.get(
           `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction`
         );
-        if (currentRes.data && currentRes.data.found) {
-          if (!startTime && currentRes.data.start_timestamp) {
-            setStartTime(currentRes.data.start_timestamp); // ★ 進行中設定起始時間
+        if (currentRes.data?.found) {
+          if (currentRes.data.start_timestamp) {
+            setStartTime(currentRes.data.start_timestamp);
           }
         }
 
-        // 撈已結束
+        // 最後一筆
         const lastRes = await axios.get(
           `/api/charge-points/${encodeURIComponent(cpId)}/last-transaction/summary`
         );
-        if (lastRes.data && lastRes.data.found) {
-          if (lastRes.data.start_timestamp && !startTime) {
-            setStartTime(lastRes.data.start_timestamp); // ★ 確保結束後仍有起始時間
+        if (lastRes.data?.found) {
+          if (lastRes.data.start_timestamp) {
+            setStartTime(lastRes.data.start_timestamp);
           }
-          if (lastRes.data.stop_timestamp && !stopTime) {
-            setStopTime(lastRes.data.stop_timestamp);   // ★ 設定結束時間
+          if (lastRes.data.stop_timestamp) {
+            setStopTime(lastRes.data.stop_timestamp);
           }
         }
       } catch (err) {
@@ -322,7 +324,9 @@ export default function LiveStatus() {
     };
 
     fetchTxInfo();
-  }, [cpId, startTime, stopTime]); // ★ 保持依賴
+    const t = setInterval(fetchTxInfo, 5_000); // 每 5 秒更新一次
+    return () => clearInterval(t);
+  }, [cpId]);
 
   // 狀態中文
   const statusLabel = (s) => {
@@ -389,7 +393,7 @@ export default function LiveStatus() {
       <p>🔋 電量：{liveEnergyKWh.toFixed(4)} kWh</p>
       <p>💰 電費：{liveCost.toFixed(2)} 元</p>
 
-      {/* ★ 修改：新增顯示充電起始/結束時間 */}
+      {/* ★ 新增顯示充電起始/結束時間 */}
       <p>⏱️ 充電起始時間：{startTime || "—"}</p>
       <p>⏱️ 充電結束時間：{stopTime || "—"}</p>
 
