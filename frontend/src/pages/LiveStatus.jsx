@@ -191,37 +191,45 @@ export default function LiveStatus() {
     if (!cpId) return;
     let cancelled = false;
 
+
     const tick = async () => {
-      try {
-        const [liveRes, energyRes] = await Promise.all([
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/live-status`),
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-energy`),
-        ]);
+        try {
+            const [liveRes, energyRes] = await Promise.all([
+                axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/live-status`),
+                axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-energy`),
+            ]);
 
-        if (cancelled) return;
+            if (cancelled) return;
 
-        const live = liveRes.data || {};
-        const kw = Number(live?.power ?? 0);
-        const vv = Number(live?.voltage ?? 0);
-        const aa = Number(live?.current ?? 0);
-        setLivePowerKw(Number.isFinite(kw) ? kw : 0);
-        setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
-        setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
+            const live = liveRes.data || {};
+            const kw = Number(live?.power ?? 0);
+            const vv = Number(live?.voltage ?? 0);
+            const aa = Number(live?.current ?? 0);
+            setLivePowerKw(Number.isFinite(kw) ? kw : 0);
+            setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
+            setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
 
-        const e = energyRes.data || {};
-        const session = Number(
-          e?.sessionEnergyKWh ??
-          e?.totalEnergyKWh ??
-          live?.energy ??
-          0
-        );
-        const kwh = Number.isFinite(session) ? session : 0;
-        setLiveEnergyKWh(kwh);
+            const e = energyRes.data || {};
+            const session = Number(
+                e?.sessionEnergyKWh ??
+                e?.totalEnergyKWh ??
+                live?.energy ??
+                0
+            );
+            const kwh = Number.isFinite(session) ? session : 0;
+            setLiveEnergyKWh(kwh);
 
-        const price = Number.isFinite(pricePerKWh) ? pricePerKWh : 0;
-        setLiveCost(kwh * price);
-      } catch {}
+            // === [修改處] 使用後端回傳的 estimated_amount ===
+            if (Number.isFinite(live?.estimated_amount)) {
+                setLiveCost(live.estimated_amount);
+            } else {
+                const price = Number.isFinite(pricePerKWh) ? pricePerKWh : 0;
+                setLiveCost(kwh * price);  // fallback：維持原本邏輯
+            }
+            // === [修改結束] ===
+        } catch {}
     };
+
 
     tick();
     const t = setInterval(tick, 1_000);
