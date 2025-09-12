@@ -25,27 +25,24 @@ export default function LiveStatus() {
   // 樁態
   const [cpStatus, setCpStatus] = useState("Unknown");
 
-  // 餘額
+  // 餘額（raw 後端；display 顯示值 = rawBalance - liveCost）
   const [rawBalance, setRawBalance] = useState(0);
   const [displayBalance, setDisplayBalance] = useState(0);
 
-  // 停充後畫面凍結
+  // 停充後畫面凍結：避免回彈
   const [frozenAfterStop, setFrozenAfterStop] = useState(false);
   const [frozenCost, setFrozenCost] = useState(0);
   const [rawAtFreeze, setRawAtFreeze] = useState(null);
   const prevStatusRef = useRef(cpStatus);
 
-  // 自動停樁
+  // 自動停樁：避免重複觸發
   const [sentAutoStop, setSentAutoStop] = useState(false);
+  // UI 提示訊息（一次性）
   const [stopMsg, setStopMsg] = useState("");
 
   // 交易時間
   const [startTime, setStartTime] = useState("");
   const [stopTime, setStopTime] = useState("");
-
-  // ⭐ 最終電量 / 電費 (方案 B 新增)
-  const [finalEnergy, setFinalEnergy] = useState(null);
-  const [finalCost, setFinalCost] = useState(null);
 
   // ---------- 格式化時間 ----------
   const formatTime = (isoString) => {
@@ -66,7 +63,7 @@ export default function LiveStatus() {
     }
   };
 
-  // ---------- 初始化 ----------
+  // ---------- 初始化：卡片 / 充電樁清單 ----------
   useEffect(() => {
     (async () => {
       try {
@@ -93,7 +90,7 @@ export default function LiveStatus() {
     })();
   }, []);
 
-  // ---------- 電價 ----------
+  // ---------- 電價：每 60 秒更新 ----------
   useEffect(() => {
     let cancelled = false;
     const fetchPrice = async () => {
@@ -117,7 +114,7 @@ export default function LiveStatus() {
     };
   }, []);
 
-  // ---------- 樁態 ----------
+  // ---------- 樁態：每 2 秒 ----------
   useEffect(() => {
     if (!cpId) return;
     let cancelled = false;
@@ -189,7 +186,7 @@ export default function LiveStatus() {
     };
   }, [cpId]);
 
-  // ---------- 即時量測 ----------
+  // ---------- 即時量測：每 1 秒 ----------
   useEffect(() => {
     if (!cpId) return;
     let cancelled = false;
@@ -221,12 +218,14 @@ export default function LiveStatus() {
         const kwh = Number.isFinite(session) ? session : 0;
         setLiveEnergyKWh(kwh);
 
+        // === [修改處] 使用後端回傳的 estimated_amount ===
         if (Number.isFinite(live?.estimated_amount)) {
           setLiveCost(live.estimated_amount);
         } else {
           const price = Number.isFinite(pricePerKWh) ? pricePerKWh : 0;
-          setLiveCost(kwh * price);
+          setLiveCost(kwh * price);  // fallback：維持原本邏輯
         }
+        // === [修改結束] ===
       } catch {}
     };
 
@@ -238,7 +237,7 @@ export default function LiveStatus() {
     };
   }, [cpId, pricePerKWh]);
 
-  // ---------- 餘額 ----------
+  // ---------- 餘額：每 5 秒 ----------
   useEffect(() => {
     if (!cardId) return;
     let cancelled = false;
@@ -263,7 +262,7 @@ export default function LiveStatus() {
     };
   }, [cardId]);
 
-  // ---------- 狀態切換 ----------
+  // 充電狀態從 Charging -> 非 Charging
   useEffect(() => {
     const prev = prevStatusRef.current;
     if (prev === "Charging" && cpStatus !== "Charging") {
@@ -275,19 +274,17 @@ export default function LiveStatus() {
     prevStatusRef.current = cpStatus;
   }, [cpStatus, liveCost, rawBalance]);
 
-  // ⭐ 當狀態從非 Charging → Charging，重置交易時間 & 最終數據
+  // ⭐ 新增：當狀態從非 Charging → Charging，重置交易時間
   useEffect(() => {
     const prev = prevStatusRef.current;
     if (prev !== "Charging" && cpStatus === "Charging") {
       setStartTime("");
       setStopTime("");
-      setFinalEnergy(null);
-      setFinalCost(null);
     }
     prevStatusRef.current = cpStatus;
   }, [cpStatus]);
 
-  // ---------- 扣款後解除凍結 ----------
+  // 後端扣款後解除凍結
   useEffect(() => {
     if (!frozenAfterStop || rawAtFreeze == null) return;
     if (Number.isFinite(rawBalance) && rawBalance < rawAtFreeze - 0.01) {
@@ -297,7 +294,7 @@ export default function LiveStatus() {
     }
   }, [rawBalance, frozenAfterStop, rawAtFreeze]);
 
-  // ---------- 顯示餘額 ----------
+  // 顯示餘額
   useEffect(() => {
     const base =
       frozenAfterStop && rawAtFreeze != null ? rawAtFreeze : rawBalance;
@@ -308,7 +305,7 @@ export default function LiveStatus() {
     setDisplayBalance(nb > 0 ? nb : 0);
   }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
 
-  // ---------- 切換樁時重置 ----------
+  // 切換樁時重置
   useEffect(() => {
     setLivePowerKw(0);
     setLiveVoltageV(0);
@@ -317,11 +314,9 @@ export default function LiveStatus() {
     setStopMsg("");
     setStartTime("");
     setStopTime("");
-    setFinalEnergy(null);
-    setFinalCost(null);
   }, [cpId]);
 
-  // ---------- 抓取交易時間 + 最終數據 ----------
+  // 抓取交易時間
   useEffect(() => {
     if (!cpId) return;
 
@@ -338,23 +333,11 @@ export default function LiveStatus() {
           `/api/charge-points/${encodeURIComponent(cpId)}/last-transaction/summary`
         );
         if (lastRes.data?.found) {
-          // ⭐ 永遠允許更新 startTime
           if (lastRes.data.start_timestamp) {
             setStartTime(lastRes.data.start_timestamp);
           }
-          // ⭐ stopTime 僅在非 Charging 時更新；充電中則清空
-          if (lastRes.data.stop_timestamp && cpStatus !== "Charging") {
+          if (lastRes.data.stop_timestamp) {
             setStopTime(lastRes.data.stop_timestamp);
-          } else if (cpStatus === "Charging") {
-            setStopTime("");
-          }
-
-          // ⭐ 讀取最終電量 / 電費
-          if (lastRes.data.final_energy_kwh != null) {
-            setFinalEnergy(lastRes.data.final_energy_kwh);
-          }
-          if (lastRes.data.final_cost != null) {
-            setFinalCost(lastRes.data.final_cost);
           }
         }
       } catch (err) {
@@ -365,9 +348,8 @@ export default function LiveStatus() {
     fetchTxInfo();
     const t = setInterval(fetchTxInfo, 5_000);
     return () => clearInterval(t);
-  }, [cpId, cpStatus]);
+  }, [cpId]);
 
-  // ---------- 狀態顯示 ----------
   const statusLabel = (s) => {
     const map = {
       Available: "可用",
@@ -431,12 +413,9 @@ export default function LiveStatus() {
       <p>🔋 電量：{liveEnergyKWh.toFixed(4)} kWh</p>
       <p>💰 電費：{liveCost.toFixed(2)} 元</p>
 
+      {/* ★ 修改：套用格式化時間 */}
       <p>⏱️ 充電起始時間：{formatTime(startTime)}</p>
       <p>⏱️ 充電結束時間：{formatTime(stopTime)}</p>
-
-      {/* ⭐ 新增：最終數據 */}
-      <p>📊 最終電量：{finalEnergy != null ? finalEnergy.toFixed(4) + " kWh" : "—"}</p>
-      <p>📊 最終電費：{finalCost != null ? finalCost.toFixed(2) + " 元" : "—"}</p>
 
       {stopMsg && (
         <p style={{ color: "#ffd54f", marginTop: 8 }}>🔔 {stopMsg}</p>
