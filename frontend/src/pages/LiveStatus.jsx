@@ -43,6 +43,10 @@ export default function LiveStatus() {
   const [startTime, setStartTime] = useState("");
   const [stopTime, setStopTime] = useState("");
 
+  // ⭐ 最終電量 / 電費 (方案 B 新增)
+  const [finalEnergy, setFinalEnergy] = useState(null);
+  const [finalCost, setFinalCost] = useState(null);
+
   // ---------- 格式化時間 ----------
   const formatTime = (isoString) => {
     if (!isoString) return "—";
@@ -271,12 +275,14 @@ export default function LiveStatus() {
     prevStatusRef.current = cpStatus;
   }, [cpStatus, liveCost, rawBalance]);
 
-  // ⭐ 當狀態從非 Charging → Charging，重置交易時間
+  // ⭐ 當狀態從非 Charging → Charging，重置交易時間 & 最終數據
   useEffect(() => {
     const prev = prevStatusRef.current;
     if (prev !== "Charging" && cpStatus === "Charging") {
       setStartTime("");
       setStopTime("");
+      setFinalEnergy(null);
+      setFinalCost(null);
     }
     prevStatusRef.current = cpStatus;
   }, [cpStatus]);
@@ -311,9 +317,11 @@ export default function LiveStatus() {
     setStopMsg("");
     setStartTime("");
     setStopTime("");
+    setFinalEnergy(null);
+    setFinalCost(null);
   }, [cpId]);
 
-  // ---------- 抓取交易時間 ----------
+  // ---------- 抓取交易時間 + 最終數據 ----------
   useEffect(() => {
     if (!cpId) return;
 
@@ -339,6 +347,14 @@ export default function LiveStatus() {
             setStopTime(lastRes.data.stop_timestamp);
           } else if (cpStatus === "Charging") {
             setStopTime("");
+          }
+
+          // ⭐ 讀取最終電量 / 電費
+          if (lastRes.data.final_energy_kwh != null) {
+            setFinalEnergy(lastRes.data.final_energy_kwh);
+          }
+          if (lastRes.data.final_cost != null) {
+            setFinalCost(lastRes.data.final_cost);
           }
         }
       } catch (err) {
@@ -417,6 +433,10 @@ export default function LiveStatus() {
 
       <p>⏱️ 充電起始時間：{formatTime(startTime)}</p>
       <p>⏱️ 充電結束時間：{formatTime(stopTime)}</p>
+
+      {/* ⭐ 新增：最終數據 */}
+      <p>📊 最終電量：{finalEnergy != null ? finalEnergy.toFixed(4) + " kWh" : "—"}</p>
+      <p>📊 最終電費：{finalCost != null ? finalCost.toFixed(2) + " 元" : "—"}</p>
 
       {stopMsg && (
         <p style={{ color: "#ffd54f", marginTop: 8 }}>🔔 {stopMsg}</p>
