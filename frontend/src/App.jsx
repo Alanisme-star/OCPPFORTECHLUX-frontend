@@ -4,7 +4,7 @@ import DailyPricingSettings from "./pages/DailyPricingSettings";
 import Cards from './pages/Cards';
 import CardTopUp from './pages/CardTopUp';
 import Dashboard from './pages/Dashboard';
-import HolidayChecker from './pages/HolidayChecker';
+// import HolidayChecker from './pages/HolidayChecker';   // ❌ 已移除
 import LinePush from './pages/LinePush';
 import LiveChargingStatus from './components/LiveChargingStatus';
 import Login from './pages/Login';
@@ -28,7 +28,7 @@ export default function App() {
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/cards" element={<Cards />} />
             <Route path="/card-topup" element={<CardTopUp />} />
-            <Route path="/holiday-checker" element={<HolidayChecker />} />
+            {/* <Route path="/holiday-checker" element={<HolidayChecker />} /> ❌ 已移除 */}
             <Route path="/line-push" element={<LinePush />} />
             <Route path="/status-logs" element={<StatusLogs />} />
             <Route path="/login" element={<Login />} />
