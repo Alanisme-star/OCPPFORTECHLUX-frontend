@@ -43,6 +43,9 @@ export default function LiveStatus() {
   const [startTime, setStartTime] = useState("");
   const [stopTime, setStopTime] = useState("");
 
+  // ⭐ 新增：本次充電累積時間
+  const [elapsedTime, setElapsedTime] = useState("—");
+
   // ---------- 格式化時間 ----------
   const formatTime = (isoString) => {
     if (!isoString) return "—";
@@ -311,6 +314,7 @@ export default function LiveStatus() {
     setStopMsg("");
     setStartTime("");
     setStopTime("");
+    setElapsedTime("—"); // ⭐ 新增：切換時也重置
   }, [cpId]);
 
   // ---------- 抓取交易時間 ----------
@@ -350,6 +354,27 @@ export default function LiveStatus() {
     const t = setInterval(fetchTxInfo, 5_000);
     return () => clearInterval(t);
   }, [cpId, cpStatus]);
+
+  // ---------- ⭐ 新增：計算本次充電累積時間 ----------
+  useEffect(() => {
+    let timer;
+    if (startTime) {
+      timer = setInterval(() => {
+        const start = Date.parse(startTime);
+        if (!isNaN(start)) {
+          const now = stopTime ? Date.parse(stopTime) : Date.now();
+          const diff = Math.max(0, now - start);
+          const hh = String(Math.floor(diff / 3600000)).padStart(2, "0");
+          const mm = String(Math.floor((diff % 3600000) / 60000)).padStart(2, "0");
+          const ss = String(Math.floor((diff % 60000) / 1000)).padStart(2, "0");
+          setElapsedTime(`${hh}:${mm}:${ss}`);
+        }
+      }, 1000);
+    } else {
+      setElapsedTime("—");
+    }
+    return () => clearInterval(timer);
+  }, [startTime, stopTime]);
 
   // ---------- 狀態顯示 ----------
   const statusLabel = (s) => {
@@ -417,6 +442,7 @@ export default function LiveStatus() {
 
       <p>⏱️ 充電起始時間：{formatTime(startTime)}</p>
       <p>⏱️ 充電結束時間：{formatTime(stopTime)}</p>
+      <p>⏳ 本次充電累積時間：{elapsedTime}</p> {/* ⭐ 新增顯示 */}
 
       {stopMsg && (
         <p style={{ color: "#ffd54f", marginTop: 8 }}>🔔 {stopMsg}</p>
