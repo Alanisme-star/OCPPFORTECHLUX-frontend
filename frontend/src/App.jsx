@@ -8,7 +8,6 @@ import Dashboard from './pages/Dashboard';
 import LinePush from './pages/LinePush';
 import LiveChargingStatus from './components/LiveChargingStatus';
 import Login from './pages/Login';
-import StatusLogs from './pages/StatusLogs';
 import Transactions from './pages/Transactions';
 import ChargePoints from './pages/ChargePoints';
 import RealtimeStatusPage from "./pages/RealtimeStatusPage";
@@ -30,7 +29,6 @@ export default function App() {
             <Route path="/card-topup" element={<CardTopUp />} />
             {/* <Route path="/holiday-checker" element={<HolidayChecker />} /> ❌ 已移除 */}
             <Route path="/line-push" element={<LinePush />} />
-            <Route path="/status-logs" element={<StatusLogs />} />
             <Route path="/login" element={<Login />} />
             <Route path="*" element={<div className="text-red-400 text-xl">404 找不到頁面</div>} />
             <Route path="/daily-pricing" element={<DailyPricingSettings />} />
