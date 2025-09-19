@@ -217,7 +217,18 @@ export default function LiveStatus() {
             live?.energy ??
             0
         );
-        const kwh = Number.isFinite(session) ? session : 0;
+        let kwh = Number.isFinite(session) ? session : 0;
+
+
+        // ⭐ 保護條件：若狀態是 Available，強制歸零
+        if (cpStatus === "Available" && kwh > 0) {
+          console.debug(
+            `[DEBUG] 前端保護觸發：狀態=Available 但電量=${kwh} → 強制改為 0`
+          );
+          kwh = 0;
+        }
+
+
         setLiveEnergyKWh(kwh);
 
         if (Number.isFinite(live?.estimated_amount)) {
