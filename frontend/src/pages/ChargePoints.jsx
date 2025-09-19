@@ -92,17 +92,16 @@ const ChargePoints = () => {
               className="input input-bordered ml-2 p-1 rounded text-black"
               value={form.charge_point_id}
               onChange={(e) => {
-              // 防呆：不允許輸入 URL encoded (%2A) 字元
-              const raw = e.target.value.replace(/%2A/gi, "*");
-              setForm({ ...form, charge_point_id: raw });
+                // 防呆：不允許輸入 URL encoded (%2A) 字元
+                const raw = e.target.value.replace(/%2A/gi, "*");
+                setForm({ ...form, charge_point_id: raw });
               }}
               required
               disabled={!!editingId}
             />
-            <div className="text-sm text-gray-400 mt-1 ml-1">
-              ※請直接輸入「*」，不可輸入「%2A」
-            </div>
+            {/* 原本的提示訊息已刪除 */}
           </label>
+
         </div>
         <div>
           <label>名稱
