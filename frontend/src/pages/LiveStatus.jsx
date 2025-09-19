@@ -449,7 +449,7 @@ export default function LiveStatus() {
       </select>
 
       {/* ⭐ 新增：手動輸入欄位 */}
-      <label>充電樁 ID 名稱：</label>
+      <label>充電樁名稱：</label>
       <input
         type="text"
         value={cpName}
