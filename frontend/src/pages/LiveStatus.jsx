@@ -46,6 +46,24 @@ export default function LiveStatus() {
   // ⭐ 新增：本次充電累積時間
   const [elapsedTime, setElapsedTime] = useState("—");
 
+  // ⭐ 新增：手動輸入欄位（localStorage 支援）
+  const [cpName, setCpName] = useState(() => localStorage.getItem("cpName") || "");
+  const [residentName, setResidentName] = useState(() => localStorage.getItem("residentName") || "");
+  const [residentFloor, setResidentFloor] = useState(() => localStorage.getItem("residentFloor") || "");
+
+  // 當值變更時寫入 localStorage
+  useEffect(() => {
+    localStorage.setItem("cpName", cpName);
+  }, [cpName]);
+
+  useEffect(() => {
+    localStorage.setItem("residentName", residentName);
+  }, [residentName]);
+
+  useEffect(() => {
+    localStorage.setItem("residentFloor", residentFloor);
+  }, [residentFloor]);
+
   // ---------- 格式化時間 ----------
   const formatTime = (isoString) => {
     if (!isoString) return "—";
@@ -91,7 +109,6 @@ export default function LiveStatus() {
       }
     })();
   }, []);
-
   // ---------- 電價 ----------
   useEffect(() => {
     let cancelled = false;
@@ -219,7 +236,6 @@ export default function LiveStatus() {
         );
         let kwh = Number.isFinite(session) ? session : 0;
 
-
         // ⭐ 保護條件：若狀態是 Available，強制歸零
         if (cpStatus === "Available" && kwh > 0) {
           console.debug(
@@ -227,7 +243,6 @@ export default function LiveStatus() {
           );
           kwh = 0;
         }
-
 
         setLiveEnergyKWh(kwh);
 
@@ -272,7 +287,6 @@ export default function LiveStatus() {
       clearInterval(t);
     };
   }, [cardId]);
-
   // ---------- 狀態切換 ----------
   useEffect(() => {
     const prev = prevStatusRef.current;
@@ -402,7 +416,6 @@ export default function LiveStatus() {
     };
     return map[s] || s || "未知";
   };
-
   const wrap = { padding: 20, color: "#fff" };
   const inputStyle = {
     width: "100%",
@@ -417,6 +430,12 @@ export default function LiveStatus() {
   return (
     <div style={wrap}>
       <h2>📡 即時狀態</h2>
+
+      {/* ⭐ 上方顯示基本資訊 */}
+      <p>🏠 充電樁名稱：{cpName || "—"}</p>
+      <p>👤 住戶姓名：{residentName || "—"}</p>
+      <p>🏢 住戶樓號：{residentFloor || "—"}</p>
+      <p>💳 選擇卡片 ID：{cardId || "—"}</p>
 
       <label>卡片 ID：</label>
       <select
@@ -434,26 +453,53 @@ export default function LiveStatus() {
         })}
       </select>
 
+      {/* ⭐ 新增：手動輸入欄位 */}
+      <label>充電樁 ID 名稱：</label>
+      <input
+        type="text"
+        value={cpName}
+        onChange={(e) => setCpName(e.target.value)}
+        style={inputStyle}
+        placeholder="請輸入充電樁名稱"
+      />
+
+      <label>住戶姓名：</label>
+      <input
+        type="text"
+        value={residentName}
+        onChange={(e) => setResidentName(e.target.value)}
+        style={inputStyle}
+        placeholder="請輸入住戶姓名"
+      />
+
+      <label>住戶樓號：</label>
+      <input
+        type="text"
+        value={residentFloor}
+        onChange={(e) => setResidentFloor(e.target.value)}
+        style={inputStyle}
+        placeholder="請輸入住戶樓號"
+      />
+
       <p>
         ⚡ 電價：{pricePerKWh.toFixed(2)} 元/kWh
         {priceFallback ? "（預設）" : ""} {priceLabel ? `｜${priceLabel}` : ""}
       </p>
 
       <p>💳 卡片餘額：{displayBalance.toFixed(3)} 元</p>
-      <p style={{ opacity: 0.7, fontSize: 12 }}>
-        （顯示餘額 = 卡片最後金額 − 電費；電費 = 用電量(kWh) × 單價）
-      </p>
 
-      <p>🔌 功率：{livePowerKw.toFixed(2)} kW</p>
+      <p>🔌 狀態：{statusLabel(cpStatus)}</p>
+
+      <p>⚡ 即時功率：{livePowerKw.toFixed(2)} kW</p>
+      <p>🔋 累積電量：{liveEnergyKWh.toFixed(3)} kWh</p>
+      <p>💰 預估電費：{liveCost.toFixed(3)} 元</p>
+
       <p>🔋 電壓：{liveVoltageV.toFixed(1)} V</p>
-      <p>🔧 電流：{liveCurrentA.toFixed(2)} A</p>
-      <p>🏷️ 樁態：{statusLabel(cpStatus)}</p>
-      <p>🔋 電量：{liveEnergyKWh.toFixed(4)} kWh</p>
-      <p>💰 電費：{liveCost.toFixed(2)} 元</p>
+      <p>🔌 電流：{liveCurrentA.toFixed(1)} A</p>
 
-      <p>⏱️ 充電起始時間：{formatTime(startTime)}</p>
+      <p>⏱️ 充電開始時間：{formatTime(startTime)}</p>
       <p>⏱️ 充電結束時間：{formatTime(stopTime)}</p>
-      <p>⏳ 本次充電累積時間：{elapsedTime}</p> {/* ⭐ 新增顯示 */}
+      <p>⏳ 本次充電累積時間：{elapsedTime}</p>
 
       {stopMsg && (
         <p style={{ color: "#ffd54f", marginTop: 8 }}>🔔 {stopMsg}</p>
