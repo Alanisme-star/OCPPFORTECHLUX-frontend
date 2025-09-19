@@ -431,11 +431,6 @@ export default function LiveStatus() {
     <div style={wrap}>
       <h2>📡 即時狀態</h2>
 
-      {/* ⭐ 上方顯示基本資訊 */}
-      <p>🏠 充電樁名稱：{cpName || "—"}</p>
-      <p>👤 住戶姓名：{residentName || "—"}</p>
-      <p>🏢 住戶樓號：{residentFloor || "—"}</p>
-      <p>💳 選擇卡片 ID：{cardId || "—"}</p>
 
       <label>卡片 ID：</label>
       <select
@@ -489,6 +484,11 @@ export default function LiveStatus() {
       <p>💳 卡片餘額：{displayBalance.toFixed(3)} 元</p>
 
       <p>🔌 狀態：{statusLabel(cpStatus)}</p>
+
+      <p>🏠 充電樁名稱：{cpName || "—"}</p>
+      <p>👤 住戶姓名：{residentName || "—"}</p>
+      <p>🏢 住戶樓號：{residentFloor || "—"}</p>
+      <p>💳 選擇卡片 ID：{cardId || "—"}</p>
 
       <p>⚡ 即時功率：{livePowerKw.toFixed(2)} kW</p>
       <p>🔋 累積電量：{liveEnergyKWh.toFixed(3)} kWh</p>
