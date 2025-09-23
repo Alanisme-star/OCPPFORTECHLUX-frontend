@@ -347,29 +347,25 @@ export default function LiveStatus() {
 
     const fetchTxInfo = async () => {
       try {
-        const currentRes = await axios.get(
-          `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction/summary` // ⭐ 修改：加上 /summary
+        // ⭐ 改成只打 /last-transaction/summary
+        const res = await axios.get(
+          `/api/charge-points/${encodeURIComponent(cpId)}/last-transaction/summary`
         );
-        if (currentRes.data?.found && currentRes.data.start_timestamp) {
-          setStartTime(currentRes.data.start_timestamp);
-          if (currentRes.data.stop_timestamp) {
-            setStopTime(currentRes.data.stop_timestamp);
-          } else {
-            setStopTime("");
-          }
+
+        if (res.data?.start_timestamp) {
+          // ⭐ 保護條件：如果已經有 startTime，且目前狀態是 Charging，就不要再覆蓋
+          setStartTime((prev) => {
+            if (prev && cpStatus === "Charging") {
+              return prev; // 不跳動，保持現有的
+            }
+            return res.data.start_timestamp;
+          });
+        }
+
+        if (res.data?.stop_timestamp) {
+          setStopTime(res.data.stop_timestamp);
         } else {
-          // ⭐ 修改：只有在「沒有進行中交易」時，才查最後已完成的交易
-          const lastRes = await axios.get(
-            `/api/charge-points/${encodeURIComponent(cpId)}/last-finished-transaction/summary`
-          );
-          if (lastRes.data?.found) {
-            if (lastRes.data.start_timestamp) {
-              setStartTime(lastRes.data.start_timestamp);
-            }
-            if (lastRes.data.stop_timestamp) {
-              setStopTime(lastRes.data.stop_timestamp);
-            }
-          }
+          setStopTime("");
         }
       } catch (err) {
         console.error("讀取交易資訊失敗:", err);
@@ -379,7 +375,8 @@ export default function LiveStatus() {
     fetchTxInfo();
     const t = setInterval(fetchTxInfo, 5_000);
     return () => clearInterval(t);
-  }, [cpId, cpStatus]);
+  }, [cpId, cpStatus]);  // ⭐ 保持依賴 cpId / cpStatus
+
 
   // ---------- ⭐ 新增：計算本次充電累積時間 ----------
   useEffect(() => {
