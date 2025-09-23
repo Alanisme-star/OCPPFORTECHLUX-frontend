@@ -348,25 +348,27 @@ export default function LiveStatus() {
     const fetchTxInfo = async () => {
       try {
         const currentRes = await axios.get(
-          `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction`
+          `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction/summary` // ⭐ 修改：加上 /summary
         );
         if (currentRes.data?.found && currentRes.data.start_timestamp) {
           setStartTime(currentRes.data.start_timestamp);
-        }
-
-        const lastRes = await axios.get(
-          `/api/charge-points/${encodeURIComponent(cpId)}/last-transaction/summary`
-        );
-        if (lastRes.data?.found) {
-          // ⭐ 永遠允許更新 startTime
-          if (lastRes.data.start_timestamp) {
-            setStartTime(lastRes.data.start_timestamp);
-          }
-          // ⭐ stopTime 僅在非 Charging 時更新；充電中則清空
-          if (lastRes.data.stop_timestamp && cpStatus !== "Charging") {
-            setStopTime(lastRes.data.stop_timestamp);
-          } else if (cpStatus === "Charging") {
+          if (currentRes.data.stop_timestamp) {
+            setStopTime(currentRes.data.stop_timestamp);
+          } else {
             setStopTime("");
+          }
+        } else {
+          // ⭐ 修改：只有在「沒有進行中交易」時，才查最後已完成的交易
+          const lastRes = await axios.get(
+            `/api/charge-points/${encodeURIComponent(cpId)}/last-finished-transaction/summary`
+          );
+          if (lastRes.data?.found) {
+            if (lastRes.data.start_timestamp) {
+              setStartTime(lastRes.data.start_timestamp);
+            }
+            if (lastRes.data.stop_timestamp) {
+              setStopTime(lastRes.data.stop_timestamp);
+            }
           }
         }
       } catch (err) {
