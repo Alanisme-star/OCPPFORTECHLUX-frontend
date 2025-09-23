@@ -231,8 +231,7 @@ export default function LiveStatus() {
         const session = Number(
           e?.sessionEnergyKWh ??
             e?.totalEnergyKWh ??
-            live?.energy ??
-            0
+            live?.estimated_energy ?? 0   // ⭐ 修改：改用 estimated_energy
         );
         let kwh = Number.isFinite(session) ? session : 0;
 
