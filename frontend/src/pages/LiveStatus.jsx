@@ -489,7 +489,7 @@ export default function LiveStatus() {
       <p>💳 選擇卡片 ID：{cardId || "—"}</p>
 
       <p>⚡ 即時功率：{livePowerKw.toFixed(2)} kW</p>
-      <p>🔋 累積電量：{liveEnergyKWh.toFixed(3)} kWh</p>
+      <p>🔋 本次充電累積電量：{liveEnergyKWh.toFixed(3)} kWh</p>
       <p>💰 預估電費：{liveCost.toFixed(3)} 元</p>
 
       <p>🔋 電壓：{liveVoltageV.toFixed(1)} V</p>
