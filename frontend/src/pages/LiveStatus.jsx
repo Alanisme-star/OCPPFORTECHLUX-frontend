@@ -347,12 +347,12 @@ export default function LiveStatus() {
 
     const fetchTxInfo = async () => {
       try {
-        // ⭐ 改成只打 /last-transaction/summary
+        // ⭐ 改成只打 /current-transaction/summary
         const res = await axios.get(
-          `/api/charge-points/${encodeURIComponent(cpId)}/last-transaction/summary`
+          `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction/summary`
         );
 
-        if (res.data?.start_timestamp) {
+        if (res.data?.found && res.data.start_timestamp) {
           // ⭐ 保護條件：如果已經有 startTime，且目前狀態是 Charging，就不要再覆蓋
           setStartTime((prev) => {
             if (prev && cpStatus === "Charging") {
@@ -360,12 +360,12 @@ export default function LiveStatus() {
             }
             return res.data.start_timestamp;
           });
-        }
-
-        if (res.data?.stop_timestamp) {
-          setStopTime(res.data.stop_timestamp);
+          setStopTime(""); // 進行中交易沒有 stopTime
         } else {
+          // ⭐ 沒有進行中交易 → 歸零
+          setStartTime("");
           setStopTime("");
+          setElapsedTime("—");
         }
       } catch (err) {
         console.error("讀取交易資訊失敗:", err);
