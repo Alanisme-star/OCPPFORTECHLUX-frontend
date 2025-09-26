@@ -230,8 +230,7 @@ export default function LiveStatus() {
         const e = energyRes.data || {};
         const session = Number(
           e?.sessionEnergyKWh ??
-            e?.totalEnergyKWh ??
-            live?.estimated_energy ?? 0   // ⭐ 修改：改用 estimated_energy
+            live?.estimated_energy ?? 0   // ← 僅保留單次交易或估算電量
         );
         let kwh = Number.isFinite(session) ? session : 0;
 
