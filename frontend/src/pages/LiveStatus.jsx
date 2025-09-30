@@ -19,6 +19,9 @@ export default function LiveStatus() {
   const [liveCurrentA, setLiveCurrentA] = useState(0);
   const [liveEnergyKWh, setLiveEnergyKWh] = useState(0);
 
+  // ⭐ 新增：起始電量
+  const [startEnergyKWh, setStartEnergyKWh] = useState(0);
+
   // 電費
   const [liveCost, setLiveCost] = useState(0);
 
@@ -261,6 +264,42 @@ export default function LiveStatus() {
     };
   }, [cpId, pricePerKWh]);
 
+
+
+  // ---------- 起始電量 ----------
+  useEffect(() => {
+    if (!cpId) return;
+    let cancelled = false;
+
+    const fetchStartMeter = async () => {
+      try {
+        const res = await axios.get(
+          `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction/start-meter`
+        );
+        if (!cancelled) {
+          if (res.data?.found) {
+            setStartEnergyKWh(res.data.meter_start_kwh || 0);
+          } else {
+            setStartEnergyKWh(0);
+          }
+        }
+      } catch (err) {
+        console.error("讀取起始電量失敗:", err);
+      }
+    };
+
+    fetchStartMeter();
+    const t = setInterval(fetchStartMeter, 5_000); // 每 5 秒更新
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [cpId, cpStatus]);
+
+
+
+
+
   // ---------- 餘額 ----------
   useEffect(() => {
     if (!cardId) return;
@@ -488,6 +527,7 @@ export default function LiveStatus() {
       <p>💳 選擇卡片 ID：{cardId || "—"}</p>
 
       <p>⚡ 即時功率：{livePowerKw.toFixed(2)} kW</p>
+      <p>🔢 本次充電起始電量：{startEnergyKWh.toFixed(3)} kWh</p>
       <p>🔋 本次充電累積電量：{liveEnergyKWh.toFixed(3)} kWh</p>
       <p>💰 預估電費：{liveCost.toFixed(3)} 元</p>
 
