@@ -22,6 +22,9 @@ export default function LiveStatus() {
   // ⭐ 新增：起始電量
   const [startEnergyKWh, setStartEnergyKWh] = useState(0);
 
+  // ⭐ 新增：實體充電樁累積電量
+  const [meterTotalKWh, setMeterTotalKWh] = useState(0);
+
   // 電費
   const [liveCost, setLiveCost] = useState(0);
 
@@ -208,6 +211,8 @@ export default function LiveStatus() {
     };
   }, [cpId]);
 
+
+
   // ---------- 即時量測 ----------
   useEffect(() => {
     if (!cpId) return;
@@ -231,9 +236,17 @@ export default function LiveStatus() {
         setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
 
         const e = energyRes.data || {};
+
+        // ⭐ 新增：取實體充電樁累積電量
+        const total = Number(e?.meterTotalKWh ?? 0);
+        if (Number.isFinite(total)) {
+          setMeterTotalKWh(total);  // ← 需要在 state 中先宣告 const [meterTotalKWh, setMeterTotalKWh] = useState(0);
+        }
+
+        // ⭐ 修改：保留 sessionEnergyKWh（單次充電累積）
         const session = Number(
           e?.sessionEnergyKWh ??
-            live?.estimated_energy ?? 0   // ← 僅保留單次交易或估算電量
+            live?.estimated_energy ?? 0
         );
         let kwh = Number.isFinite(session) ? session : 0;
 
@@ -528,6 +541,7 @@ export default function LiveStatus() {
 
       <p>⚡ 即時功率：{livePowerKw.toFixed(2)} kW</p>
       <p>🔢 本次充電起始電量：{startEnergyKWh.toFixed(3)} kWh</p>
+      <p>📟 實體充電樁累積電量：{meterTotalKWh.toFixed(3)} kWh</p>
       <p>🔋 本次充電累積電量：{liveEnergyKWh.toFixed(3)} kWh</p>
       <p>💰 預估電費：{liveCost.toFixed(3)} 元</p>
 
