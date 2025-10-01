@@ -260,8 +260,8 @@ export default function LiveStatus() {
 
         setLiveEnergyKWh(kwh);
 
-        if (Number.isFinite(live?.estimated_amount)) {
-          setLiveCost(live.estimated_amount);
+        if (Number.isFinite(e?.estimatedAmount)) {
+          setLiveCost(e.estimatedAmount);
         } else {
           const price = Number.isFinite(pricePerKWh) ? pricePerKWh : 0;
           setLiveCost(kwh * price);
