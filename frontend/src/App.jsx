@@ -1,17 +1,16 @@
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
 import DailyPricingSettings from "./pages/DailyPricingSettings";
-import Cards from './pages/Cards';
 import CardTopUp from './pages/CardTopUp';
 import Dashboard from './pages/Dashboard';
-// import HolidayChecker from './pages/HolidayChecker';   // ❌ 已移除
 import LinePush from './pages/LinePush';
 import LiveChargingStatus from './components/LiveChargingStatus';
 import Login from './pages/Login';
 import Transactions from './pages/Transactions';
-import ChargePoints from './pages/ChargePoints';
 import RealtimeStatusPage from "./pages/RealtimeStatusPage";
 import LiveStatus from "./pages/LiveStatus";
+// 🆕 新增整合頁
+import WhitelistManager from "./pages/WhitelistManager";
 
 export default function App() {
   return (
@@ -25,16 +24,25 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/transactions" element={<Transactions />} />
-            <Route path="/cards" element={<Cards />} />
             <Route path="/card-topup" element={<CardTopUp />} />
-            {/* <Route path="/holiday-checker" element={<HolidayChecker />} /> ❌ 已移除 */}
             <Route path="/line-push" element={<LinePush />} />
             <Route path="/login" element={<Login />} />
-            <Route path="*" element={<div className="text-red-400 text-xl">404 找不到頁面</div>} />
             <Route path="/daily-pricing" element={<DailyPricingSettings />} />
-            <Route path="/charge-points" element={<ChargePoints />} />
             <Route path="/realtime-status" element={<RealtimeStatusPage />} />
             <Route path="/live-status" element={<LiveStatus />} />
+
+            {/* 🆕 新增整合頁：取代 Cards.jsx 與 ChargePoints.jsx */}
+            <Route path="/whitelist-manager" element={<WhitelistManager />} />
+
+            {/* ❌ 移除舊頁 */}
+            {/* <Route path="/cards" element={<Cards />} /> */}
+            {/* <Route path="/charge-points" element={<ChargePoints />} /> */}
+
+            {/* 404 頁面 */}
+            <Route
+              path="*"
+              element={<div className="text-red-400 text-xl">404 找不到頁面</div>}
+            />
           </Routes>
         </main>
       </div>
