@@ -29,7 +29,7 @@ export default function WhitelistManager() {
       let merged = [];
       try {
         const { data } = await axios.get("/api/whitelist/with-cards");
-        merged = data;
+        merged = Array.isArray(data) ? data : [];
       } catch {
         // 若後端尚未建立 /api/whitelist/with-cards，則自行合併
         const [cpRes, cardRes] = await Promise.all([
