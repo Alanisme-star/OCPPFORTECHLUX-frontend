@@ -337,17 +337,20 @@ export default function LiveStatus() {
       clearInterval(t);
     };
   }, [cardId]);
-  // ---------- 狀態切換 ----------
+  // ⚡ 當餘額 <=0 且狀態仍是 Charging，前端也主動請求後端停充
   useEffect(() => {
-    const prev = prevStatusRef.current;
-    if (prev === "Charging" && cpStatus !== "Charging") {
-      setFrozenAfterStop(true);
-      setFrozenCost(Number.isFinite(liveCost) ? liveCost : 0);
-      setRawAtFreeze(Number.isFinite(rawBalance) ? rawBalance : 0);
-      setStopMsg("充電已自動停止（餘額不足或後端命令）");
+    if (displayBalance <= 0 && cpStatus === "Charging" && !sentAutoStop) {
+      setSentAutoStop(true);
+      axios
+        .post(`/api/charge-points/${encodeURIComponent(cpId)}/stop`)
+        .then(() => {
+          console.log(`⚡ 前端已送出停止充電指令給 ${cpId}`);
+        })
+        .catch((err) => {
+          console.error("⚠️ 停止充電 API 呼叫失敗", err);
+        });
     }
-    prevStatusRef.current = cpStatus;
-  }, [cpStatus, liveCost, rawBalance]);
+  }, [displayBalance, cpStatus, sentAutoStop, cpId]);
 
   // ⭐ 當狀態從非 Charging → Charging，重置交易時間
   useEffect(() => {
