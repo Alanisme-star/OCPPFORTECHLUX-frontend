@@ -8,6 +8,7 @@ import axios from "../axiosInstance";
  * - 顯示對應卡片餘額（若有對應）
  * - 支援即時更新（自動輪詢）
  * - 可手動新增充電樁（同時建立卡片與初始餘額）
+ * - ✅ 支援編輯卡片餘額
  */
 
 export default function WhitelistManager() {
@@ -25,11 +26,18 @@ export default function WhitelistManager() {
   const fetchData = async () => {
     try {
       setLoading(true);
-      // 優先使用 /api/whitelist/with-cards，如無則改用兩個 API
       let merged = [];
       try {
         const { data } = await axios.get("/api/whitelist/with-cards");
-        merged = Array.isArray(data) ? data : [];
+        merged = Array.isArray(data)
+          ? data.map((item) => ({
+              charge_point_id: item.charge_point_id,
+              name: item.name,
+              status: item.status,
+              card_id: item.card_id,
+              balance: item.balance,
+            }))
+          : [];
       } catch {
         // 若後端尚未建立 /api/whitelist/with-cards，則自行合併
         const [cpRes, cardRes] = await Promise.all([
@@ -41,13 +49,12 @@ export default function WhitelistManager() {
           : cpRes.data?.whitelist || [];
         const cards = Array.isArray(cardRes.data) ? cardRes.data : [];
         merged = cps.map((cp) => {
-          const match = cards.find(
-            (c) => c.card_id === cp.charge_point_id
-          );
+          const match = cards.find((c) => c.card_id === cp.charge_point_id);
           return {
             charge_point_id: cp.charge_point_id,
             name: cp.name || "—",
             status: cp.status || "—",
+            card_id: cp.charge_point_id,
             balance: match ? match.balance ?? 0 : 0,
           };
         });
@@ -86,6 +93,32 @@ export default function WhitelistManager() {
     } catch (err) {
       console.error(err);
       setMsg("❌ 新增失敗");
+    }
+  };
+
+  // ---- 編輯卡片餘額 ----
+  const handleEdit = async (row) => {
+    const newBalance = prompt(
+      `請輸入新的餘額（目前：${row.balance} 元）`,
+      row.balance
+    );
+    if (newBalance === null) return;
+    const val = parseFloat(newBalance);
+    if (isNaN(val)) {
+      alert("⚠️ 輸入必須是數字");
+      return;
+    }
+    try {
+      setMsg("⏳ 更新中...");
+      await axios.put("/api/whitelist-manager/update-card-balance", {
+        card_id: row.card_id || row.charge_point_id,
+        balance: val,
+      });
+      setMsg(`✅ 已更新 ${row.charge_point_id} 餘額為 ${val} 元`);
+      fetchData();
+    } catch (err) {
+      console.error(err);
+      setMsg("❌ 更新失敗");
     }
   };
 
@@ -207,12 +240,13 @@ export default function WhitelistManager() {
               <th style={thtd}>名稱</th>
               <th style={thtd}>狀態</th>
               <th style={thtd}>卡片餘額（元）</th>
+              <th style={thtd}>操作</th>
             </tr>
           </thead>
           <tbody>
             {list.length === 0 ? (
               <tr>
-                <td colSpan={4} style={thtd}>
+                <td colSpan={5} style={thtd}>
                   無資料
                 </td>
               </tr>
@@ -226,6 +260,14 @@ export default function WhitelistManager() {
                     {typeof row.balance === "number"
                       ? row.balance.toFixed(2)
                       : "—"}
+                  </td>
+                  <td style={thtd}>
+                    <button
+                      style={{ ...btn, background: "#4caf50" }}
+                      onClick={() => handleEdit(row)}
+                    >
+                      編輯
+                    </button>
                   </td>
                 </tr>
               ))
