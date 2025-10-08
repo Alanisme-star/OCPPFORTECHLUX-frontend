@@ -145,78 +145,31 @@ export default function LiveStatus() {
     };
   }, []);
 
-  // ---------- 樁態 ----------
-  useEffect(() => {
-    if (!cpId) return;
-    let cancelled = false;
 
-    const safeParseTime = (ts) => {
-      if (!ts) return 0;
-      const v = Date.parse(ts);
-      return Number.isFinite(v) ? v : 0;
-    };
 
-    const fetchStatus = async () => {
-      try {
-        const [dbRes, cacheRes] = await Promise.allSettled([
-          axios.get(
-            `/api/charge-points/${encodeURIComponent(cpId)}/latest-status`
-          ),
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/status`),
-        ]);
+  // ====== 取得樁態 & 即時數據（統一用 live-status） ======
+  const fetchLiveData = useCallback(async () => {
+    try {
+      const res = await axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/live-status`);
+      const live = res.data || {};
 
-        let dbStatus = "Unknown",
-          dbTs = 0;
-        if (dbRes.status === "fulfilled") {
-          const d = dbRes.value?.data;
-          dbStatus = (d?.status ?? d ?? "Unknown") || "Unknown";
-          dbTs = safeParseTime(d?.timestamp);
-        }
+      // 直接用 live-status 回傳的 status，如果沒有就給 Unknown
+      setCpStatus(live?.status || "Unknown");
 
-        let cacheStatus = "Unknown",
-          cacheTs = 0;
-        if (cacheRes.status === "fulfilled") {
-          const c = cacheRes.value?.data;
-          if (typeof c === "string") {
-            cacheStatus = c || "Unknown";
-          } else {
-            cacheStatus = c?.status || "Unknown";
-            cacheTs = safeParseTime(c?.timestamp);
-          }
-        }
-
-        let chosen = "Unknown";
-        if (dbStatus === "Unknown" && cacheStatus !== "Unknown") {
-          chosen = cacheStatus;
-        } else if (cacheStatus === "Unknown" && dbStatus !== "Unknown") {
-          chosen = dbStatus;
-        } else if (dbStatus !== "Unknown" && cacheStatus !== "Unknown") {
-          if (cacheTs && dbTs) {
-            chosen = cacheTs >= dbTs ? cacheStatus : dbStatus;
-          } else if (dbStatus === "Available" && cacheStatus === "Charging") {
-            chosen = cacheStatus;
-          } else {
-            chosen = dbStatus;
-          }
-        }
-
-        if (!cancelled) {
-          if (chosen === "未知") chosen = "Unknown";
-          setCpStatus(chosen);
-        }
-      } catch {
-        if (!cancelled) setCpStatus("Unknown");
-      }
-    };
-
-    fetchStatus();
-    const t = setInterval(fetchStatus, 2_000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
+      const kw = Number(live?.power ?? 0);
+      const vv = Number(live?.voltage ?? 0);
+      const aa = Number(live?.current ?? 0);
+      setLivePowerKw(Number.isFinite(kw) ? kw : 0);
+      setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
+      setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
+    } catch (err) {
+      console.error("取得即時數據失敗", err);
+      setCpStatus("Unknown");
+      setLivePowerKw(0);
+      setLiveVoltageV(0);
+      setLiveCurrentA(0);
+    }
   }, [cpId]);
-
 
 
   // ---------- 即時量測 ----------
