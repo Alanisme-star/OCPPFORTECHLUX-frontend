@@ -102,19 +102,25 @@ export default function LiveStatus() {
         setCardList(cardsData);
         setCpList(cpsData);
 
-        if (cardsData.length) {
+        // ✅ 改為：優先使用後端提供的 charge_point_id 與 default_card_id
+        if (cpsData.length) {
+          const firstCp = cpsData[0].charge_point_id ?? ""; // ← 與後端欄位一致
+          setCpId(firstCp);
+
+          if (cpsData[0].default_card_id) {
+            setCardId(cpsData[0].default_card_id); // ← 直接使用該樁預設卡片
+          }
+        } else if (cardsData.length) {
+          // 若沒有充電樁資料，才退而求其次用第一張卡
           const firstId = cardsData[0].card_id ?? cardsData[0].cardId ?? "";
           setCardId(firstId);
-        }
-        if (cpsData.length) {
-          const firstCp = cpsData[0].chargePointId ?? cpsData[0].id ?? "";
-          setCpId(firstCp);
         }
       } catch (err) {
         console.error("初始化清單失敗：", err);
       }
     })();
   }, []);
+
   // ---------- 電價 ----------
   useEffect(() => {
     let cancelled = false;
