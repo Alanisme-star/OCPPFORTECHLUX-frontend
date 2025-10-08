@@ -73,7 +73,7 @@ export default function WhitelistManager() {
     return () => clearInterval(timer);
   }, []);
 
-  // ---- 新增充電樁＋卡片 ----
+  // ---- 新增充電樁＋卡片（一次完成）----
   const handleAdd = async () => {
     const { charge_point_id, name, card_id, balance } = form;
     if (!charge_point_id || !card_id) {
@@ -82,17 +82,13 @@ export default function WhitelistManager() {
     }
     try {
       setMsg("⏳ 處理中...");
-      // 先新增充電樁
+      // ✅ 改成一次呼叫後端，直接同時建立充電樁與卡片
       await axios.post("/api/whitelist-manager/add", {
         type: "charge_point",
         charge_point_id,
         name,
-      });
-      // 再新增卡片
-      await axios.post("/api/whitelist-manager/add", {
-        type: "card",
-        card_id,
-        balance,
+        card_id,  // ⚡ 傳給後端作為 default_card_id
+        balance,  // ⚡ 同時設定初始餘額
       });
       setMsg(`✅ 已成功新增充電樁 ${charge_point_id} 與卡片 ${card_id}`);
       setForm({ charge_point_id: "", name: "", card_id: "", balance: 100.0 });
@@ -106,6 +102,7 @@ export default function WhitelistManager() {
       }
     }
   };
+
 
   // ---- 編輯卡片餘額 ----
   const handleEdit = async (row) => {
