@@ -82,17 +82,28 @@ export default function WhitelistManager() {
     }
     try {
       setMsg("⏳ 處理中...");
-      const res = await axios.post(
-        "/api/debug/force-add-charge-point",
-        null,
-        { params: { charge_point_id, name, card_id, initial_balance: balance } }
-      );
-      setMsg(`✅ 新增成功：${res.data.message}`);
+      // 先新增充電樁
+      await axios.post("/api/whitelist-manager/add", {
+        type: "charge_point",
+        charge_point_id,
+        name,
+      });
+      // 再新增卡片
+      await axios.post("/api/whitelist-manager/add", {
+        type: "card",
+        card_id,
+        balance,
+      });
+      setMsg(`✅ 已成功新增充電樁 ${charge_point_id} 與卡片 ${card_id}`);
       setForm({ charge_point_id: "", name: "", card_id: "", balance: 100.0 });
       fetchData();
     } catch (err) {
       console.error(err);
-      setMsg("❌ 新增失敗");
+      if (err.response?.data?.detail) {
+        setMsg(`❌ 新增失敗：${err.response.data.detail}`);
+      } else {
+        setMsg("❌ 新增失敗");
+      }
     }
   };
 
