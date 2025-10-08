@@ -104,14 +104,14 @@ export default function LiveStatus() {
 
         // ✅ 改為：優先使用後端提供的 charge_point_id 與 default_card_id
         if (cpsData.length) {
-          const firstCp = cpsData[0].charge_point_id ?? ""; // ← 與後端欄位一致
+          const firstCp = cpsData[0].charge_point_id ?? ""; // ← 與後端一致
           setCpId(firstCp);
 
           if (cpsData[0].default_card_id) {
-            setCardId(cpsData[0].default_card_id); // ← 直接使用該樁預設卡片
+            setCardId(cpsData[0].default_card_id); // ← 與後端扣款一致
           }
         } else if (cardsData.length) {
-          // 若沒有充電樁資料，才退而求其次用第一張卡
+          // 沒有充電樁資料才退而求其次
           const firstId = cardsData[0].card_id ?? cardsData[0].cardId ?? "";
           setCardId(firstId);
         }
@@ -343,12 +343,12 @@ export default function LiveStatus() {
       clearInterval(t);
     };
   }, [cardId]);
-  // ⚡ 當餘額 <=0 且狀態仍是 Charging，前端也主動請求後端停充
+  // ✅ 自動停樁請求 (移除 encodeURIComponent)
   useEffect(() => {
     if (displayBalance <= 0 && cpStatus === "Charging" && !sentAutoStop) {
       setSentAutoStop(true);
       axios
-        .post(`/api/charge-points/${encodeURIComponent(cpId)}/stop`)
+        .post(`/api/charge-points/${cpId}/stop`) // ✅ 直接用原始 cpId
         .then(() => {
           console.log(`⚡ 前端已送出停止充電指令給 ${cpId}`);
         })
