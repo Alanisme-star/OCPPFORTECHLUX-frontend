@@ -308,6 +308,19 @@ export default function LiveStatus() {
     prevStatusRef.current = cpStatus;
   }, [cpStatus]);
 
+  // ⭐ 新增：當開始新一輪充電時，重置所有即時量測與預估
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    if (prev !== "Charging" && cpStatus === "Charging") {
+      setLiveEnergyKWh(0);
+      setLiveCost(0);
+      setLivePowerKw(0);
+      setLiveVoltageV(0);
+      setLiveCurrentA(0);
+    }
+  }, [cpStatus]);
+
+
   // ---------- 扣款後解除凍結 ----------
   useEffect(() => {
     if (!frozenAfterStop || rawAtFreeze == null) return;
