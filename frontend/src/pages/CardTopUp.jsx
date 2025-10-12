@@ -9,9 +9,14 @@ function CardTopUp() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    axios.get("/api/cards")
-      .then((res) => setCards(res.data))
-      .catch((err) => console.error("讀取卡片失敗", err));
+    const fetchCards = () => {
+      axios.get("/api/cards")
+        .then((res) => setCards(res.data))
+        .catch((err) => console.error("讀取卡片失敗", err));
+    };
+    fetchCards(); // 立即執行一次
+    const interval = setInterval(fetchCards, 5000); // 🔁 每 5 秒更新一次
+    return () => clearInterval(interval);
   }, []);
 
   const handleTopUp = (e) => {
