@@ -289,11 +289,13 @@ export default function LiveStatus() {
   // ---------- 狀態切換 ----------
   useEffect(() => {
     const prev = prevStatusRef.current;
-    if (prev === "Charging" && cpStatus !== "Charging") {
-      setFrozenAfterStop(true);
-      setFrozenCost(Number.isFinite(liveCost) ? liveCost : 0);
-      setRawAtFreeze(Number.isFinite(rawBalance) ? rawBalance : 0);
-      setStopMsg("充電已自動停止（餘額不足或後端命令）");
+    if (prev && prev !== "Unknown" && prev !== "Available" && prev !== "Preparing") {
+      if (prev === "Charging" && cpStatus !== "Charging") {
+        setFrozenAfterStop(true);
+        setFrozenCost(Number.isFinite(liveCost) ? liveCost : 0);
+        setRawAtFreeze(Number.isFinite(rawBalance) ? rawBalance : 0);
+        setStopMsg("充電已自動停止（餘額不足或後端命令）");
+      }
     }
     prevStatusRef.current = cpStatus;
   }, [cpStatus, liveCost, rawBalance]);
