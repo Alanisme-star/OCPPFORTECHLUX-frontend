@@ -146,53 +146,15 @@ export default function LiveStatus() {
 
     const fetchStatus = async () => {
       try {
-        const [dbRes, cacheRes] = await Promise.allSettled([
-          axios.get(
-            `/api/charge-points/${encodeURIComponent(cpId)}/latest-status`
-          ),
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/status`),
-        ]);
-
-        let dbStatus = "Unknown",
-          dbTs = 0;
-        if (dbRes.status === "fulfilled") {
-          const d = dbRes.value?.data;
-          dbStatus = (d?.status ?? d ?? "Unknown") || "Unknown";
-          dbTs = safeParseTime(d?.timestamp);
-        }
-
-        let cacheStatus = "Unknown",
-          cacheTs = 0;
-        if (cacheRes.status === "fulfilled") {
-          const c = cacheRes.value?.data;
-          if (typeof c === "string") {
-            cacheStatus = c || "Unknown";
-          } else {
-            cacheStatus = c?.status || "Unknown";
-            cacheTs = safeParseTime(c?.timestamp);
-          }
-        }
-
-        let chosen = "Unknown";
-        if (dbStatus === "Unknown" && cacheStatus !== "Unknown") {
-          chosen = cacheStatus;
-        } else if (cacheStatus === "Unknown" && dbStatus !== "Unknown") {
-          chosen = dbStatus;
-        } else if (dbStatus !== "Unknown" && cacheStatus !== "Unknown") {
-          if (cacheTs && dbTs) {
-            chosen = cacheTs >= dbTs ? cacheStatus : dbStatus;
-          } else if (dbStatus === "Available" && cacheStatus === "Charging") {
-            chosen = cacheStatus;
-          } else {
-            chosen = dbStatus;
-          }
-        }
-
+        const { data } = await axios.get(
+          `/api/charge-points/${encodeURIComponent(cpId)}/latest-status`
+        );
+        const status = data?.status ?? data ?? "Unknown";
         if (!cancelled) {
-          if (chosen === "未知") chosen = "Unknown";
-          setCpStatus(chosen);
+          setCpStatus(status || "Unknown");
         }
-      } catch {
+      } catch (err) {
+        console.warn("讀取樁狀態失敗：", err);
         if (!cancelled) setCpStatus("Unknown");
       }
     };
