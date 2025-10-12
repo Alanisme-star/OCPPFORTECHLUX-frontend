@@ -13,8 +13,6 @@ const Cards = () => {
 
   useEffect(() => {
     fetchCards();
-    const interval = setInterval(fetchCards, 5000); // 🔁 每 5 秒重新抓取
-    return () => clearInterval(interval); // 清除輪詢
   }, []);
 
   const fetchCards = async () => {
