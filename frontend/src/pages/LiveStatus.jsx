@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
 import axios from "../axiosInstance"; // ← 依你的專案實際路徑調整
 
+
 export default function LiveStatus() {
   // 卡片 / 充電樁
   const [cardId, setCardId] = useState("");
