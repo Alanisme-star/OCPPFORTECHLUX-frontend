@@ -392,7 +392,7 @@ export default function LiveStatus() {
   }, [cpId, cpStatus]);  // ⭐ 保持依賴 cpId / cpStatus
 
 
-  // ---------- ⭐ 改良版：計算本次充電累積時間（停止後歸零） ----------
+  // ---------- ⭐ 最終改良版：計算本次充電累積時間（停止後歸零 + 新充電重新計算） ----------
   useEffect(() => {
     let timer;
 
@@ -410,15 +410,17 @@ export default function LiveStatus() {
         }
       }, 1000);
     } else {
-      // 非充電中（例如停止、可用、暫停、故障）
+      // 非充電中 → 停止計時並歸零
       clearInterval(timer);
-      // 歸零處理
       setElapsedTime("—");
+
+      // ⭐ 同步重置起止時間，避免下次重啟用到舊資料
+      setStartTime("");
+      setStopTime("");
     }
 
     return () => clearInterval(timer);
   }, [startTime, stopTime, cpStatus]);
-
 
 
   // ---------- 狀態顯示 ----------
