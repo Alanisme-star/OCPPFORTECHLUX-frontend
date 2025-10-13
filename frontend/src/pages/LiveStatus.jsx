@@ -392,10 +392,12 @@ export default function LiveStatus() {
   }, [cpId, cpStatus]);  // ⭐ 保持依賴 cpId / cpStatus
 
 
-  // ---------- ⭐ 新增：計算本次充電累積時間 ----------
+  // ---------- ⭐ 改良版：計算本次充電累積時間（隨樁狀態同步停止） ----------
   useEffect(() => {
     let timer;
-    if (startTime) {
+
+    // 只有在有 startTime 且狀態為 Charging 時才啟動計時
+    if (startTime && cpStatus === "Charging") {
       timer = setInterval(() => {
         const start = Date.parse(startTime);
         if (!isNaN(start)) {
@@ -407,11 +409,16 @@ export default function LiveStatus() {
           setElapsedTime(`${hh}:${mm}:${ss}`);
         }
       }, 1000);
+    } else if (cpStatus !== "Charging") {
+      // 停止充電 → 停止計時
+      clearInterval(timer);
     } else {
       setElapsedTime("—");
     }
+
     return () => clearInterval(timer);
-  }, [startTime, stopTime]);
+  }, [startTime, stopTime, cpStatus]);
+
 
   // ---------- 狀態顯示 ----------
   const statusLabel = (s) => {
