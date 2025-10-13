@@ -396,7 +396,6 @@ export default function LiveStatus() {
   useEffect(() => {
     let timer;
 
-    // 只有在有 startTime 且狀態為 Charging 時才啟動計時
     if (startTime && cpStatus === "Charging") {
       timer = setInterval(() => {
         const start = Date.parse(startTime);
@@ -410,7 +409,6 @@ export default function LiveStatus() {
         }
       }, 1000);
     } else if (cpStatus !== "Charging") {
-      // 停止充電 → 停止計時
       clearInterval(timer);
     } else {
       setElapsedTime("—");
@@ -418,6 +416,15 @@ export default function LiveStatus() {
 
     return () => clearInterval(timer);
   }, [startTime, stopTime, cpStatus]);
+
+// ---------- ⭐ 新增：當重新開始新一輪充電時重置時間 ----------
+useEffect(() => {
+  if (cpStatus === "Charging") {
+    // 新開始時，重置為 00:00:00
+    setElapsedTime("00:00:00");
+  }
+}, [cpStatus]);
+
 
 
   // ---------- 狀態顯示 ----------
