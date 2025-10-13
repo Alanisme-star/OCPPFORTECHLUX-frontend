@@ -423,28 +423,6 @@ export default function LiveStatus() {
   }, [startTime, stopTime, cpStatus]);
 
 
-// ---------- 自動停充（前端主動） ----------
-useEffect(() => {
-  if (!cpId || sentAutoStop) return; // 沒選樁或已送過就不再送
-  if (displayBalance <= 0.01 && cpStatus === "Charging") {
-    console.warn("💳 餘額歸零，觸發前端自動停充！");
-    setSentAutoStop(true);
-
-    axios
-      .post(`/api/charge-points/${encodeURIComponent(cpId)}/stop`)
-      .then((res) => {
-        console.log("🔌 已通知後端停充：", res.data);
-        setStopMsg("🔔 自動停充（前端偵測餘額=0）");
-      })
-      .catch((err) => {
-        console.error("⚠️ 自動停充失敗：", err);
-      });
-  }
-}, [displayBalance, cpStatus, cpId, sentAutoStop]);
-
-
-
-
   // ---------- 狀態顯示 ----------
   const statusLabel = (s) => {
     const map = {
