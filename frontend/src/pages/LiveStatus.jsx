@@ -435,7 +435,7 @@ export default function LiveStatus() {
       (async () => {
         try {
           const res = await axios.post(
-            `/api/charge-points/${encodeURIComponent(cpId)}/stop`
+            `/api/charge-points/${cpId}/stop`
           );
           setSentAutoStop(true);
           setStopMsg("🔔 餘額為零，自動停止充電（RemoteStopTransaction 已送出）。");
