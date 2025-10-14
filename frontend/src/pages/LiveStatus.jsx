@@ -206,7 +206,7 @@ export default function LiveStatus() {
     };
   }, [cpId]);
 
-  // ---------- 即時量測 ----------
+  // ---------- 即時量測：live-status + latest-energy，每 1 秒 ----------
   useEffect(() => {
     if (!cpId) return;
     let cancelled = false;
@@ -220,6 +220,7 @@ export default function LiveStatus() {
 
         if (cancelled) return;
 
+        // 即時功率/電壓/電流
         const live = liveRes.data || {};
         const kw = Number(live?.power ?? 0);
         const vv = Number(live?.voltage ?? 0);
@@ -228,13 +229,15 @@ export default function LiveStatus() {
         setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
         setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
 
+        // 以 DB 的「本次用電量」為主；沒有時再退回其他來源
         const e = energyRes.data || {};
-        const session = Number(
+        let kwh = Number(
           e?.sessionEnergyKWh ??
-            e?.totalEnergyKWh ??
-            live?.estimated_energy ?? 0   // ⭐ 修改：改用 estimated_energy
+          e?.totalEnergyKWh ?? // 退而求其次：總表
+          live?.energy ??      // 再退：即時回傳的能量
+          0
         );
-        let kwh = Number.isFinite(session) ? session : 0;
+        kwh = Number.isFinite(kwh) ? kwh : 0;
 
         // ⭐ 保護條件：若狀態是 Available，強制歸零
         if (cpStatus === "Available" && kwh > 0) {
@@ -248,6 +251,10 @@ export default function LiveStatus() {
 
         const price = Number.isFinite(pricePerKWh) ? pricePerKWh : 0;
         setLiveCost(kwh * price);
+      } catch (err) {
+        // 忽略一次，保留前次值
+      }
+    };
 
     tick();
     const t = setInterval(tick, 1_000);
@@ -255,7 +262,7 @@ export default function LiveStatus() {
       cancelled = true;
       clearInterval(t);
     };
-  }, [cpId, pricePerKWh]);
+  }, [cpId, pricePerKWh, cpStatus]);
 
   // ---------- 餘額 ----------
   useEffect(() => {
