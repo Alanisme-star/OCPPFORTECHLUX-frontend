@@ -429,7 +429,7 @@ export default function LiveStatus() {
   useEffect(() => {
     if (sentAutoStop) return;
     // ✅ 改成只排除「Available」與「Unknown」狀態
-    if (["Available", "Unknown"].includes(cpStatus)) return;
+    if (!cpId) return;
 
 
     const nearZero = (x) => Number.isFinite(x) && x <= 0.001;
