@@ -426,10 +426,31 @@ export default function LiveStatus() {
 
 
   // ---------- 餘額歸零自動停樁（RemoteStopTransaction） ----------
+  // 餘額歸零自動停樁（RemoteStopTransaction）
   useEffect(() => {
     if (sentAutoStop) return;
-    // ✅ 改成只排除「Available」與「Unknown」狀態
     if (!cpId) return;
+
+    // 🧩 新增保護條件：必須已經載入卡片清單且有非零初始值
+    if (cardList.length === 0) return;
+    if (rawBalance === 0 && liveCost === 0) return; // 預設初始值階段不動作
+
+    const nearZero = (x) => Number.isFinite(x) && x <= 0.001;
+    if (nearZero(displayBalance) || nearZero(rawBalance)) {
+      (async () => {
+        try {
+          const res = await axios.post(`/api/charge-points/${cpId}/stop`);
+          setSentAutoStop(true);
+          setStopMsg("🔔 餘額為零，自動停止充電（RemoteStopTransaction 已送出）。");
+          console.log("Auto stop sent:", res.data);
+        } catch (e) {
+          setStopMsg(`❌ 停止充電指令失敗：${e?.response?.status || ""} ${e?.response?.data || ""}`);
+          console.warn("Auto stop failed:", e?.response?.status, e?.response?.data);
+        }
+      })();
+    }
+  }, [displayBalance, rawBalance, cpStatus, cpId, sentAutoStop]);
+
 
 
     const nearZero = (x) => Number.isFinite(x) && x <= 0.001;
