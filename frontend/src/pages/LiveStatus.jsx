@@ -343,6 +343,33 @@ export default function LiveStatus() {
     setDisplayBalance(nb > 0 ? nb : 0);
   }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
 
+
+  // ---------- ⭐ 當餘額為 0 時自動通知後端停充 ----------
+  useEffect(() => {
+    if (!cpId || sentAutoStop) return;  // 沒選擇樁或已經送過就不做
+    if (displayBalance <= 0) {          // ⭐ 直接用餘額為 0 為條件（不限定 Charging）
+      console.warn("⚠️ 餘額為 0，自動發送停充請求...");
+      setSentAutoStop(true);            // 標記已送出，防止重複觸發
+
+      axios
+        .post(`/api/charge-points/${encodeURIComponent(cpId)}/stop`)
+        .then((res) => {
+          console.log("✅ 自動停充成功：", res.data);
+          setStopMsg("🔔 餘額不足，自動停止充電");
+        })
+        .catch((err) => {
+          console.error("❌ 自動停充失敗：", err);
+          setSentAutoStop(false);       // 若失敗允許重試
+        });
+    }
+  }, [displayBalance, cpId, sentAutoStop]);
+
+
+
+
+
+
+
   // ---------- 切換樁時重置 ----------
   useEffect(() => {
     setLivePowerKw(0);
