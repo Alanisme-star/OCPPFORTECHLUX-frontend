@@ -428,7 +428,9 @@ export default function LiveStatus() {
   // ---------- 餘額歸零自動停樁（RemoteStopTransaction） ----------
   useEffect(() => {
     if (sentAutoStop) return;
-    if (cpStatus !== "Charging") return;
+    // ✅ 改成只排除「Available」與「Unknown」狀態
+    if (["Available", "Unknown"].includes(cpStatus)) return;
+
 
     const nearZero = (x) => Number.isFinite(x) && x <= 0.001;
     if (nearZero(displayBalance) || nearZero(rawBalance)) {
