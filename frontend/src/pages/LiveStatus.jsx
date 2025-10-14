@@ -428,17 +428,16 @@ export default function LiveStatus() {
   // ---------- 餘額歸零自動停樁（RemoteStopTransaction） ----------
   useEffect(() => {
     if (sentAutoStop) return;
-    // ✅ 改成只排除「Available」與「Unknown」狀態
-    if (["Available", "Unknown"].includes(cpStatus)) return;
+    if (!cpId) return;
 
+    // 🧩 僅在「充電中」狀態下才允許自動停樁
+    if (cpStatus !== "Charging") return;
 
     const nearZero = (x) => Number.isFinite(x) && x <= 0.001;
     if (nearZero(displayBalance) || nearZero(rawBalance)) {
       (async () => {
         try {
-          const res = await axios.post(
-            `/api/charge-points/${cpId}/stop`
-          );
+          const res = await axios.post(`/api/charge-points/${encodeURIComponent(cpId)}/stop`);
           setSentAutoStop(true);
           setStopMsg("🔔 餘額為零，自動停止充電（RemoteStopTransaction 已送出）。");
           console.log("Auto stop sent:", res.data);
@@ -449,6 +448,7 @@ export default function LiveStatus() {
       })();
     }
   }, [displayBalance, rawBalance, cpStatus, cpId, sentAutoStop]);
+
 
 
 
