@@ -344,31 +344,6 @@ export default function LiveStatus() {
   }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
 
 
-  // ---------- ⭐ 當餘額為 0 時自動通知後端停充 ----------
-  useEffect(() => {
-    if (!cpId || sentAutoStop) return;  // 沒選擇樁或已經送過就不做
-    if (displayBalance <= 0) {          // ⭐ 直接用餘額為 0 為條件（不限定 Charging）
-      console.warn("⚠️ 餘額為 0，自動發送停充請求...");
-      setSentAutoStop(true);            // 標記已送出，防止重複觸發
-
-      axios
-        .post(`/api/charge-points/${encodeURIComponent(cpId)}/stop`)
-        .then((res) => {
-          console.log("✅ 自動停充成功：", res.data);
-          setStopMsg("🔔 餘額不足，自動停止充電");
-        })
-        .catch((err) => {
-          console.error("❌ 自動停充失敗：", err);
-          setSentAutoStop(false);       // 若失敗允許重試
-        });
-    }
-  }, [displayBalance, cpId, sentAutoStop]);
-
-
-
-
-
-
 
   // ---------- 切換樁時重置 ----------
   useEffect(() => {
@@ -448,6 +423,32 @@ export default function LiveStatus() {
 
     return () => clearInterval(timer);
   }, [startTime, stopTime, cpStatus]);
+
+
+  // ---------- 餘額歸零自動停樁（RemoteStopTransaction） ----------
+  useEffect(() => {
+    if (sentAutoStop) return;
+    if (cpStatus !== "Charging") return;
+
+    const nearZero = (x) => Number.isFinite(x) && x <= 0.001;
+    if (nearZero(displayBalance) || nearZero(rawBalance)) {
+      (async () => {
+        try {
+          const res = await axios.post(
+            `/api/charge-points/${encodeURIComponent(cpId)}/stop`
+          );
+          setSentAutoStop(true);
+          setStopMsg("🔔 餘額為零，自動停止充電（RemoteStopTransaction 已送出）。");
+          console.log("Auto stop sent:", res.data);
+        } catch (e) {
+          setStopMsg(`❌ 停止充電指令失敗：${e?.response?.status || ""} ${e?.response?.data || ""}`);
+          console.warn("Auto stop failed:", e?.response?.status, e?.response?.data);
+        }
+      })();
+    }
+  }, [displayBalance, rawBalance, cpStatus, cpId, sentAutoStop]);
+
+
 
 
   // ---------- 狀態顯示 ----------
