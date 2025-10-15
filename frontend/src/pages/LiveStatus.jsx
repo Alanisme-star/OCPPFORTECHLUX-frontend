@@ -206,7 +206,7 @@ export default function LiveStatus() {
     };
   }, [cpId]);
 
-  // ---------- 即時量測：live-status + latest-energy，每 1 秒 ----------
+  // ---------- 即時量測 ----------
   useEffect(() => {
     if (!cpId) return;
     let cancelled = false;
@@ -220,7 +220,6 @@ export default function LiveStatus() {
 
         if (cancelled) return;
 
-        // 即時功率/電壓/電流
         const live = liveRes.data || {};
         const kw = Number(live?.power ?? 0);
         const vv = Number(live?.voltage ?? 0);
@@ -229,15 +228,13 @@ export default function LiveStatus() {
         setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
         setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
 
-        // 以 DB 的「本次用電量」為主；沒有時再退回其他來源
         const e = energyRes.data || {};
-        let kwh = Number(
+        const session = Number(
           e?.sessionEnergyKWh ??
-          e?.totalEnergyKWh ?? // 退而求其次：總表
-          live?.energy ??      // 再退：即時回傳的能量
-          0
+            e?.totalEnergyKWh ??
+            live?.estimated_energy ?? 0   // ⭐ 修改：改用 estimated_energy
         );
-        kwh = Number.isFinite(kwh) ? kwh : 0;
+        let kwh = Number.isFinite(session) ? session : 0;
 
         // ⭐ 保護條件：若狀態是 Available，強制歸零
         if (cpStatus === "Available" && kwh > 0) {
@@ -249,11 +246,13 @@ export default function LiveStatus() {
 
         setLiveEnergyKWh(kwh);
 
-        const price = Number.isFinite(pricePerKWh) ? pricePerKWh : 0;
-        setLiveCost(kwh * price);
-      } catch (err) {
-        // 忽略一次，保留前次值
-      }
+        if (Number.isFinite(live?.estimated_amount)) {
+          setLiveCost(live.estimated_amount);
+        } else {
+          const price = Number.isFinite(pricePerKWh) ? pricePerKWh : 0;
+          setLiveCost(kwh * price);
+        }
+      } catch {}
     };
 
     tick();
@@ -262,7 +261,7 @@ export default function LiveStatus() {
       cancelled = true;
       clearInterval(t);
     };
-  }, [cpId, pricePerKWh, cpStatus]);
+  }, [cpId, pricePerKWh]);
 
   // ---------- 餘額 ----------
   useEffect(() => {
@@ -344,8 +343,6 @@ export default function LiveStatus() {
     setDisplayBalance(nb > 0 ? nb : 0);
   }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
 
-
-
   // ---------- 切換樁時重置 ----------
   useEffect(() => {
     setLivePowerKw(0);
@@ -424,34 +421,6 @@ export default function LiveStatus() {
 
     return () => clearInterval(timer);
   }, [startTime, stopTime, cpStatus]);
-
-
-  // ---------- 餘額歸零自動停樁（RemoteStopTransaction） ----------
-  useEffect(() => {
-    if (sentAutoStop) return;
-    if (!cpId) return;
-
-    // 🧩 僅在「充電中」狀態下才允許自動停樁
-    if (cpStatus !== "Charging") return;
-
-    const nearZero = (x) => Number.isFinite(x) && x <= 0.001;
-    if (nearZero(displayBalance) || nearZero(rawBalance)) {
-      (async () => {
-        try {
-          const res = await axios.post(`/api/charge-points/${encodeURIComponent(cpId)}/stop`);
-          setSentAutoStop(true);
-          setStopMsg("🔔 餘額為零，自動停止充電（RemoteStopTransaction 已送出）。");
-          console.log("Auto stop sent:", res.data);
-        } catch (e) {
-          setStopMsg(`❌ 停止充電指令失敗：${e?.response?.status || ""} ${e?.response?.data || ""}`);
-          console.warn("Auto stop failed:", e?.response?.status, e?.response?.data);
-        }
-      })();
-    }
-  }, [displayBalance, rawBalance, cpStatus, cpId, sentAutoStop]);
-
-
-
 
 
   // ---------- 狀態顯示 ----------
