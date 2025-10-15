@@ -343,6 +343,38 @@ export default function LiveStatus() {
     setDisplayBalance(nb > 0 ? nb : 0);
   }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
 
+
+  // ---------- 🧩 自動停充判斷 ----------
+  useEffect(() => {
+    // 條件：尚未送出停充、目前正在充電、餘額接近零、確實有充電樁ID
+    if (
+      !sentAutoStop &&
+      cpStatus === "Charging" &&
+      displayBalance <= 0.01 &&
+      cpId
+    ) {
+      console.log("⚠️ 偵測餘額歸零，準備自動停充...");
+      setSentAutoStop(true);
+      setStopMsg("⚠️ 餘額不足，自動發送停止充電命令…");
+
+      axios
+        .post(`/api/charge-points/${encodeURIComponent(cpId)}/stop`)
+        .then(() => {
+          console.log("✅ 自動停充成功");
+          setStopMsg("🔔 餘額不足，已自動停止充電。");
+        })
+        .catch((err) => {
+          console.error("❌ 自動停充失敗：", err);
+          setStopMsg("❌ 自動停充失敗，請手動停止。");
+          // 若失敗，允許重新嘗試
+          setSentAutoStop(false);
+        });
+    }
+  }, [displayBalance, cpStatus, cpId, sentAutoStop]);
+
+
+
+
   // ---------- 切換樁時重置 ----------
   useEffect(() => {
     setLivePowerKw(0);
@@ -506,7 +538,7 @@ export default function LiveStatus() {
       <p>💳 卡片餘額：{displayBalance.toFixed(3)} 元</p>
 
       <p>🔌 狀態：{statusLabel(cpStatus)}</p>
-
+      {stopMsg && <p style={{ color: "orange" }}>{stopMsg}</p>}
       <p>🏠 充電樁名稱：{cpName || "—"}</p>
       <p>👤 住戶姓名：{residentName || "—"}</p>
       <p>🏢 住戶樓號：{residentFloor || "—"}</p>
@@ -523,9 +555,6 @@ export default function LiveStatus() {
       <p>⏱️ 充電結束時間：{formatTime(stopTime)}</p>
       <p>⏳ 本次充電累積時間：{elapsedTime}</p>
 
-      {stopMsg && (
-        <p style={{ color: "#ffd54f", marginTop: 8 }}>🔔 {stopMsg}</p>
-      )}
     </div>
   );
 }
