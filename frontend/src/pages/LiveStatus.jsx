@@ -26,9 +26,6 @@ export default function LiveStatus() {
   // 樁態
   const [cpStatus, setCpStatus] = useState("Unknown");
 
-  // ⭐ 分段電價統計
-  const [segments, setSegments] = useState([]);
-
   // 餘額
   const [rawBalance, setRawBalance] = useState(0);
   const [displayBalance, setDisplayBalance] = useState(0);
@@ -266,45 +263,6 @@ export default function LiveStatus() {
     };
   }, [cpId, pricePerKWh]);
 
-
-
-  // ---------- 🧮 分段電價統計 ----------
-  useEffect(() => {
-    if (!cpId) return;
-    let cancelled = false;
-
-    const fetchPriceSegments = async () => {
-      try {
-        // 取得目前交易ID
-        const txRes = await axios.get(
-          `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction/summary`
-        );
-        const txId = txRes.data?.transaction_id;
-        if (!txId) {
-          setSegments([]);
-          return;
-        }
-
-        const segRes = await axios.get(`/api/transactions/${txId}/price-segments`);
-        if (!cancelled) {
-          setSegments(segRes.data?.segments || []);
-        }
-      } catch (err) {
-        console.error("讀取分段電價失敗:", err);
-      }
-    };
-
-    fetchPriceSegments();
-    const t = setInterval(fetchPriceSegments, 5000);
-    return () => {
-      cancelled = true;
-      clearInterval(t);
-    };
-  }, [cpId, cpStatus, liveEnergyKWh]);
-
-
-
-
   // ---------- 餘額 ----------
   useEffect(() => {
     if (!cardId) return;
@@ -495,46 +453,6 @@ export default function LiveStatus() {
 
     return () => clearInterval(timer);
   }, [startTime, stopTime, cpStatus]);
-
-
-
-  {/* ---------- 分段電價統計 ---------- */}
-  <div style={{ marginTop: "20px" }}>
-    <h3>🧮 分段電價統計</h3>
-    {segments.length === 0 ? (
-      <p>暫無資料（尚未開始充電或尚無紀錄）</p>
-    ) : (
-      <table
-        style={{
-          width: "100%",
-          borderCollapse: "collapse",
-          color: "#fff",
-          marginTop: "8px",
-        }}
-      >
-        <thead>
-          <tr style={{ borderBottom: "1px solid #888" }}>
-            <th align="left">時間區間</th>
-            <th align="right">電價 (元/kWh)</th>
-            <th align="right">用電量 (kWh)</th>
-            <th align="right">預估電費 (元)</th>
-          </tr>
-        </thead>
-        <tbody>
-          {segments.map((seg, i) => (
-            <tr key={i}>
-              <td>{seg.start} ~ {seg.end}</td>
-              <td align="right">{seg.price}</td>
-              <td align="right">{seg.used_kwh.toFixed(3)}</td>
-              <td align="right">{seg.estimated_amount.toFixed(2)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    )}
-  </div>
-
-
 
 
   // ---------- 狀態顯示 ----------
