@@ -246,16 +246,16 @@ export default function LiveStatus() {
 
         setLiveEnergyKWh(kwh);
 
-        // 🧮 優先使用後端即時計算的跨時段電費
-        if (live && typeof live.estimated_amount === "number" && !isNaN(live.estimated_amount)) {
-          setLiveCost(live.estimated_amount);
-        } else {
-          // fallback：如果後端沒提供多時段金額，才用即時計算估值
-          const price = Number.isFinite(pricePerKWh) ? pricePerKWh : 0;
-          setLiveCost(kwh * price);
-        }
-      } catch {}
-    };
+        // 🧮 改為信任後端傳回的跨時段電價金額
+        setLiveCost((prevCost) => {
+          if (live && typeof live.estimated_amount === "number" && !isNaN(live.estimated_amount)) {
+            return live.estimated_amount;
+          } else {
+            console.debug("⚠️ 後端暫無金額資料，保持上一次值避免跳動");
+            return prevCost;  // ❌ 不再 fallback，改保留上一次值
+          }
+        });
+
 
     tick();
     const t = setInterval(tick, 1_000);
