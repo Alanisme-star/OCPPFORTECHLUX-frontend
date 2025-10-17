@@ -246,9 +246,11 @@ export default function LiveStatus() {
 
         setLiveEnergyKWh(kwh);
 
-        if (Number.isFinite(live?.estimated_amount)) {
+        // 🧮 優先使用後端即時計算的跨時段電費
+        if (live && typeof live.estimated_amount === "number" && !isNaN(live.estimated_amount)) {
           setLiveCost(live.estimated_amount);
         } else {
+          // fallback：如果後端沒提供多時段金額，才用即時計算估值
           const price = Number.isFinite(pricePerKWh) ? pricePerKWh : 0;
           setLiveCost(kwh * price);
         }
@@ -546,7 +548,8 @@ export default function LiveStatus() {
 
       <p>⚡ 即時功率：{livePowerKw.toFixed(2)} kW</p>
       <p>🔋 本次充電累積電量：{liveEnergyKWh.toFixed(3)} kWh</p>
-      <p>💰 預估電費：{liveCost.toFixed(3)} 元</p>
+      <p>💰 預估電費（多時段）：{liveCost.toFixed(3)} 元</p>
+
 
       <p>🔋 電壓：{liveVoltageV.toFixed(1)} V</p>
       <p>🔌 電流：{liveCurrentA.toFixed(1)} A</p>
