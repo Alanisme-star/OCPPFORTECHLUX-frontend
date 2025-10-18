@@ -231,16 +231,15 @@ export default function LiveStatus() {
         const e = energyRes.data || {};
         const session = Number(
           e?.sessionEnergyKWh ??
-            e?.totalEnergyKWh ??
-            live?.estimated_energy ?? 0   // ⭐ 修改：改用 estimated_energy
+          e?.totalEnergyKWh ??
+          live?.estimated_energy ??
+          0
         );
         let kwh = Number.isFinite(session) ? session : 0;
 
-        // ⭐ 保護條件：若狀態是 Available，強制歸零
+        // 保護條件：若狀態是 Available，強制歸零
         if (cpStatus === "Available" && kwh > 0) {
-          console.debug(
-            `[DEBUG] 前端保護觸發：狀態=Available 但電量=${kwh} → 強制改為 0`
-          );
+          console.debug(`[DEBUG] 前端保護觸發：狀態=Available 但電量=${kwh} → 強制改為 0`);
           kwh = 0;
         }
 
@@ -252,18 +251,23 @@ export default function LiveStatus() {
             return live.estimated_amount;
           } else {
             console.debug("⚠️ 後端暫無金額資料，保持上一次值避免跳動");
-            return prevCost;  // ❌ 不再 fallback，改保留上一次值
+            return prevCost; // 不再 fallback，改保留上一次值
           }
         });
-
+      } catch (err) {
+        console.error("❌ 即時量測更新失敗：", err);
+      }
+    };
 
     tick();
-    const t = setInterval(tick, 1_000);
+    const t = setInterval(tick, 1000);
+
     return () => {
       cancelled = true;
       clearInterval(t);
     };
   }, [cpId, pricePerKWh]);
+
 
   // ---------- 餘額 ----------
   useEffect(() => {
