@@ -582,7 +582,6 @@ export default function LiveStatus() {
         }}
         onClick={async () => {
           try {
-            // 取得目前交易 ID
             const txRes = await axios.get(
               `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction/summary`
             );
@@ -602,6 +601,30 @@ export default function LiveStatus() {
       >
         📄 取得電價分段明細
       </button>
+
+      <button
+        style={{
+          marginBottom: 10,
+          padding: "8px 12px",
+          background: "#333",
+          color: "#fff",
+          borderRadius: 6,
+          border: "1px solid #666",
+          marginLeft: "10px"
+        }}
+        onClick={() => {
+          if (window.confirm("確定要清除目前的分段電價明細嗎？")) {
+            setPriceBreakdown([]);
+            alert("已清除分段電價明細。");
+          }
+        }}
+      >
+        🗑️ 清除分段明細
+      </button>
+
+
+
+
 
       {priceBreakdown.length > 0 ? (
         <table style={{ width: "100%", borderCollapse: "collapse", color: "#fff" }}>
