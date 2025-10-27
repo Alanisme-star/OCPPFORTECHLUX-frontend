@@ -616,16 +616,47 @@ export default function LiveStatus() {
                 <th style={{ borderBottom: "1px solid #666", textAlign: "right" }}>小計 (元)</th>
               </tr>
             </thead>
+
+
             <tbody>
-              {priceBreakdown.map((seg, idx) => (
-                <tr key={idx}>
-                  <td>{new Date(seg.start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} → {new Date(seg.end).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
-                  <td style={{ textAlign: "right" }}>{seg.kwh.toFixed(4)}</td>
-                  <td style={{ textAlign: "right" }}>{seg.price.toFixed(0)}</td>
-                  <td style={{ textAlign: "right" }}>{seg.subtotal.toFixed(2)}</td>
-                </tr>
-              ))}
+              {priceBreakdown.map((seg, idx) => {
+                const start = seg.start ? new Date(seg.start) : null;
+                const end = seg.end ? new Date(seg.end) : null;
+
+                const formatTime = (d) =>
+                  d
+                    ? d.toLocaleTimeString("zh-TW", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true,
+                      })
+                    : "—";
+
+                return (
+                  <tr key={idx}>
+                    <td>
+                      {formatTime(start)} → {formatTime(end)}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      {Number(seg.kwh).toFixed(4)}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      {Number(seg.price).toFixed(0)}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      {Number(seg.subtotal).toFixed(2)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
+
+
+
+
+
+
+
           </table>
         )}
 
