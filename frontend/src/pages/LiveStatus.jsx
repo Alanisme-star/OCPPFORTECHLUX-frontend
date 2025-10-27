@@ -465,6 +465,36 @@ export default function LiveStatus() {
   }, [startTime, stopTime, cpStatus]);
 
 
+  // ⭐ 自動抓取分段電價明細
+  useEffect(() => {
+    if (!cpId) return;
+    let cancelled = false;
+
+    const fetchBreakdown = async () => {
+      try {
+        const { data } = await axios.get(
+          `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction/price-breakdown`
+        );
+        if (!cancelled && data?.found) {
+          setPriceBreakdown(data.segments || []);
+        } else if (!cancelled) {
+          setPriceBreakdown([]);
+        }
+      } catch (err) {
+        console.warn("❌ 分段電價取得失敗：", err);
+      }
+    };
+
+    fetchBreakdown();
+    const t = setInterval(fetchBreakdown, 2000); // 每 2 秒更新一次
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [cpId]);
+
+
+
   // ---------- 狀態顯示 ----------
   const statusLabel = (s) => {
     const map = {
@@ -640,8 +670,8 @@ export default function LiveStatus() {
           <tbody>
             {priceBreakdown.map((seg, idx) => (
               <tr key={idx}>
-                <td>{new Date(seg.start).toLocaleString("zh-TW")}</td>
-                <td>{new Date(seg.end).toLocaleString("zh-TW")}</td>
+                <td>{new Date(seg.start).toLocaleTimeString("zh-TW", { hour12: false })}</td>
+                <td>{new Date(seg.end).toLocaleTimeString("zh-TW", { hour12: false })}</td>
                 <td style={{ textAlign: "center" }}>{seg.kwh?.toFixed(4)}</td>
                 <td style={{ textAlign: "center" }}>{seg.price?.toFixed(2)}</td>
                 <td style={{ textAlign: "center" }}>{seg.subtotal?.toFixed(2)}</td>
