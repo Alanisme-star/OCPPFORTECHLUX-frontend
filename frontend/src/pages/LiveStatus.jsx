@@ -597,27 +597,45 @@ export default function LiveStatus() {
       <p>🔋 本次充電累積電量：{liveEnergyKWh.toFixed(3)} kWh</p>
       <p>💰 預估電費（多時段）：{liveCost.toFixed(3)} 元</p>
 
-      {/* ⭐ 分段電價統合呈現區 */}
+
+
+
+      {/* ✅ 分段電價統計 */}
       <div style={{ marginTop: 20, padding: 12, background: "#333", borderRadius: 8 }}>
         <h3>分段電價統計</h3>
 
         {priceBreakdown.length === 0 ? (
           <p>尚無分段資料</p>
         ) : (
-          priceBreakdown.map((seg, idx) => (
-            <div key={idx} style={{ marginBottom: 8, borderBottom: "1px solid #555", paddingBottom: 8 }}>
-              <div>⏱ {new Date(seg.start).toLocaleTimeString()} → {new Date(seg.end).toLocaleTimeString()}</div>
-              <div>🔌 用電量：{seg.kwh.toFixed(4)} kWh</div>
-              <div>💰 電價：{seg.price} 元/度</div>
-              <div>📊 小計：{seg.subtotal.toFixed(2)} 元</div>
-            </div>
-          ))
+          <table style={{ width: "100%", borderCollapse: "collapse", color: "#fff" }}>
+            <thead>
+              <tr>
+                <th style={{ borderBottom: "1px solid #666", textAlign: "left" }}>時間段</th>
+                <th style={{ borderBottom: "1px solid #666", textAlign: "right" }}>用電量 (kWh)</th>
+                <th style={{ borderBottom: "1px solid #666", textAlign: "right" }}>電價 (元/kWh)</th>
+                <th style={{ borderBottom: "1px solid #666", textAlign: "right" }}>小計 (元)</th>
+              </tr>
+            </thead>
+            <tbody>
+              {priceBreakdown.map((seg, idx) => (
+                <tr key={idx}>
+                  <td>{new Date(seg.start).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })} → {new Date(seg.end).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</td>
+                  <td style={{ textAlign: "right" }}>{seg.kwh.toFixed(4)}</td>
+                  <td style={{ textAlign: "right" }}>{seg.price.toFixed(0)}</td>
+                  <td style={{ textAlign: "right" }}>{seg.subtotal.toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         )}
 
-        <div style={{ marginTop: 10, fontWeight: "bold", fontSize: "1.2em" }}>
+        <div style={{ marginTop: 10, fontWeight: "bold", fontSize: "1.2em", textAlign: "right" }}>
           合計金額：{liveCost.toFixed(2)} 元
         </div>
       </div>
+
+
+
 
 
 
@@ -629,97 +647,8 @@ export default function LiveStatus() {
 
 
 
-      {/* ================= 分段電價明細 ================= */}
-      <hr style={{ margin: "20px 0", border: "1px solid #444" }} />
-      <h3>📊 電價分段明細</h3>
 
-      <button
-        style={{
-          marginBottom: 10,
-          padding: "8px 12px",
-          background: "#333",
-          color: "#fff",
-          borderRadius: 6,
-          border: "1px solid #666",
-        }}
-        onClick={async () => {
-          try {
-            const txRes = await axios.get(
-              `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction/summary`
-            );
-            if (txRes.data?.transaction_id) {
-              const txId = txRes.data.transaction_id;
-              const { data } = await axios.get(`/api/transactions/${txId}/price-breakdown`);
-              setPriceBreakdown(data.segments || []);
-              alert(`已取得分段電價資料，總金額：${data.total} 元`);
-            } else {
-              alert("目前沒有進行中的交易。");
-            }
-          } catch (err) {
-            console.error("讀取分段明細失敗：", err);
-            alert("❌ 無法讀取電價分段明細（請確認後端 API 已更新）");
-          }
-        }}
-      >
-        📄 取得電價分段明細
-      </button>
-
-      <button
-        style={{
-          marginBottom: 10,
-          padding: "8px 12px",
-          background: "#333",
-          color: "#fff",
-          borderRadius: 6,
-          border: "1px solid #666",
-          marginLeft: "10px"
-        }}
-        onClick={() => {
-          if (window.confirm("確定要清除目前的分段電價明細嗎？")) {
-            setPriceBreakdown([]);
-            alert("已清除分段電價明細。");
-          }
-        }}
-      >
-        🗑️ 清除分段明細
-      </button>
-
-
-
-
-
-      {priceBreakdown.length > 0 ? (
-        <table style={{ width: "100%", borderCollapse: "collapse", color: "#fff" }}>
-          <thead>
-            <tr>
-              <th style={{ borderBottom: "1px solid #666", textAlign: "left" }}>起始時間</th>
-              <th style={{ borderBottom: "1px solid #666", textAlign: "left" }}>結束時間</th>
-              <th style={{ borderBottom: "1px solid #666" }}>用電量 (kWh)</th>
-              <th style={{ borderBottom: "1px solid #666" }}>電價 (元/kWh)</th>
-              <th style={{ borderBottom: "1px solid #666" }}>小計 (元)</th>
-            </tr>
-          </thead>
-          <tbody>
-            {priceBreakdown.map((seg, idx) => (
-              <tr key={idx}>
-                <td>{new Date(seg.start).toLocaleTimeString("zh-TW", { hour12: false })}</td>
-                <td>{new Date(seg.end).toLocaleTimeString("zh-TW", { hour12: false })}</td>
-                <td style={{ textAlign: "center" }}>{seg.kwh?.toFixed(4)}</td>
-                <td style={{ textAlign: "center" }}>{seg.price?.toFixed(2)}</td>
-                <td style={{ textAlign: "center" }}>{seg.subtotal?.toFixed(2)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      ) : (
-        <p>尚無分段明細資料。</p>
-      )}
-
-
-
-
-
-
+      
       <p>⏳ 本次充電累積時間：{elapsedTime}</p>
 
     </div>
