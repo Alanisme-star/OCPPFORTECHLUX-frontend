@@ -51,6 +51,7 @@ export default function LiveStatus() {
   const [priceBreakdown, setPriceBreakdown] = useState([]);
 
 
+
   // ⭐ 新增：手動輸入欄位（localStorage 支援）
   const [cpName, setCpName] = useState(() => localStorage.getItem("cpName") || "");
   const [residentName, setResidentName] = useState(() => localStorage.getItem("residentName") || "");
@@ -495,6 +496,14 @@ export default function LiveStatus() {
 
 
 
+
+
+
+
+
+
+
+
   // ---------- 狀態顯示 ----------
   const statusLabel = (s) => {
     const map = {
@@ -587,6 +596,29 @@ export default function LiveStatus() {
       <p>⚡ 即時功率：{livePowerKw.toFixed(2)} kW</p>
       <p>🔋 本次充電累積電量：{liveEnergyKWh.toFixed(3)} kWh</p>
       <p>💰 預估電費（多時段）：{liveCost.toFixed(3)} 元</p>
+
+      {/* ⭐ 分段電價統合呈現區 */}
+      <div style={{ marginTop: 20, padding: 12, background: "#333", borderRadius: 8 }}>
+        <h3>分段電價統計</h3>
+
+        {priceBreakdown.length === 0 ? (
+          <p>尚無分段資料</p>
+        ) : (
+          priceBreakdown.map((seg, idx) => (
+            <div key={idx} style={{ marginBottom: 8, borderBottom: "1px solid #555", paddingBottom: 8 }}>
+              <div>⏱ {new Date(seg.start).toLocaleTimeString()} → {new Date(seg.end).toLocaleTimeString()}</div>
+              <div>🔌 用電量：{seg.kwh.toFixed(4)} kWh</div>
+              <div>💰 電價：{seg.price} 元/度</div>
+              <div>📊 小計：{seg.subtotal.toFixed(2)} 元</div>
+            </div>
+          ))
+        )}
+
+        <div style={{ marginTop: 10, fontWeight: "bold", fontSize: "1.2em" }}>
+          合計金額：{liveCost.toFixed(2)} 元
+        </div>
+      </div>
+
 
 
       <p>🔋 電壓：{liveVoltageV.toFixed(1)} V</p>
