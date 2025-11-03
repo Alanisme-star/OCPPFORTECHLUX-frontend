@@ -242,13 +242,26 @@ export default function LiveStatus() {
         );
         let kwh = Number.isFinite(session) ? session : 0;
 
-        // 保護條件：若狀態是 Available，強制歸零
+        // ✅ 改良版：只有當後端確認「沒有進行中交易」時才歸零
         if (cpStatus === "Available" && kwh > 0) {
-          console.debug(`[DEBUG] 前端保護觸發：狀態=Available 但電量=${kwh} → 強制改為 0`);
-          kwh = 0;
+          try {
+            const txCheck = await axios.get(
+              `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction/summary`
+            );
+            const hasActiveTx = txCheck.data?.found;
+            if (!hasActiveTx) {
+              console.debug(`[DEBUG] 狀態=Available 且無交易 → 顯示 0`);
+              kwh = 0;
+            } else {
+              console.debug(`[DEBUG] 狀態=Available 但仍有交易 → 保留現值 ${kwh}`);
+            }
+          } catch (err) {
+            console.warn("⚠️ 無法確認交易狀態，暫保留現值", err);
+          }
         }
 
         setLiveEnergyKWh(kwh);
+
 
         // 🧮 改為信任後端傳回的跨時段電價金額
         setLiveCost((prevCost) => {
@@ -419,11 +432,16 @@ export default function LiveStatus() {
           });
           setStopTime(""); // 進行中交易沒有 stopTime
         } else {
-          // ⭐ 沒有進行中交易 → 歸零
-          setStartTime("");
-          setStopTime("");
-          setElapsedTime("—");
+          // ✅ 僅在狀態真的是 Available 或 Finishing 時才清空
+          if (["Available", "Finishing", "Faulted"].includes(cpStatus)) {
+            setStartTime("");
+            setStopTime("");
+            setElapsedTime("—");
+          } else {
+            console.debug("⚠️ 保留 startTime 與 elapsedTime（避免跨日誤清）");
+          }
         }
+
       } catch (err) {
         console.error("讀取交易資訊失敗:", err);
       }
