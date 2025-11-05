@@ -319,6 +319,7 @@ export default function LiveStatus() {
       setFrozenCost(Number.isFinite(liveCost) ? liveCost : 0);
       setRawAtFreeze(Number.isFinite(rawBalance) ? rawBalance : 0);
       setStopMsg("充電已自動停止（餘額不足或後端命令）");
+      setTimeout(() => setStopMsg(""), 5000); // ⏳ 5秒後自動清除
     }
     prevStatusRef.current = cpStatus;
   }, [cpStatus, liveCost, rawBalance]);
@@ -327,6 +328,7 @@ export default function LiveStatus() {
   useEffect(() => {
     const prev = prevStatusRef.current;
     if (prev !== "Charging" && cpStatus === "Charging") {
+      setStopMsg("");   // ✅ 新開始充電 → 清除舊訊息
       setStartTime("");
       setStopTime("");
     }
@@ -605,7 +607,24 @@ export default function LiveStatus() {
       <p>💳 卡片餘額：{displayBalance.toFixed(3)} 元</p>
 
       <p>🔌 狀態：{statusLabel(cpStatus)}</p>
-      {stopMsg && <p style={{ color: "orange" }}>{stopMsg}</p>}
+      {stopMsg && (
+            <p style={{ color: "orange", position: "relative", paddingRight: "24px" }}>
+                  {stopMsg}
+                  <span
+                        onClick={() => setStopMsg("")}
+                        style={{
+                              position: "absolute",
+                              right: 0,
+                              top: 0,
+                              cursor: "pointer",
+                              fontWeight: "bold"
+                        }}
+                  >
+                        ✕
+                  </span>
+            </p>
+      )}
+
       <p>🏠 充電樁名稱：{cpName || "—"}</p>
       <p>👤 住戶姓名：{residentName || "—"}</p>
       <p>🏢 住戶樓號：{residentFloor || "—"}</p>

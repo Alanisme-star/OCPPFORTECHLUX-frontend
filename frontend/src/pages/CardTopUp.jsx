@@ -48,7 +48,7 @@ function CardTopUp() {
           >
             <option value="">請選擇卡片</option>
             {cards.map((card) => (
-              <option key={card.card_id} value={card.card_id}>
+              <option key={card.id} value={card.id}>
                 {card.card_id}（餘額：{card.balance} 元）
               </option>
             ))}
