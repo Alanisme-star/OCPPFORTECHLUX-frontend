@@ -52,24 +52,6 @@ export default function LiveStatus() {
 
 
 
-  // ⭐ 新增：手動輸入欄位（localStorage 支援）
-  const [cpName, setCpName] = useState(() => localStorage.getItem("cpName") || "");
-  const [residentName, setResidentName] = useState(() => localStorage.getItem("residentName") || "");
-  const [residentFloor, setResidentFloor] = useState(() => localStorage.getItem("residentFloor") || "");
-
-  // 當值變更時寫入 localStorage
-  useEffect(() => {
-    localStorage.setItem("cpName", cpName);
-  }, [cpName]);
-
-  useEffect(() => {
-    localStorage.setItem("residentName", residentName);
-  }, [residentName]);
-
-  useEffect(() => {
-    localStorage.setItem("residentFloor", residentFloor);
-  }, [residentFloor]);
-
   // ---------- 格式化時間 ----------
   const formatTime = (isoString) => {
     if (!isoString) return "—";
@@ -571,35 +553,7 @@ export default function LiveStatus() {
         })}
       </select>
 
-      {/* ⭐ 新增：手動輸入欄位 */}
-      <label>充電樁名稱：</label>
-      <input
-        type="text"
-        value={cpName}
-        onChange={(e) => setCpName(e.target.value)}
-        style={inputStyle}
-        placeholder="請輸入充電樁名稱"
-      />
 
-      <label>住戶姓名：</label>
-      <input
-        type="text"
-        value={residentName}
-        onChange={(e) => setResidentName(e.target.value)}
-        style={inputStyle}
-        placeholder="請輸入住戶姓名"
-      />
-
-      <label>住戶樓號：</label>
-      <input
-        type="text"
-        value={residentFloor}
-        onChange={(e) => setResidentFloor(e.target.value)}
-        style={inputStyle}
-        placeholder="請輸入住戶樓號"
-      />
-
-      <p>
         ⚡ 電價：{pricePerKWh.toFixed(2)} 元/kWh
         {priceFallback ? "（預設）" : ""} {priceLabel ? `｜${priceLabel}` : ""}
       </p>
@@ -625,9 +579,7 @@ export default function LiveStatus() {
             </p>
       )}
 
-      <p>🏠 充電樁名稱：{cpName || "—"}</p>
-      <p>👤 住戶姓名：{residentName || "—"}</p>
-      <p>🏢 住戶樓號：{residentFloor || "—"}</p>
+
       <p>💳 選擇卡片 ID：{cardId || "—"}</p>
 
       <p>⚡ 即時功率：{livePowerKw.toFixed(2)} kW</p>
