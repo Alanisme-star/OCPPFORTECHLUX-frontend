@@ -83,6 +83,11 @@ const Cards = () => {
     }
   };
 
+  // ⭐ 新增：允許充電樁編輯功能（先留空，之後接 Modal）
+  const openEditAccessModal = (card) => {
+    console.log("編輯允許充電樁：", card.card_id);
+  };
+
   return (
     <div>
       <h2 className="text-2xl font-bold mb-4">卡片管理</h2>
@@ -142,6 +147,8 @@ const Cards = () => {
             <th className="p-2">狀態</th>
             <th className="p-2">有效期限</th>
             <th className="p-2">餘額</th>
+            {/* ⭐ 新增欄位 */}
+            <th className="p-2">允許充電樁</th>
             <th className="p-2">操作</th>
           </tr>
         </thead>
@@ -154,6 +161,17 @@ const Cards = () => {
               <td className="p-2">
                 {card.balance != null ? `${card.balance} 元` : "—"}
               </td>
+
+              {/* ⭐ 新增按鈕 */}
+              <td className="p-2">
+                <button
+                  onClick={() => openEditAccessModal(card)}
+                  className="text-yellow-400 hover:underline"
+                >
+                  編輯
+                </button>
+              </td>
+
               <td className="p-2 space-x-2">
                 <button
                   onClick={() => handleEdit(card)}
