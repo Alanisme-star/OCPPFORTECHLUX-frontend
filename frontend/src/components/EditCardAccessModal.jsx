@@ -1,114 +1,202 @@
-// frontend/src/components/EditCardAccessModal.jsx
+// frontend/src/pages/Cards.jsx
 import React, { useEffect, useState } from "react";
 import axios from "../axiosInstance";
+import EditCardAccessModal from "../components/EditCardAccessModal"; // ✅ 修正匯入路徑
 
-export default function EditCardAccessModal({ idTag, onClose }) {
-  const [cpList, setCpList] = useState([]);       // 所有可選充電樁
-  const [selected, setSelected] = useState([]);   // 已允許的充電樁 ID
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+const Cards = () => {
+  const [cards, setCards] = useState([]);
+  const [form, setForm] = useState({
+    idTag: "",
+    status: "Accepted",
+    validUntil: "2099-12-31T23:59:59",
+  });
+  const [editing, setEditing] = useState(null);
 
-  // 初始化：載入充電樁清單 + 已授權清單
+  // ⭐ 新增：Modal 控制
+  const [showAccessModal, setShowAccessModal] = useState(false);
+  const [selectedCardId, setSelectedCardId] = useState(null);
+
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const cps = await axios.get("/api/connections");  // 改為 /api/connections（回傳格式正確）
-        setCpList(cps.data || []);
+    fetchCards();
+  }, []);
 
-        // 若後端未提供 GET /api/cards/{id_tag}/allowed-cps，可暫時用空陣列
-        try {
-          const res = await axios.get(`/api/cards/${idTag}/allowed-cps`);
-          setSelected(res.data || []);
-        } catch {
-          setSelected([]);
-        }
-      } catch (err) {
-        alert("讀取資料失敗：" + err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadData();
-  }, [idTag]);
-
-  // 勾選切換
-  const toggle = (cpId) => {
-    setSelected((prev) =>
-      prev.includes(cpId)
-        ? prev.filter((id) => id !== cpId)
-        : [...prev, cpId]
-    );
-  };
-
-  // 儲存允許清單
-  const handleSave = async () => {
-    setSaving(true);
+  const fetchCards = async () => {
     try {
-      await axios.post(`/api/cards/${idTag}/allowed-cps`, selected); // 改成 POST（符合後端設計）
-      alert("允許充電樁設定已更新！");
-      onClose();
+      const res = await axios.get("/api/cards");
+      setCards(res.data);
     } catch (err) {
-      alert("更新失敗：" + (err.response?.data?.detail || err.message));
-    } finally {
-      setSaving(false);
+      console.error("讀取卡片失敗", err);
     }
   };
 
-  // ====== UI ======
-  if (loading) {
-    return (
-      <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center">
-        <div className="bg-gray-800 text-white p-6 rounded-lg shadow-lg">
-          <p>載入中...</p>
-        </div>
-      </div>
-    );
-  }
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.idTag.trim()) {
+      alert("請輸入 ID Tag");
+      return;
+    }
+
+    const fixedValidUntil =
+      form.validUntil.length === 16 ? form.validUntil + ":00" : form.validUntil;
+
+    try {
+      if (editing) {
+        await axios.put(`/api/cards/${editing}`, { balance: form.balance ?? 0 });
+      } else {
+        await axios.post("/api/id_tags", {
+          idTag: form.idTag,
+          status: form.status,
+          validUntil: fixedValidUntil,
+        });
+      }
+
+      fetchCards();
+      setForm({
+        idTag: "",
+        status: "Accepted",
+        validUntil: "2099-12-31T23:59:59",
+      });
+      setEditing(null);
+    } catch (err) {
+      alert("操作失敗: " + (err.response?.data?.detail || err.message));
+    }
+  };
+
+  const handleEdit = (card) => {
+    setForm({
+      idTag: card.card_id,
+      status: card.status ?? "Accepted",
+      validUntil: card.validUntil ?? "2099-12-31T23:59:59",
+      balance: card.balance ?? 0,
+    });
+    setEditing(card.card_id);
+  };
+
+  const handleDelete = async (idTag) => {
+    if (window.confirm("確定要刪除這張卡片嗎？")) {
+      try {
+        await axios.delete(`/api/cards/${idTag}`);
+        fetchCards();
+      } catch (err) {
+        alert("刪除失敗：" + (err.response?.data?.detail || err.message));
+      }
+    }
+  };
+
+  // ⭐ 修改後：開啟允許充電樁 Modal
+  const openEditAccessModal = (card) => {
+    setSelectedCardId(card.card_id);
+    setShowAccessModal(true);
+  };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
-      <div className="bg-gray-800 text-white p-6 rounded-lg w-96 shadow-xl">
-        <h3 className="text-xl font-bold mb-4">
-          編輯允許充電樁（{idTag}）
-        </h3>
+    <div>
+      <h2 className="text-2xl font-bold mb-4">卡片管理</h2>
 
-        <div className="max-h-60 overflow-y-auto space-y-2 mb-4">
-          {cpList.length === 0 ? (
-            <p className="text-gray-400">目前無可選充電樁</p>
-          ) : (
-            cpList.map((cp) => (
-              <label
-                key={cp.charge_point_id}
-                className="flex items-center gap-2"
-              >
-                <input
-                  type="checkbox"
-                  checked={selected.includes(cp.charge_point_id)}
-                  onChange={() => toggle(cp.charge_point_id)}
-                />
-                <span>{cp.charge_point_id}</span>
-              </label>
-            ))
-          )}
-        </div>
-
-        <div className="flex justify-end gap-3">
-          <button
-            onClick={onClose}
-            className="px-4 py-2 bg-gray-500 hover:bg-gray-600 rounded text-white"
-            disabled={saving}
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-4 bg-gray-800 p-4 rounded-md mb-6"
+      >
+        <div className="flex gap-4">
+          <input
+            className="p-2 rounded bg-gray-700 text-white w-full"
+            placeholder="ID Tag"
+            value={form.idTag}
+            onChange={(e) => setForm({ ...form, idTag: e.target.value })}
+            disabled={!!editing}
+          />
+          <select
+            className="p-2 rounded bg-gray-700 text-white"
+            value={form.status}
+            onChange={(e) => setForm({ ...form, status: e.target.value })}
           >
-            取消
-          </button>
+            <option value="Accepted">Accepted</option>
+            <option value="Expired">Expired</option>
+            <option value="Blocked">Blocked</option>
+          </select>
+          <input
+            type="datetime-local"
+            className="p-2 rounded bg-gray-700 text-white"
+            value={form.validUntil}
+            onChange={(e) =>
+              setForm({ ...form, validUntil: e.target.value })
+            }
+          />
+          <input
+            type="number"
+            placeholder="餘額（僅編輯模式可填）"
+            className="p-2 rounded bg-gray-700 text-white w-32"
+            value={form.balance ?? ""}
+            onChange={(e) =>
+              setForm({ ...form, balance: parseFloat(e.target.value) || 0 })
+            }
+            disabled={!editing}
+          />
           <button
-            onClick={handleSave}
+            type="submit"
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white"
-            disabled={saving}
           >
-            {saving ? "儲存中..." : "儲存"}
+            {editing ? "更新餘額" : "新增授權"}
           </button>
         </div>
-      </div>
+      </form>
+
+      <table className="table-auto w-full text-sm">
+        <thead>
+          <tr className="bg-gray-700 text-left">
+            <th className="p-2">ID Tag</th>
+            <th className="p-2">狀態</th>
+            <th className="p-2">有效期限</th>
+            <th className="p-2">餘額</th>
+            <th className="p-2">允許充電樁</th>
+            <th className="p-2">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {cards.map((card) => (
+            <tr key={card.card_id} className="border-b hover:bg-gray-700">
+              <td className="p-2">{card.card_id}</td>
+              <td className="p-2">{card.status || "—"}</td>
+              <td className="p-2">{card.validUntil || "—"}</td>
+              <td className="p-2">
+                {card.balance != null ? `${card.balance} 元` : "—"}
+              </td>
+              <td className="p-2">
+                <button
+                  onClick={() => openEditAccessModal(card)}
+                  className="text-yellow-400 hover:underline"
+                >
+                  編輯
+                </button>
+              </td>
+              <td className="p-2 space-x-2">
+                <button
+                  onClick={() => handleEdit(card)}
+                  className="text-blue-400 hover:underline"
+                >
+                  編輯
+                </button>
+                <button
+                  onClick={() => handleDelete(card.card_id)}
+                  className="text-red-400 hover:underline"
+                >
+                  刪除
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+
+      {/* ⭐ Modal 元件 */}
+      {showAccessModal && (
+        <EditCardAccessModal
+          idTag={selectedCardId}
+          onClose={() => setShowAccessModal(false)}
+        />
+      )}
     </div>
   );
-}
+};
+
+export default Cards;
