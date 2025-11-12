@@ -1,7 +1,6 @@
-// frontend/src/pages/Cards.jsx
 import React, { useEffect, useState } from "react";
 import axios from "../axiosInstance";
-import EditCardAccessModal from "./EditCardAccessModal"; // ⭐ 新增匯入
+import EditCardAccessModal from "../components/EditCardAccessModal"; // 修正匯入路徑
 
 const Cards = () => {
   const [cards, setCards] = useState([]);
@@ -11,8 +10,6 @@ const Cards = () => {
     validUntil: "2099-12-31T23:59:59",
   });
   const [editing, setEditing] = useState(null);
-
-  // ⭐ 新增：Modal 控制
   const [showAccessModal, setShowAccessModal] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState(null);
 
@@ -38,11 +35,6 @@ const Cards = () => {
 
     const fixedValidUntil =
       form.validUntil.length === 16 ? form.validUntil + ":00" : form.validUntil;
-    const payload = {
-      card_id: form.idTag,
-      status: form.status,
-      validUntil: fixedValidUntil,
-    };
 
     try {
       if (editing) {
@@ -78,17 +70,16 @@ const Cards = () => {
   };
 
   const handleDelete = async (idTag) => {
-    if (window.confirm("確定要刪除這張卡片嗎？")) {
+    if (window.confirm("確定要刪除這張卡片嗎?")) {
       try {
         await axios.delete(`/api/cards/${idTag}`);
         fetchCards();
       } catch (err) {
-        alert("刪除失敗：" + (err.response?.data?.detail || err.message));
+        alert("刪除失敗: " + (err.response?.data?.detail || err.message));
       }
     }
   };
 
-  // ⭐ 修改後：開啟允許充電樁 Modal
   const openEditAccessModal = (card) => {
     setSelectedCardId(card.card_id);
     setShowAccessModal(true);
@@ -129,7 +120,7 @@ const Cards = () => {
           />
           <input
             type="number"
-            placeholder="餘額（僅編輯模式可填）"
+            placeholder="餘額(僅編輯模式可填)"
             className="p-2 rounded bg-gray-700 text-white w-32"
             value={form.balance ?? ""}
             onChange={(e) =>
@@ -153,7 +144,6 @@ const Cards = () => {
             <th className="p-2">狀態</th>
             <th className="p-2">有效期限</th>
             <th className="p-2">餘額</th>
-            {/* ⭐ 新增欄位 */}
             <th className="p-2">允許充電樁</th>
             <th className="p-2">操作</th>
           </tr>
@@ -162,13 +152,11 @@ const Cards = () => {
           {cards.map((card) => (
             <tr key={card.card_id} className="border-b hover:bg-gray-700">
               <td className="p-2">{card.card_id}</td>
-              <td className="p-2">{card.status || "—"}</td>
-              <td className="p-2">{card.validUntil || "—"}</td>
+              <td className="p-2">{card.status || "-"}</td>
+              <td className="p-2">{card.validUntil || "-"}</td>
               <td className="p-2">
-                {card.balance != null ? `${card.balance} 元` : "—"}
+                {card.balance != null ? `${card.balance} 元` : "-"}
               </td>
-
-              {/* ⭐ 新增按鈕 */}
               <td className="p-2">
                 <button
                   onClick={() => openEditAccessModal(card)}
@@ -177,7 +165,6 @@ const Cards = () => {
                   編輯
                 </button>
               </td>
-
               <td className="p-2 space-x-2">
                 <button
                   onClick={() => handleEdit(card)}
@@ -197,7 +184,6 @@ const Cards = () => {
         </tbody>
       </table>
 
-      {/* ⭐ Modal 元件 */}
       {showAccessModal && (
         <EditCardAccessModal
           idTag={selectedCardId}
