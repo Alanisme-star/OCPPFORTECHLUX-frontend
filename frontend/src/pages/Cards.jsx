@@ -1,6 +1,7 @@
 // frontend/src/pages/Cards.jsx
 import React, { useEffect, useState } from "react";
 import axios from "../axiosInstance";
+import EditCardAccessModal from "./EditCardAccessModal"; // ⭐ 新增匯入
 
 const Cards = () => {
   const [cards, setCards] = useState([]);
@@ -10,6 +11,10 @@ const Cards = () => {
     validUntil: "2099-12-31T23:59:59",
   });
   const [editing, setEditing] = useState(null);
+
+  // ⭐ 新增：Modal 控制
+  const [showAccessModal, setShowAccessModal] = useState(false);
+  const [selectedCardId, setSelectedCardId] = useState(null);
 
   useEffect(() => {
     fetchCards();
@@ -83,9 +88,10 @@ const Cards = () => {
     }
   };
 
-  // ⭐ 新增：允許充電樁編輯功能（先留空，之後接 Modal）
+  // ⭐ 修改後：開啟允許充電樁 Modal
   const openEditAccessModal = (card) => {
-    console.log("編輯允許充電樁：", card.card_id);
+    setSelectedCardId(card.card_id);
+    setShowAccessModal(true);
   };
 
   return (
@@ -190,6 +196,14 @@ const Cards = () => {
           ))}
         </tbody>
       </table>
+
+      {/* ⭐ Modal 元件 */}
+      {showAccessModal && (
+        <EditCardAccessModal
+          idTag={selectedCardId}
+          onClose={() => setShowAccessModal(false)}
+        />
+      )}
     </div>
   );
 };
