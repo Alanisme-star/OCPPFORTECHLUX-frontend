@@ -1,4 +1,4 @@
-// frontend/src/pages/EditCardAccessModal.jsx
+// frontend/src/components/EditCardAccessModal.jsx
 import React, { useEffect, useState } from "react";
 import axios from "../axiosInstance";
 
@@ -12,7 +12,7 @@ export default function EditCardAccessModal({ idTag, onClose }) {
   useEffect(() => {
     const loadData = async () => {
       try {
-        const cps = await axios.get("/api/connections");  // ✅ 改為 /api/connections（回傳格式正確）
+        const cps = await axios.get("/api/connections");  // 改為 /api/connections（回傳格式正確）
         setCpList(cps.data || []);
 
         // 若後端未提供 GET /api/cards/{id_tag}/allowed-cps，可暫時用空陣列
@@ -44,7 +44,7 @@ export default function EditCardAccessModal({ idTag, onClose }) {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await axios.post(`/api/cards/${idTag}/allowed-cps`, selected); // ✅ 改成 POST（符合後端設計）
+      await axios.post(`/api/cards/${idTag}/allowed-cps`, selected); // 改成 POST（符合後端設計）
       alert("允許充電樁設定已更新！");
       onClose();
     } catch (err) {
