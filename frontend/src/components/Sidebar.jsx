@@ -20,8 +20,7 @@ const menu = [
   { path: "/realtime-status", label: "預約充電", icon: <ActivitySquare size={18} /> },
   { path: "/live-status", label: "即時狀態", icon: <ActivitySquare size={18} /> },
   { path: "/line-push", label: "LINE 通知推送", icon: <MessageSquare size={18} /> },
-  { path: "/charge-points", label: "充電樁白名單管理", icon: <ActivitySquare size={18} /> }
-];
+ ];
 
 const Sidebar = () => {
   const location = useLocation();

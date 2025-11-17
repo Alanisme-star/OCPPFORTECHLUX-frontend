@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "../axiosInstance";
-import EditCardAccessModal from "../components/EditCardAccessModal"; // 修正匯入路徑
+import EditCardAccessModal from "../components/EditCardAccessModal"; // 維持同樣匯入
 
 const Cards = () => {
   const [cards, setCards] = useState([]);
@@ -80,14 +80,26 @@ const Cards = () => {
     }
   };
 
+  // ⭐ 新增：整合白名單設定觸發邏輯
   const openEditAccessModal = (card) => {
+    if (!card.card_id) {
+      alert("無法開啟白名單設定，卡片 ID 無效");
+      return;
+    }
     setSelectedCardId(card.card_id);
     setShowAccessModal(true);
   };
 
+  // ⭐ 新增：當 Modal 關閉時自動刷新資料
+  const handleCloseModal = () => {
+    setShowAccessModal(false);
+    setSelectedCardId(null);
+    fetchCards();
+  };
+
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-4">卡片管理</h2>
+      <h2 className="text-2xl font-bold mb-4">卡片管理（含白名單設定）</h2>
 
       <form
         onSubmit={handleSubmit}
@@ -144,7 +156,7 @@ const Cards = () => {
             <th className="p-2">狀態</th>
             <th className="p-2">有效期限</th>
             <th className="p-2">餘額</th>
-            <th className="p-2">允許充電樁</th>
+            <th className="p-2">允許充電樁（白名單）</th>
             <th className="p-2">操作</th>
           </tr>
         </thead>
@@ -162,7 +174,7 @@ const Cards = () => {
                   onClick={() => openEditAccessModal(card)}
                   className="text-yellow-400 hover:underline"
                 >
-                  編輯
+                  設定白名單
                 </button>
               </td>
               <td className="p-2 space-x-2">
@@ -184,10 +196,11 @@ const Cards = () => {
         </tbody>
       </table>
 
+      {/* ⭐ 整合版 Modal */}
       {showAccessModal && (
         <EditCardAccessModal
           idTag={selectedCardId}
-          onClose={() => setShowAccessModal(false)}
+          onClose={handleCloseModal}
         />
       )}
     </div>
