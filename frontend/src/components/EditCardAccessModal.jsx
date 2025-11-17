@@ -2,8 +2,8 @@ import React, { useEffect, useState } from "react";
 import axios from "../axiosInstance";
 
 export default function EditCardAccessModal({ idTag, onClose }) {
-  const [cpList, setCpList] = useState([]);       // 所有充電樁
-  const [selected, setSelected] = useState([]);   // 該卡允許的充電樁
+  const [cpList, setCpList] = useState([]); // 所有充電樁
+  const [selected, setSelected] = useState([]); // 該卡允許的充電樁
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -14,15 +14,13 @@ export default function EditCardAccessModal({ idTag, onClose }) {
   // === 載入資料 ===
   const loadData = async () => {
     try {
+      // 撈全部充電樁
       const cps = await axios.get("/api/charge-points");
       setCpList(cps.data || []);
 
-      const whitelist = await axios.get(`/api/debug/whitelist`);
-      const allowed = (whitelist.data || [])
-        .filter((w) => w.card_id === idTag)
-        .map((w) => w.charge_point_id);
-
-      setSelected(allowed);
+      // 撈該卡片的白名單
+      const wl = await axios.get(`/api/cards/${idTag}/whitelist`);
+      setSelected(wl.data.allowed || []);
     } catch (err) {
       alert("讀取資料失敗：" + err.message);
     } finally {
@@ -70,7 +68,7 @@ export default function EditCardAccessModal({ idTag, onClose }) {
       setNewCpId("");
       setNewCpName("");
       setShowAddForm(false);
-      loadData(); // 重新載入
+      loadData(); // 重新載入列表與白名單
     } catch (err) {
       alert("新增失敗：" + (err.response?.data?.detail || err.message));
     }
