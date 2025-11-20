@@ -45,7 +45,7 @@ export default function EditCardAccessModal({ idTag, onClose }) {
     setSaving(true);
     try {
       await axios.post(`/api/cards/${idTag}/whitelist`, {
-        allowed: selected
+        allowed: selected   // ← 一定要包成物件
       });
 
       alert("白名單設定已更新！");
@@ -56,6 +56,7 @@ export default function EditCardAccessModal({ idTag, onClose }) {
       setSaving(false);
     }
   };
+
 
 
   // === 新增充電樁 ===
