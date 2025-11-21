@@ -4,6 +4,7 @@ import EditCardAccessModal from "../components/EditCardAccessModal";
 
 const Cards = () => {
   const [cards, setCards] = useState([]);
+
   const [form, setForm] = useState({
     idTag: "",
     status: "Accepted",
@@ -45,14 +46,14 @@ const Cards = () => {
 
     try {
       if (editing) {
-        // 更新卡片（含住戶資訊）
+        // === 編輯卡片（更新餘額 / 住戶資料） ===
         await axios.put(`/api/cards/${editing}`, {
           balance: form.balance ?? 0,
           resident_name: form.resident_name ?? "",
           floor_number: form.floor_number ?? "",
         });
       } else {
-        // 新增卡片（含住戶資訊）
+        // === 新增 ID 授權 ===
         await axios.post("/api/id_tags", {
           idTag: form.idTag,
           status: form.status,
@@ -60,9 +61,18 @@ const Cards = () => {
           resident_name: form.resident_name ?? "",
           floor_number: form.floor_number ?? "",
         });
+
+        // === ⭐ 同步新增 cards（否則列表永遠是空的）===
+        await axios.post("/api/cards", {
+          card_id: form.idTag,
+          balance: 0,
+          resident_name: form.resident_name ?? "",
+          floor_number: form.floor_number ?? "",
+        });
       }
 
       fetchCards();
+
       setForm({
         idTag: "",
         status: "Accepted",
@@ -71,6 +81,7 @@ const Cards = () => {
         resident_name: "",
         floor_number: "",
       });
+
       setEditing(null);
     } catch (err) {
       alert("操作失敗: " + (err.response?.data?.detail || err.message));
@@ -119,13 +130,13 @@ const Cards = () => {
     <div>
       <h2 className="text-2xl font-bold mb-4">卡片管理（含白名單設定）</h2>
 
-      {/* ====== 新增/編輯表單 ====== */}
+      {/* ===== 新增/編輯表單 ===== */}
       <form
         onSubmit={handleSubmit}
         className="space-y-4 bg-gray-800 p-4 rounded-md mb-6"
       >
         <div className="flex flex-col gap-4">
-
+          
           {/* 第一排 */}
           <div className="flex gap-4">
             <input
@@ -199,7 +210,7 @@ const Cards = () => {
         </div>
       </form>
 
-      {/* ====== 表格 ====== */}
+      {/* ===== 表格 ===== */}
       <table className="table-auto w-full text-sm">
         <thead>
           <tr className="bg-gray-700 text-left">
@@ -242,7 +253,6 @@ const Cards = () => {
                 >
                   編輯
                 </button>
-
                 <button
                   onClick={() => handleDelete(card.card_id)}
                   className="text-red-400 hover:underline"
