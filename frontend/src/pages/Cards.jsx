@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import axios from "../axiosInstance";
-import EditCardAccessModal from "../components/EditCardAccessModal";
+import axios from "./axiosInstance";
+import EditCardAccessModal from "./components/EditCardAccessModal";
 
 const Cards = () => {
   const [cards, setCards] = useState([]);
@@ -18,10 +18,7 @@ const Cards = () => {
   const [showAccessModal, setShowAccessModal] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState(null);
 
-  useEffect(() => {
-    fetchCards();
-  }, []);
-
+  // 讀取卡片列表
   const fetchCards = async () => {
     try {
       const res = await axios.get("/api/cards");
@@ -30,6 +27,10 @@ const Cards = () => {
       console.error("讀取卡片失敗", err);
     }
   };
+
+  useEffect(() => {
+    fetchCards();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -46,14 +47,14 @@ const Cards = () => {
 
     try {
       if (editing) {
-        // === 編輯卡片（更新餘額 / 住戶資料） ===
+        // 編輯模式：更新餘額 + 住戶資訊
         await axios.put(`/api/cards/${editing}`, {
           balance: form.balance ?? 0,
           resident_name: form.resident_name ?? "",
           floor_number: form.floor_number ?? "",
         });
       } else {
-        // === 新增 ID 授權 ===
+        // 新增卡片（授權 + 基本住戶資訊）
         await axios.post("/api/id_tags", {
           idTag: form.idTag,
           status: form.status,
@@ -61,17 +62,9 @@ const Cards = () => {
           resident_name: form.resident_name ?? "",
           floor_number: form.floor_number ?? "",
         });
-
-        // === ⭐ 同步新增 cards（否則列表永遠是空的）===
-        await axios.post("/api/cards", {
-          card_id: form.idTag,
-          balance: 0,
-          resident_name: form.resident_name ?? "",
-          floor_number: form.floor_number ?? "",
-        });
       }
 
-      fetchCards();
+      await fetchCards();
 
       setForm({
         idTag: "",
@@ -81,7 +74,6 @@ const Cards = () => {
         resident_name: "",
         floor_number: "",
       });
-
       setEditing(null);
     } catch (err) {
       alert("操作失敗: " + (err.response?.data?.detail || err.message));
@@ -130,33 +122,34 @@ const Cards = () => {
     <div>
       <h2 className="text-2xl font-bold mb-4">卡片管理（含白名單設定）</h2>
 
-      {/* ===== 新增/編輯表單 ===== */}
+      {/* ====== 新增 / 編輯表單 ====== */}
       <form
         onSubmit={handleSubmit}
         className="space-y-4 bg-gray-800 p-4 rounded-md mb-6"
       >
         <div className="flex flex-col gap-4">
-          
-          {/* 第一排 */}
+          {/* 第一排：ID / 狀態 / 有效期限 */}
           <div className="flex gap-4">
             <input
               className="p-2 rounded bg-gray-700 text-white w-full"
               placeholder="ID Tag"
               value={form.idTag}
-              onChange={(e) => setForm({ ...form, idTag: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, idTag: e.target.value })
+              }
               disabled={!!editing}
             />
-
             <select
               className="p-2 rounded bg-gray-700 text-white"
               value={form.status}
-              onChange={(e) => setForm({ ...form, status: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, status: e.target.value })
+              }
             >
               <option value="Accepted">Accepted</option>
               <option value="Expired">Expired</option>
               <option value="Blocked">Blocked</option>
             </select>
-
             <input
               type="datetime-local"
               className="p-2 rounded bg-gray-700 text-white"
@@ -187,30 +180,32 @@ const Cards = () => {
             />
           </div>
 
-          {/* 第三排：餘額 */}
-          <div className="flex gap-4">
+          {/* 第三排：餘額 + 按鈕 */}
+          <div className="flex gap-4 items-center">
             <input
               type="number"
-              placeholder="餘額(僅編輯模式可填)"
+              placeholder="餘額（僅編輯模式可填）"
               className="p-2 rounded bg-gray-700 text-white w-32"
               value={form.balance ?? ""}
               onChange={(e) =>
-                setForm({ ...form, balance: parseFloat(e.target.value) || 0 })
+                setForm({
+                  ...form,
+                  balance: parseFloat(e.target.value) || 0,
+                })
               }
               disabled={!editing}
             />
-
             <button
               type="submit"
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white"
             >
-              {editing ? "更新資料" : "新增授權"}
+              {editing ? "更新卡片" : "新增授權"}
             </button>
           </div>
         </div>
       </form>
 
-      {/* ===== 表格 ===== */}
+      {/* ====== 列表 ====== */}
       <table className="table-auto w-full text-sm">
         <thead>
           <tr className="bg-gray-700 text-left">
@@ -224,7 +219,6 @@ const Cards = () => {
             <th className="p-2">操作</th>
           </tr>
         </thead>
-
         <tbody>
           {cards.map((card) => (
             <tr key={card.card_id} className="border-b hover:bg-gray-700">
@@ -236,7 +230,6 @@ const Cards = () => {
               </td>
               <td className="p-2">{card.resident_name || "-"}</td>
               <td className="p-2">{card.floor_number || "-"}</td>
-
               <td className="p-2">
                 <button
                   onClick={() => openEditAccessModal(card)}
@@ -245,7 +238,6 @@ const Cards = () => {
                   設定白名單
                 </button>
               </td>
-
               <td className="p-2 space-x-2">
                 <button
                   onClick={() => handleEdit(card)}
@@ -265,6 +257,7 @@ const Cards = () => {
         </tbody>
       </table>
 
+      {/* 白名單設定 Modal */}
       {showAccessModal && (
         <EditCardAccessModal
           idTag={selectedCardId}
