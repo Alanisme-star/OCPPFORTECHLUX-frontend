@@ -18,7 +18,7 @@ export default function EditCardAccessModal({ idTag, onClose }) {
       const cps = await axios.get("/api/charge-points");
       setCpList(cps.data || []);
 
-      // 撈該卡片的白名單
+      // 撈該卡的白名單
       const wl = await axios.get(`/api/cards/${idTag}/whitelist`);
       setSelected(wl.data.allowed || []);
     } catch (err) {
@@ -45,7 +45,7 @@ export default function EditCardAccessModal({ idTag, onClose }) {
     setSaving(true);
     try {
       await axios.post(`/api/cards/${idTag}/whitelist`, {
-        allowed: selected   // ← 一定要包成物件
+        allowed: selected
       });
 
       alert("白名單設定已更新！");
@@ -57,15 +57,13 @@ export default function EditCardAccessModal({ idTag, onClose }) {
     }
   };
 
-
-
   // === 新增充電樁 ===
   const handleAddCP = async () => {
     if (!newCpId.trim()) return alert("充電樁 ID 不可空白");
 
     try {
       await axios.post("/api/charge-points", {
-        cp.chargePointId: newCpId.trim(),
+        chargePointId: newCpId.trim(),   // ← 正確鍵名
         name: newCpName.trim() || null,
       });
 
@@ -73,7 +71,7 @@ export default function EditCardAccessModal({ idTag, onClose }) {
       setNewCpId("");
       setNewCpName("");
       setShowAddForm(false);
-      loadData(); // 重新載入列表與白名單
+      loadData(); // 重新載入列表
     } catch (err) {
       alert("新增失敗：" + (err.response?.data?.detail || err.message));
     }
@@ -158,16 +156,16 @@ export default function EditCardAccessModal({ idTag, onClose }) {
           ) : (
             cpList.map((cp) => (
               <div
-                key={cp.cp.chargePointId}
+                key={cp.chargePointId}
                 className="flex items-center justify-between"
               >
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
-                    checked={selected.includes(cp.cp.chargePointId)}
-                    onChange={() => toggle(cp.cp.chargePointId)}
+                    checked={selected.includes(cp.chargePointId)}
+                    onChange={() => toggle(cp.chargePointId)}
                   />
-                  <span>{cp.cp.chargePointId}</span>
+                  <span>{cp.chargePointId}</span>
                   {cp.name && (
                     <span className="text-gray-400">（{cp.name}）</span>
                   )}
@@ -175,7 +173,7 @@ export default function EditCardAccessModal({ idTag, onClose }) {
 
                 <button
                   className="text-red-400 hover:underline"
-                  onClick={() => handleDeleteCP(cp.cp.chargePointId)}
+                  onClick={() => handleDeleteCP(cp.chargePointId)}
                 >
                   刪除
                 </button>
