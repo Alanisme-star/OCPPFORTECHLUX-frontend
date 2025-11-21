@@ -65,7 +65,7 @@ export default function EditCardAccessModal({ idTag, onClose }) {
 
     try {
       await axios.post("/api/charge-points", {
-        charge_point_id: newCpId.trim(),
+        cp.chargePointId: newCpId.trim(),
         name: newCpName.trim() || null,
       });
 
@@ -158,16 +158,16 @@ export default function EditCardAccessModal({ idTag, onClose }) {
           ) : (
             cpList.map((cp) => (
               <div
-                key={cp.charge_point_id}
+                key={cp.cp.chargePointId}
                 className="flex items-center justify-between"
               >
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
-                    checked={selected.includes(cp.charge_point_id)}
-                    onChange={() => toggle(cp.charge_point_id)}
+                    checked={selected.includes(cp.cp.chargePointId)}
+                    onChange={() => toggle(cp.cp.chargePointId)}
                   />
-                  <span>{cp.charge_point_id}</span>
+                  <span>{cp.cp.chargePointId}</span>
                   {cp.name && (
                     <span className="text-gray-400">（{cp.name}）</span>
                   )}
@@ -175,7 +175,7 @@ export default function EditCardAccessModal({ idTag, onClose }) {
 
                 <button
                   className="text-red-400 hover:underline"
-                  onClick={() => handleDeleteCP(cp.charge_point_id)}
+                  onClick={() => handleDeleteCP(cp.cp.chargePointId)}
                 >
                   刪除
                 </button>
