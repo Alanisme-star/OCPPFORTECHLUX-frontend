@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import axios from "./axiosInstance";
-import EditCardAccessModal from "./components/EditCardAccessModal"; // 維持同樣匯入
+import axios from "../axiosInstance";
+import EditCardAccessModal from "../components/EditCardAccessModal";
 
 const Cards = () => {
   const [cards, setCards] = useState([]);
@@ -57,7 +57,6 @@ const Cards = () => {
         ? form.validUntil + ":00"
         : form.validUntil;
 
-    // 將餘額字串轉成數字（編輯模式才會用到）
     const balanceNumber =
       form.balance === "" || form.balance == null
         ? 0
@@ -65,27 +64,31 @@ const Cards = () => {
 
     try {
       if (editing) {
-        // 編輯模式：更新餘額、狀態、有效期限與住戶名稱
+        // 更新餘額
         await axios.put(`/api/cards/${editing}`, {
           balance: balanceNumber,
         });
 
+        // 更新卡片基本資訊
         await axios.put(`/api/id_tags/${editing}`, {
           status: form.status,
           validUntil: fixedValidUntil,
         });
 
+        // 更新住戶名稱
         await axios.post(`/api/card-owners/${editing}`, {
           name: form.ownerName.trim(),
         });
+
       } else {
-        // 新增模式：先建立 id_tag，再寫入住戶名稱
+        // 新增 id tag
         await axios.post("/api/id_tags", {
           idTag: form.idTag.trim(),
           status: form.status,
           validUntil: fixedValidUntil,
         });
 
+        // 寫入住戶名稱
         await axios.post(`/api/card-owners/${form.idTag.trim()}`, {
           name: form.ownerName.trim(),
         });
@@ -123,7 +126,6 @@ const Cards = () => {
     }
   };
 
-  // ⭐ 新增：整合白名單設定觸發邏輯
   const openEditAccessModal = (card) => {
     if (!card.card_id) {
       alert("無法開啟白名單設定，卡片 ID 無效");
@@ -133,7 +135,6 @@ const Cards = () => {
     setShowAccessModal(true);
   };
 
-  // ⭐ 新增：當 Modal 關閉時自動刷新資料
   const handleCloseModal = () => {
     setShowAccessModal(false);
     setSelectedCardId(null);
@@ -149,6 +150,7 @@ const Cards = () => {
         className="space-y-4 bg-gray-800 p-4 rounded-md mb-6"
       >
         <div className="flex gap-4">
+
           {/* 住戶名稱 */}
           <input
             className="p-2 rounded bg-gray-700 text-white w-full"
@@ -193,16 +195,15 @@ const Cards = () => {
             }
           />
 
-          {/* 餘額（編輯模式才可輸入） */}
+          {/* 餘額 */}
           <input
-            type="text" // ✅ 改為 text，避免只能用上下箭頭調整
+            type="text"
             inputMode="decimal"
             placeholder="餘額(僅編輯模式可填)"
             className="p-2 rounded bg-gray-700 text-white w-32"
             value={form.balance}
             onChange={(e) => {
               const value = e.target.value;
-              // 允許空字串或數字
               if (value === "" || /^[0-9]+(\.[0-9]*)?$/.test(value)) {
                 setForm((prev) => ({ ...prev, balance: value }));
               }
@@ -210,7 +211,6 @@ const Cards = () => {
             disabled={!editing}
           />
 
-          {/* 送出按鈕 */}
           <button
             type="submit"
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white"
@@ -269,7 +269,6 @@ const Cards = () => {
         </tbody>
       </table>
 
-      {/* ⭐ 整合版 Modal */}
       {showAccessModal && (
         <EditCardAccessModal idTag={selectedCardId} onClose={handleCloseModal} />
       )}
