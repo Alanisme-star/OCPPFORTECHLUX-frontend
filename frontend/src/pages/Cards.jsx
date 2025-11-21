@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "../axiosInstance";
-import EditCardAccessModal from "../components/EditCardAccessModal"; // 維持同樣匯入
+import EditCardAccessModal from "../components/EditCardAccessModal";
 
 const Cards = () => {
   const [cards, setCards] = useState([]);
@@ -8,7 +8,11 @@ const Cards = () => {
     idTag: "",
     status: "Accepted",
     validUntil: "2099-12-31T23:59:59",
+    balance: 0,
+    resident_name: "",
+    floor_number: "",
   });
+
   const [editing, setEditing] = useState(null);
   const [showAccessModal, setShowAccessModal] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState(null);
@@ -28,22 +32,33 @@ const Cards = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
     if (!form.idTag.trim()) {
       alert("請輸入 ID Tag");
       return;
     }
 
     const fixedValidUntil =
-      form.validUntil.length === 16 ? form.validUntil + ":00" : form.validUntil;
+      form.validUntil.length === 16
+        ? form.validUntil + ":00"
+        : form.validUntil;
 
     try {
       if (editing) {
-        await axios.put(`/api/cards/${editing}`, { balance: form.balance ?? 0 });
+        // 更新卡片（含住戶資訊）
+        await axios.put(`/api/cards/${editing}`, {
+          balance: form.balance ?? 0,
+          resident_name: form.resident_name ?? "",
+          floor_number: form.floor_number ?? "",
+        });
       } else {
+        // 新增卡片（含住戶資訊）
         await axios.post("/api/id_tags", {
           idTag: form.idTag,
           status: form.status,
           validUntil: fixedValidUntil,
+          resident_name: form.resident_name ?? "",
+          floor_number: form.floor_number ?? "",
         });
       }
 
@@ -52,6 +67,9 @@ const Cards = () => {
         idTag: "",
         status: "Accepted",
         validUntil: "2099-12-31T23:59:59",
+        balance: 0,
+        resident_name: "",
+        floor_number: "",
       });
       setEditing(null);
     } catch (err) {
@@ -65,6 +83,8 @@ const Cards = () => {
       status: card.status ?? "Accepted",
       validUntil: card.validUntil ?? "2099-12-31T23:59:59",
       balance: card.balance ?? 0,
+      resident_name: card.resident_name ?? "",
+      floor_number: card.floor_number ?? "",
     });
     setEditing(card.card_id);
   };
@@ -80,7 +100,6 @@ const Cards = () => {
     }
   };
 
-  // ⭐ 新增：整合白名單設定觸發邏輯
   const openEditAccessModal = (card) => {
     if (!card.card_id) {
       alert("無法開啟白名單設定，卡片 ID 無效");
@@ -90,7 +109,6 @@ const Cards = () => {
     setShowAccessModal(true);
   };
 
-  // ⭐ 新增：當 Modal 關閉時自動刷新資料
   const handleCloseModal = () => {
     setShowAccessModal(false);
     setSelectedCardId(null);
@@ -101,54 +119,87 @@ const Cards = () => {
     <div>
       <h2 className="text-2xl font-bold mb-4">卡片管理（含白名單設定）</h2>
 
+      {/* ====== 新增/編輯表單 ====== */}
       <form
         onSubmit={handleSubmit}
         className="space-y-4 bg-gray-800 p-4 rounded-md mb-6"
       >
-        <div className="flex gap-4">
-          <input
-            className="p-2 rounded bg-gray-700 text-white w-full"
-            placeholder="ID Tag"
-            value={form.idTag}
-            onChange={(e) => setForm({ ...form, idTag: e.target.value })}
-            disabled={!!editing}
-          />
-          <select
-            className="p-2 rounded bg-gray-700 text-white"
-            value={form.status}
-            onChange={(e) => setForm({ ...form, status: e.target.value })}
-          >
-            <option value="Accepted">Accepted</option>
-            <option value="Expired">Expired</option>
-            <option value="Blocked">Blocked</option>
-          </select>
-          <input
-            type="datetime-local"
-            className="p-2 rounded bg-gray-700 text-white"
-            value={form.validUntil}
-            onChange={(e) =>
-              setForm({ ...form, validUntil: e.target.value })
-            }
-          />
-          <input
-            type="number"
-            placeholder="餘額(僅編輯模式可填)"
-            className="p-2 rounded bg-gray-700 text-white w-32"
-            value={form.balance ?? ""}
-            onChange={(e) =>
-              setForm({ ...form, balance: parseFloat(e.target.value) || 0 })
-            }
-            disabled={!editing}
-          />
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white"
-          >
-            {editing ? "更新餘額" : "新增授權"}
-          </button>
+        <div className="flex flex-col gap-4">
+
+          {/* 第一排 */}
+          <div className="flex gap-4">
+            <input
+              className="p-2 rounded bg-gray-700 text-white w-full"
+              placeholder="ID Tag"
+              value={form.idTag}
+              onChange={(e) => setForm({ ...form, idTag: e.target.value })}
+              disabled={!!editing}
+            />
+
+            <select
+              className="p-2 rounded bg-gray-700 text-white"
+              value={form.status}
+              onChange={(e) => setForm({ ...form, status: e.target.value })}
+            >
+              <option value="Accepted">Accepted</option>
+              <option value="Expired">Expired</option>
+              <option value="Blocked">Blocked</option>
+            </select>
+
+            <input
+              type="datetime-local"
+              className="p-2 rounded bg-gray-700 text-white"
+              value={form.validUntil}
+              onChange={(e) =>
+                setForm({ ...form, validUntil: e.target.value })
+              }
+            />
+          </div>
+
+          {/* 第二排：住戶資料 */}
+          <div className="flex gap-4">
+            <input
+              className="p-2 rounded bg-gray-700 text-white w-full"
+              placeholder="住戶名稱"
+              value={form.resident_name}
+              onChange={(e) =>
+                setForm({ ...form, resident_name: e.target.value })
+              }
+            />
+            <input
+              className="p-2 rounded bg-gray-700 text-white w-full"
+              placeholder="樓號（例如 302 或 5F）"
+              value={form.floor_number}
+              onChange={(e) =>
+                setForm({ ...form, floor_number: e.target.value })
+              }
+            />
+          </div>
+
+          {/* 第三排：餘額 */}
+          <div className="flex gap-4">
+            <input
+              type="number"
+              placeholder="餘額(僅編輯模式可填)"
+              className="p-2 rounded bg-gray-700 text-white w-32"
+              value={form.balance ?? ""}
+              onChange={(e) =>
+                setForm({ ...form, balance: parseFloat(e.target.value) || 0 })
+              }
+              disabled={!editing}
+            />
+
+            <button
+              type="submit"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white"
+            >
+              {editing ? "更新資料" : "新增授權"}
+            </button>
+          </div>
         </div>
       </form>
 
+      {/* ====== 表格 ====== */}
       <table className="table-auto w-full text-sm">
         <thead>
           <tr className="bg-gray-700 text-left">
@@ -156,10 +207,13 @@ const Cards = () => {
             <th className="p-2">狀態</th>
             <th className="p-2">有效期限</th>
             <th className="p-2">餘額</th>
+            <th className="p-2">住戶名稱</th>
+            <th className="p-2">樓號</th>
             <th className="p-2">允許充電樁（白名單）</th>
             <th className="p-2">操作</th>
           </tr>
         </thead>
+
         <tbody>
           {cards.map((card) => (
             <tr key={card.card_id} className="border-b hover:bg-gray-700">
@@ -169,6 +223,9 @@ const Cards = () => {
               <td className="p-2">
                 {card.balance != null ? `${card.balance} 元` : "-"}
               </td>
+              <td className="p-2">{card.resident_name || "-"}</td>
+              <td className="p-2">{card.floor_number || "-"}</td>
+
               <td className="p-2">
                 <button
                   onClick={() => openEditAccessModal(card)}
@@ -177,6 +234,7 @@ const Cards = () => {
                   設定白名單
                 </button>
               </td>
+
               <td className="p-2 space-x-2">
                 <button
                   onClick={() => handleEdit(card)}
@@ -184,6 +242,7 @@ const Cards = () => {
                 >
                   編輯
                 </button>
+
                 <button
                   onClick={() => handleDelete(card.card_id)}
                   className="text-red-400 hover:underline"
@@ -196,7 +255,6 @@ const Cards = () => {
         </tbody>
       </table>
 
-      {/* ⭐ 整合版 Modal */}
       {showAccessModal && (
         <EditCardAccessModal
           idTag={selectedCardId}
