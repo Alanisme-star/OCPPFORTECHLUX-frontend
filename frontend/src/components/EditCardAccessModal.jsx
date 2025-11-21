@@ -45,7 +45,7 @@ export default function EditCardAccessModal({ idTag, onClose }) {
     setSaving(true);
     try {
       await axios.post(`/api/cards/${idTag}/whitelist`, {
-        allowed: selected,
+        allowed: selected
       });
 
       alert("白名單設定已更新！");
@@ -63,7 +63,7 @@ export default function EditCardAccessModal({ idTag, onClose }) {
 
     try {
       await axios.post("/api/charge-points", {
-        chargePointId: newCpId.trim(),
+        chargePointId: newCpId.trim(),   // ← 正確鍵名
         name: newCpName.trim() || null,
       });
 
