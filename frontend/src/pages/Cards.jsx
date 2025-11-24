@@ -181,7 +181,6 @@ const Cards = () => {
             }
           >
             <option value="Accepted">Accepted</option>
-            <option value="Expired">Expired</option>
             <option value="Blocked">Blocked</option>
           </select>
 
