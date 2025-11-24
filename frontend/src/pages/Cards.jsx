@@ -6,7 +6,6 @@ const Cards = () => {
   const [cards, setCards] = useState([]);
   const [form, setForm] = useState({
     ownerName: "",
-    floor: "",                 // ⭐ 新增：樓號
     idTag: "",
     status: "Accepted",
     validUntil: "2099-12-31T23:59:59",
@@ -32,7 +31,6 @@ const Cards = () => {
   const resetForm = () => {
     setForm({
       ownerName: "",
-      floor: "",               // ⭐ 清空樓號
       idTag: "",
       status: "Accepted",
       validUntil: "2099-12-31T23:59:59",
@@ -77,10 +75,9 @@ const Cards = () => {
           validUntil: fixedValidUntil,
         });
 
-        // 更新住戶名稱 + 樓號
+        // 更新住戶名稱
         await axios.post(`/api/card-owners/${editing}`, {
           name: form.ownerName.trim(),
-          floor: form.floor.trim(),                // ⭐ 新增
         });
 
       } else {
@@ -91,10 +88,9 @@ const Cards = () => {
           validUntil: fixedValidUntil,
         });
 
-        // 寫入住戶名稱 + 樓號
+        // 寫入住戶名稱
         await axios.post(`/api/card-owners/${form.idTag.trim()}`, {
           name: form.ownerName.trim(),
-          floor: form.floor.trim(),                // ⭐ 新增
         });
       }
 
@@ -108,7 +104,6 @@ const Cards = () => {
   const handleEdit = (card) => {
     setForm({
       ownerName: card.name || "",
-      floor: card.floor || "",                  // ⭐ 新增：編輯時帶入樓號
       idTag: card.card_id,
       status: card.status ?? "Accepted",
       validUntil: card.validUntil ?? "2099-12-31T23:59:59",
@@ -163,16 +158,6 @@ const Cards = () => {
             value={form.ownerName}
             onChange={(e) =>
               setForm((prev) => ({ ...prev, ownerName: e.target.value }))
-            }
-          />
-
-          {/* ⭐ 樓號 */}
-          <input
-            className="p-2 rounded bg-gray-700 text-white w-full"
-            placeholder="樓號"
-            value={form.floor}
-            onChange={(e) =>
-              setForm((prev) => ({ ...prev, floor: e.target.value }))
             }
           />
 
@@ -238,7 +223,7 @@ const Cards = () => {
       <table className="table-auto w-full text-sm">
         <thead>
           <tr className="bg-gray-700 text-left">
-            <th className="p-2">住戶名稱（含樓號）</th>  {/* ⭐ 標題更新 */}
+            <th className="p-2">住戶名稱</th>
             <th className="p-2">ID Tag</th>
             <th className="p-2">狀態</th>
             <th className="p-2">有效期限</th>
@@ -250,10 +235,7 @@ const Cards = () => {
         <tbody>
           {cards.map((card) => (
             <tr key={card.card_id} className="border-b hover:bg-gray-700">
-              <td className="p-2">
-                {card.name || "-"}{" "}
-                {card.floor ? `（${card.floor}）` : ""}   {/* ⭐ 顯示樓號 */}
-              </td>
+              <td className="p-2">{card.name || "-"}</td>
               <td className="p-2">{card.card_id}</td>
               <td className="p-2">{card.status || "-"}</td>
               <td className="p-2">{card.validUntil || "-"}</td>
