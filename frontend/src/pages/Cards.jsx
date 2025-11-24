@@ -43,7 +43,7 @@ const Cards = () => {
     e.preventDefault();
 
     if (!form.ownerName.trim()) {
-      alert("請輸入住戶名稱");
+      alert("請輸入住戶名稱(含號/樓)");
       return;
     }
 
