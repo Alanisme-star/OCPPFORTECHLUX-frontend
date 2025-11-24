@@ -154,7 +154,7 @@ const Cards = () => {
           {/* 住戶名稱 */}
           <input
             className="p-2 rounded bg-gray-700 text-white w-full"
-            placeholder="住戶名稱"
+            placeholder="住戶名稱(含號/樓)"
             value={form.ownerName}
             onChange={(e) =>
               setForm((prev) => ({ ...prev, ownerName: e.target.value }))
@@ -223,7 +223,7 @@ const Cards = () => {
       <table className="table-auto w-full text-sm">
         <thead>
           <tr className="bg-gray-700 text-left">
-            <th className="p-2">住戶名稱</th>
+            <th className="p-2">住戶名稱(含號/樓)</th>
             <th className="p-2">ID Tag</th>
             <th className="p-2">狀態</th>
             <th className="p-2">有效期限</th>
