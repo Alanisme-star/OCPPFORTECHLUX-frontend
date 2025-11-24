@@ -15,12 +15,12 @@ const menu = [
   { path: "/", label: "Dashboard", icon: <Home size={18} /> },
   { path: "/transactions", label: "交易紀錄", icon: <FileText size={18} /> },
   { path: "/cards", label: "卡片管理", icon: <CreditCard size={18} /> },
-  { path: "/card-topup", label: "卡片儲值", icon: <CreditCard size={18} /> },
+  // { path: "/card-topup", label: "卡片儲值", icon: <CreditCard size={18} /> },  ← 已移除
   { path: "/daily-pricing", label: "每日電價設定", icon: <Clock size={18} /> },
   { path: "/realtime-status", label: "預約充電", icon: <ActivitySquare size={18} /> },
   { path: "/live-status", label: "即時狀態", icon: <ActivitySquare size={18} /> },
   { path: "/line-push", label: "LINE 通知推送", icon: <MessageSquare size={18} /> },
- ];
+];
 
 const Sidebar = () => {
   const location = useLocation();
