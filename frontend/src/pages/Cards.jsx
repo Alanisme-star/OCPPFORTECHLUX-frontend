@@ -11,9 +11,15 @@ const Cards = () => {
     validUntil: "2099-12-31T23:59:59",
     balance: "",
   });
+
   const [editing, setEditing] = useState(null);
   const [showAccessModal, setShowAccessModal] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState(null);
+
+  // === 儲值彈窗 ===
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [depositCard, setDepositCard] = useState(null);
+  const [depositAmount, setDepositAmount] = useState("");
 
   useEffect(() => {
     fetchCards();
@@ -69,7 +75,7 @@ const Cards = () => {
           balance: balanceNumber,
         });
 
-        // 更新卡片基本資訊
+        // 更新狀態
         await axios.put(`/api/id_tags/${editing}`, {
           status: form.status,
         });
@@ -83,9 +89,8 @@ const Cards = () => {
         // 新增 id tag
         await axios.post("/api/id_tags", {
           idTag: form.idTag.trim(),
-          status: form.status
+          status: form.status,
         });
-
 
         // 寫入住戶名稱
         await axios.post(`/api/card-owners/${form.idTag.trim()}`, {
@@ -140,6 +145,47 @@ const Cards = () => {
     fetchCards();
   };
 
+  // === 儲值模組 ===
+  const openDepositModal = (card) => {
+    setDepositCard(card);
+    setDepositAmount("");
+    setShowDepositModal(true);
+  };
+
+  const closeDepositModal = () => {
+    setShowDepositModal(false);
+    setDepositCard(null);
+    setDepositAmount("");
+  };
+
+  const handleDeposit = async () => {
+    if (!depositAmount.trim()) {
+      alert("請輸入儲值金額");
+      return;
+    }
+
+    const amount = parseFloat(depositAmount);
+    if (isNaN(amount) || amount <= 0) {
+      alert("儲值金額必須大於 0");
+      return;
+    }
+
+    try {
+      const newBalance = Number(depositCard.balance || 0) + amount;
+
+      await axios.put(`/api/cards/${depositCard.card_id}`, {
+        balance: newBalance,
+      });
+
+      alert("儲值成功！");
+      closeDepositModal();
+      fetchCards();
+
+    } catch (err) {
+      alert("儲值失敗：" + (err.response?.data?.detail || err.message));
+    }
+  };
+
   return (
     <div>
       <h2 className="text-2xl font-bold mb-4">卡片管理（含白名單設定）</h2>
@@ -183,8 +229,6 @@ const Cards = () => {
             <option value="Blocked">Blocked</option>
           </select>
 
-
-
           {/* 餘額 */}
           <input
             type="text"
@@ -227,9 +271,18 @@ const Cards = () => {
               <td className="p-2">{card.name || "-"}</td>
               <td className="p-2">{card.card_id}</td>
               <td className="p-2">{card.status || "-"}</td>
-              <td className="p-2">
+
+              {/* 餘額 + 儲值按鈕 */}
+              <td className="p-2 flex items-center gap-2">
                 {card.balance != null ? `${card.balance} 元` : "-"}
+                <button
+                  onClick={() => openDepositModal(card)}
+                  className="text-green-400 hover:underline"
+                >
+                  儲值
+                </button>
               </td>
+
               <td className="p-2">
                 <button
                   onClick={() => openEditAccessModal(card)}
@@ -238,6 +291,7 @@ const Cards = () => {
                   設定白名單
                 </button>
               </td>
+
               <td className="p-2 space-x-2">
                 <button
                   onClick={() => handleEdit(card)}
@@ -260,6 +314,41 @@ const Cards = () => {
       {showAccessModal && (
         <EditCardAccessModal idTag={selectedCardId} onClose={handleCloseModal} />
       )}
+
+      {/* === 儲值 Modal === */}
+      {showDepositModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-gray-800 p-6 rounded shadow-xl w-80">
+            <h3 className="text-xl text-white mb-4">
+              卡片儲值：{depositCard.card_id}
+            </h3>
+
+            <input
+              type="text"
+              className="p-2 w-full bg-gray-700 text-white rounded mb-4"
+              placeholder="儲值金額"
+              value={depositAmount}
+              onChange={(e) => setDepositAmount(e.target.value)}
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                className="px-4 py-2 bg-gray-600 rounded text-white"
+                onClick={closeDepositModal}
+              >
+                取消
+              </button>
+              <button
+                className="px-4 py-2 bg-green-600 rounded text-white"
+                onClick={handleDeposit}
+              >
+                儲值
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };
