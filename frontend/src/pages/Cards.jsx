@@ -72,7 +72,6 @@ const Cards = () => {
         // 更新卡片基本資訊
         await axios.put(`/api/id_tags/${editing}`, {
           status: form.status,
-          validUntil: fixedValidUntil,
         });
 
         // 更新住戶名稱
@@ -84,9 +83,9 @@ const Cards = () => {
         // 新增 id tag
         await axios.post("/api/id_tags", {
           idTag: form.idTag.trim(),
-          status: form.status,
-          validUntil: fixedValidUntil,
+          status: form.status
         });
+
 
         // 寫入住戶名稱
         await axios.post(`/api/card-owners/${form.idTag.trim()}`, {
@@ -184,15 +183,7 @@ const Cards = () => {
             <option value="Blocked">Blocked</option>
           </select>
 
-          {/* 有效期限 */}
-          <input
-            type="datetime-local"
-            className="p-2 rounded bg-gray-700 text-white"
-            value={form.validUntil}
-            onChange={(e) =>
-              setForm((prev) => ({ ...prev, validUntil: e.target.value }))
-            }
-          />
+
 
           {/* 餘額 */}
           <input
@@ -225,7 +216,6 @@ const Cards = () => {
             <th className="p-2">住戶名稱(含號/樓)</th>
             <th className="p-2">ID Tag</th>
             <th className="p-2">狀態</th>
-            <th className="p-2">有效期限</th>
             <th className="p-2">餘額</th>
             <th className="p-2">允許充電樁（白名單）</th>
             <th className="p-2">操作</th>
@@ -237,7 +227,6 @@ const Cards = () => {
               <td className="p-2">{card.name || "-"}</td>
               <td className="p-2">{card.card_id}</td>
               <td className="p-2">{card.status || "-"}</td>
-              <td className="p-2">{card.validUntil || "-"}</td>
               <td className="p-2">
                 {card.balance != null ? `${card.balance} 元` : "-"}
               </td>
