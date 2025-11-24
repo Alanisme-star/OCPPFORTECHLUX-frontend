@@ -373,7 +373,7 @@ export default function LiveStatus() {
         })
         .catch((err) => {
           console.error("❌ 自動停充失敗：", err);
-          setStopMsg("❌ 自動停充失敗，請手動停止。");
+          setStopMsg("");
           // 若失敗，允許重新嘗試
           setSentAutoStop(false);
         });
