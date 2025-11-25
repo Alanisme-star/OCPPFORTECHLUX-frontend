@@ -16,7 +16,7 @@ const Cards = () => {
   const [showAccessModal, setShowAccessModal] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState(null);
 
-  // ===== 儲值 =====
+  // ===== 儲值功能 =====
   const [showTopupModal, setShowTopupModal] = useState(false);
   const [topupAmount, setTopupAmount] = useState("");
   const [topupCardId, setTopupCardId] = useState(null);
@@ -124,7 +124,7 @@ const Cards = () => {
     }
   };
 
-  // 打開白名單 Modal
+  // ===== 白名單 modal =====
   const openEditAccessModal = (card) => {
     if (!card.card_id) {
       alert("無法開啟白名單設定，卡片 ID 無效");
@@ -171,11 +171,13 @@ const Cards = () => {
     <div>
       <h2 className="text-2xl font-bold mb-4">卡片管理（含白名單設定）</h2>
 
+      {/* ===== 新增/編輯表單 ===== */}
       <form
         onSubmit={handleSubmit}
         className="space-y-4 bg-gray-800 p-4 rounded-md mb-6"
       >
         <div className="flex gap-4">
+          {/* 住戶名稱 */}
           <input
             className="p-2 rounded bg-gray-700 text-white w-full"
             placeholder="住戶名稱(含號/樓)"
@@ -185,6 +187,7 @@ const Cards = () => {
             }
           />
 
+          {/* ID Tag */}
           <input
             className="p-2 rounded bg-gray-700 text-white w-full"
             placeholder="ID Tag"
@@ -195,6 +198,7 @@ const Cards = () => {
             disabled={!!editing}
           />
 
+          {/* 狀態 */}
           <select
             className="p-2 rounded bg-gray-700 text-white"
             value={form.status}
@@ -206,6 +210,7 @@ const Cards = () => {
             <option value="Blocked">Blocked</option>
           </select>
 
+          {/* 餘額（只能在編輯模式更改） */}
           <input
             type="text"
             inputMode="decimal"
@@ -230,6 +235,7 @@ const Cards = () => {
         </div>
       </form>
 
+      {/* ===== 卡片表格 ===== */}
       <table className="table-auto w-full text-sm">
         <thead>
           <tr className="bg-gray-700 text-left">
@@ -249,7 +255,7 @@ const Cards = () => {
               <td className="p-2">{card.card_id}</td>
               <td className="p-2">{card.status || "-"}</td>
 
-              {/* 餘額 + 儲值 */}
+              {/* 餘額 + 儲值功能 */}
               <td className="p-2 flex items-center gap-2">
                 {card.balance != null ? `${card.balance} 元` : "-"}
                 <button
@@ -288,6 +294,7 @@ const Cards = () => {
         </tbody>
       </table>
 
+      {/* ===== 白名單 Modal ===== */}
       {showAccessModal && (
         <EditCardAccessModal
           idTag={selectedCardId}
@@ -295,7 +302,7 @@ const Cards = () => {
         />
       )}
 
-      {/* ===== 儲值彈窗 ===== */}
+      {/* ===== 儲值 Modal ===== */}
       {showTopupModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-gray-800 p-6 rounded-md w-96">
