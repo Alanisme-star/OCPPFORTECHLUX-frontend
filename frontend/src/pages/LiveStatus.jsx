@@ -306,6 +306,19 @@ export default function LiveStatus() {
     prevStatusRef.current = cpStatus;
   }, [cpStatus, liveCost, rawBalance]);
 
+
+
+  // ⭐ 當樁狀態變成 Available（可用）時，重置分段電價統計
+  useEffect(() => {
+    if (cpStatus === "Available") {
+      setPriceBreakdown([]);      
+      setLiveCost(0);             
+      setLiveEnergyKWh(0);        
+    }
+  }, [cpStatus]);
+
+
+
   // ⭐ 當狀態從非 Charging → Charging，重置交易時間
   useEffect(() => {
     const prev = prevStatusRef.current;
