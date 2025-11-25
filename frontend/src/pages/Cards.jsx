@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import axios from "../axiosInstance";
-import EditCardAccessModal from "../components/EditCardAccessModal";
+import axios from "./axiosInstance";
+import EditCardAccessModal from "./components/EditCardAccessModal";
 
 const Cards = () => {
   const [cards, setCards] = useState([]);
@@ -11,9 +11,15 @@ const Cards = () => {
     validUntil: "2099-12-31T23:59:59",
     balance: "",
   });
+
   const [editing, setEditing] = useState(null);
   const [showAccessModal, setShowAccessModal] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState(null);
+
+  // ===== 儲值 =====
+  const [showTopupModal, setShowTopupModal] = useState(false);
+  const [topupAmount, setTopupAmount] = useState("");
+  const [topupCardId, setTopupCardId] = useState(null);
 
   useEffect(() => {
     fetchCards();
@@ -64,30 +70,23 @@ const Cards = () => {
 
     try {
       if (editing) {
-        // 更新餘額
         await axios.put(`/api/cards/${editing}`, {
           balance: balanceNumber,
         });
 
-        // 更新卡片基本資訊
         await axios.put(`/api/id_tags/${editing}`, {
           status: form.status,
         });
 
-        // 更新住戶名稱
         await axios.post(`/api/card-owners/${editing}`, {
           name: form.ownerName.trim(),
         });
-
       } else {
-        // 新增 id tag
         await axios.post("/api/id_tags", {
           idTag: form.idTag.trim(),
-          status: form.status
+          status: form.status,
         });
 
-
-        // 寫入住戶名稱
         await axios.post(`/api/card-owners/${form.idTag.trim()}`, {
           name: form.ownerName.trim(),
         });
@@ -125,6 +124,7 @@ const Cards = () => {
     }
   };
 
+  // 打開白名單 Modal
   const openEditAccessModal = (card) => {
     if (!card.card_id) {
       alert("無法開啟白名單設定，卡片 ID 無效");
@@ -140,6 +140,33 @@ const Cards = () => {
     fetchCards();
   };
 
+  // ===== 打開儲值視窗 =====
+  const openTopupModal = (card) => {
+    setTopupCardId(card.card_id);
+    setTopupAmount("");
+    setShowTopupModal(true);
+  };
+
+  // ===== 儲值提交 =====
+  const handleTopup = async () => {
+    if (!topupAmount || isNaN(topupAmount)) {
+      alert("請輸入正確的金額");
+      return;
+    }
+
+    try {
+      await axios.post(`/api/cards/${topupCardId}/topup`, {
+        amount: parseFloat(topupAmount),
+      });
+
+      alert("儲值成功！");
+      setShowTopupModal(false);
+      fetchCards();
+    } catch (err) {
+      alert("儲值失敗：" + (err.response?.data?.detail || err.message));
+    }
+  };
+
   return (
     <div>
       <h2 className="text-2xl font-bold mb-4">卡片管理（含白名單設定）</h2>
@@ -149,8 +176,6 @@ const Cards = () => {
         className="space-y-4 bg-gray-800 p-4 rounded-md mb-6"
       >
         <div className="flex gap-4">
-
-          {/* 住戶名稱 */}
           <input
             className="p-2 rounded bg-gray-700 text-white w-full"
             placeholder="住戶名稱(含號/樓)"
@@ -160,7 +185,6 @@ const Cards = () => {
             }
           />
 
-          {/* ID Tag */}
           <input
             className="p-2 rounded bg-gray-700 text-white w-full"
             placeholder="ID Tag"
@@ -171,7 +195,6 @@ const Cards = () => {
             disabled={!!editing}
           />
 
-          {/* 狀態 */}
           <select
             className="p-2 rounded bg-gray-700 text-white"
             value={form.status}
@@ -183,9 +206,6 @@ const Cards = () => {
             <option value="Blocked">Blocked</option>
           </select>
 
-
-
-          {/* 餘額 */}
           <input
             type="text"
             inputMode="decimal"
@@ -221,15 +241,25 @@ const Cards = () => {
             <th className="p-2">操作</th>
           </tr>
         </thead>
+
         <tbody>
           {cards.map((card) => (
             <tr key={card.card_id} className="border-b hover:bg-gray-700">
               <td className="p-2">{card.name || "-"}</td>
               <td className="p-2">{card.card_id}</td>
               <td className="p-2">{card.status || "-"}</td>
-              <td className="p-2">
+
+              {/* 餘額 + 儲值 */}
+              <td className="p-2 flex items-center gap-2">
                 {card.balance != null ? `${card.balance} 元` : "-"}
+                <button
+                  onClick={() => openTopupModal(card)}
+                  className="text-green-400 hover:underline"
+                >
+                  儲值
+                </button>
               </td>
+
               <td className="p-2">
                 <button
                   onClick={() => openEditAccessModal(card)}
@@ -238,6 +268,7 @@ const Cards = () => {
                   設定白名單
                 </button>
               </td>
+
               <td className="p-2 space-x-2">
                 <button
                   onClick={() => handleEdit(card)}
@@ -258,7 +289,45 @@ const Cards = () => {
       </table>
 
       {showAccessModal && (
-        <EditCardAccessModal idTag={selectedCardId} onClose={handleCloseModal} />
+        <EditCardAccessModal
+          idTag={selectedCardId}
+          onClose={handleCloseModal}
+        />
+      )}
+
+      {/* ===== 儲值彈窗 ===== */}
+      {showTopupModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+          <div className="bg-gray-800 p-6 rounded-md w-96">
+            <h3 className="text-xl mb-4 text-white">
+              卡片儲值：{topupCardId}
+            </h3>
+
+            <input
+              type="text"
+              className="w-full p-2 mb-4 rounded bg-gray-700 text-white"
+              placeholder="請輸入儲值金額"
+              value={topupAmount}
+              onChange={(e) => setTopupAmount(e.target.value)}
+            />
+
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowTopupModal(false)}
+                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded text-white"
+              >
+                取消
+              </button>
+
+              <button
+                onClick={handleTopup}
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-white"
+              >
+                儲值
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
