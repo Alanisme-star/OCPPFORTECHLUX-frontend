@@ -491,6 +491,13 @@ export default function LiveStatus() {
         const { data } = await axios.get(
           `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction/price-breakdown`
         );
+
+        // ⚡ 若樁狀態是 Available → 必須清空，避免殘留上一筆交易
+        if (cpStatus === "Available") {
+          setPriceBreakdown([]);
+          return;
+        }
+
         if (!cancelled && data?.found) {
           setPriceBreakdown(data.segments || []);
         } else if (!cancelled) {
@@ -502,21 +509,12 @@ export default function LiveStatus() {
     };
 
     fetchBreakdown();
-    const t = setInterval(fetchBreakdown, 2000); // 每 2 秒更新一次
+    const t = setInterval(fetchBreakdown, 2000);
     return () => {
       cancelled = true;
       clearInterval(t);
     };
-  }, [cpId]);
-
-
-
-
-
-
-
-
-
+  }, [cpId, cpStatus]);  // ★ 注意：這裡必須把 cpStatus 加入依賴
 
 
   // ---------- 狀態顯示 ----------
