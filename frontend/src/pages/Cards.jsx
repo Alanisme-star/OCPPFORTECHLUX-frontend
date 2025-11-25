@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import axios from "./axiosInstance";
-import EditCardAccessModal from "./components/EditCardAccessModal";
+import axios from "../axiosInstance";
+import EditCardAccessModal from "../components/EditCardAccessModal";
 
 const Cards = () => {
   const [cards, setCards] = useState([]);
@@ -16,10 +16,10 @@ const Cards = () => {
   const [showAccessModal, setShowAccessModal] = useState(false);
   const [selectedCardId, setSelectedCardId] = useState(null);
 
-  // ===== 儲值功能 =====
-  const [showTopupModal, setShowTopupModal] = useState(false);
-  const [topupAmount, setTopupAmount] = useState("");
-  const [topupCardId, setTopupCardId] = useState(null);
+  // === 儲值彈窗 ===
+  const [showDepositModal, setShowDepositModal] = useState(false);
+  const [depositCard, setDepositCard] = useState(null);
+  const [depositAmount, setDepositAmount] = useState("");
 
   useEffect(() => {
     fetchCards();
@@ -70,23 +70,29 @@ const Cards = () => {
 
     try {
       if (editing) {
+        // 更新餘額
         await axios.put(`/api/cards/${editing}`, {
           balance: balanceNumber,
         });
 
+        // 更新狀態
         await axios.put(`/api/id_tags/${editing}`, {
           status: form.status,
         });
 
+        // 更新住戶名稱
         await axios.post(`/api/card-owners/${editing}`, {
           name: form.ownerName.trim(),
         });
+
       } else {
+        // 新增 id tag
         await axios.post("/api/id_tags", {
           idTag: form.idTag.trim(),
           status: form.status,
         });
 
+        // 寫入住戶名稱
         await axios.post(`/api/card-owners/${form.idTag.trim()}`, {
           name: form.ownerName.trim(),
         });
@@ -124,7 +130,6 @@ const Cards = () => {
     }
   };
 
-  // ===== 白名單 modal =====
   const openEditAccessModal = (card) => {
     if (!card.card_id) {
       alert("無法開啟白名單設定，卡片 ID 無效");
@@ -140,28 +145,42 @@ const Cards = () => {
     fetchCards();
   };
 
-  // ===== 打開儲值視窗 =====
-  const openTopupModal = (card) => {
-    setTopupCardId(card.card_id);
-    setTopupAmount("");
-    setShowTopupModal(true);
+  // === 儲值模組 ===
+  const openDepositModal = (card) => {
+    setDepositCard(card);
+    setDepositAmount("");
+    setShowDepositModal(true);
   };
 
-  // ===== 儲值提交 =====
-  const handleTopup = async () => {
-    if (!topupAmount || isNaN(topupAmount)) {
-      alert("請輸入正確的金額");
+  const closeDepositModal = () => {
+    setShowDepositModal(false);
+    setDepositCard(null);
+    setDepositAmount("");
+  };
+
+  const handleDeposit = async () => {
+    if (!depositAmount.trim()) {
+      alert("請輸入儲值金額");
+      return;
+    }
+
+    const amount = parseFloat(depositAmount);
+    if (isNaN(amount) || amount <= 0) {
+      alert("儲值金額必須大於 0");
       return;
     }
 
     try {
-      await axios.post(`/api/cards/${topupCardId}/topup`, {
-        amount: parseFloat(topupAmount),
+      const newBalance = Number(depositCard.balance || 0) + amount;
+
+      await axios.put(`/api/cards/${depositCard.card_id}`, {
+        balance: newBalance,
       });
 
       alert("儲值成功！");
-      setShowTopupModal(false);
+      closeDepositModal();
       fetchCards();
+
     } catch (err) {
       alert("儲值失敗：" + (err.response?.data?.detail || err.message));
     }
@@ -171,12 +190,12 @@ const Cards = () => {
     <div>
       <h2 className="text-2xl font-bold mb-4">卡片管理（含白名單設定）</h2>
 
-      {/* ===== 新增/編輯表單 ===== */}
       <form
         onSubmit={handleSubmit}
         className="space-y-4 bg-gray-800 p-4 rounded-md mb-6"
       >
         <div className="flex gap-4">
+
           {/* 住戶名稱 */}
           <input
             className="p-2 rounded bg-gray-700 text-white w-full"
@@ -210,7 +229,7 @@ const Cards = () => {
             <option value="Blocked">Blocked</option>
           </select>
 
-          {/* 餘額（只能在編輯模式更改） */}
+          {/* 餘額 */}
           <input
             type="text"
             inputMode="decimal"
@@ -235,7 +254,6 @@ const Cards = () => {
         </div>
       </form>
 
-      {/* ===== 卡片表格 ===== */}
       <table className="table-auto w-full text-sm">
         <thead>
           <tr className="bg-gray-700 text-left">
@@ -247,7 +265,6 @@ const Cards = () => {
             <th className="p-2">操作</th>
           </tr>
         </thead>
-
         <tbody>
           {cards.map((card) => (
             <tr key={card.card_id} className="border-b hover:bg-gray-700">
@@ -255,11 +272,11 @@ const Cards = () => {
               <td className="p-2">{card.card_id}</td>
               <td className="p-2">{card.status || "-"}</td>
 
-              {/* 餘額 + 儲值功能 */}
+              {/* 餘額 + 儲值按鈕 */}
               <td className="p-2 flex items-center gap-2">
                 {card.balance != null ? `${card.balance} 元` : "-"}
                 <button
-                  onClick={() => openTopupModal(card)}
+                  onClick={() => openDepositModal(card)}
                   className="text-green-400 hover:underline"
                 >
                   儲值
@@ -294,41 +311,36 @@ const Cards = () => {
         </tbody>
       </table>
 
-      {/* ===== 白名單 Modal ===== */}
       {showAccessModal && (
-        <EditCardAccessModal
-          idTag={selectedCardId}
-          onClose={handleCloseModal}
-        />
+        <EditCardAccessModal idTag={selectedCardId} onClose={handleCloseModal} />
       )}
 
-      {/* ===== 儲值 Modal ===== */}
-      {showTopupModal && (
+      {/* === 儲值 Modal === */}
+      {showDepositModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-gray-800 p-6 rounded-md w-96">
-            <h3 className="text-xl mb-4 text-white">
-              卡片儲值：{topupCardId}
+          <div className="bg-gray-800 p-6 rounded shadow-xl w-80">
+            <h3 className="text-xl text-white mb-4">
+              卡片儲值：{depositCard.card_id}
             </h3>
 
             <input
               type="text"
-              className="w-full p-2 mb-4 rounded bg-gray-700 text-white"
-              placeholder="請輸入儲值金額"
-              value={topupAmount}
-              onChange={(e) => setTopupAmount(e.target.value)}
+              className="p-2 w-full bg-gray-700 text-white rounded mb-4"
+              placeholder="儲值金額"
+              value={depositAmount}
+              onChange={(e) => setDepositAmount(e.target.value)}
             />
 
-            <div className="flex justify-end gap-3">
+            <div className="flex justify-end gap-2">
               <button
-                onClick={() => setShowTopupModal(false)}
-                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded text-white"
+                className="px-4 py-2 bg-gray-600 rounded text-white"
+                onClick={closeDepositModal}
               >
                 取消
               </button>
-
               <button
-                onClick={handleTopup}
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 rounded text-white"
+                className="px-4 py-2 bg-green-600 rounded text-white"
+                onClick={handleDeposit}
               >
                 儲值
               </button>
@@ -336,6 +348,7 @@ const Cards = () => {
           </div>
         </div>
       )}
+
     </div>
   );
 };
