@@ -21,18 +21,15 @@ const DailyPricingSettings = () => {
   const [selectedDate, setSelectedDate] = useState(null);
   const [dailySettings, setDailySettings] = useState([]);
 
-  // 🟠 修改：預設規則（可從後端儲存與讀取）
+  // 預設規則
   const [weekdayRules, setWeekdayRules] = useState([]);
   const [saturdayRules, setSaturdayRules] = useState([]);
   const [sundayRules, setSundayRules] = useState([]);
 
-  // 🟣 重新讀取預設規則（每次進入頁面都會跑）
-  useEffect(() => {
-    loadDefaultPricingRules();
-  }, [year, month]);
+  // 避免 render 空畫面
+  const [rulesLoaded, setRulesLoaded] = useState(false);
 
-
-  // 🔵 新增：讀取後端的預設規則
+  // ---------------------- 載入預設規則 ----------------------
   const loadDefaultPricingRules = async () => {
     try {
       const res = await axios.get("/api/default-pricing-rules");
@@ -41,10 +38,18 @@ const DailyPricingSettings = () => {
       setSundayRules(res.data.sunday || []);
     } catch (err) {
       console.error("無法載入預設電價規則", err);
+    } finally {
+      setRulesLoaded(true); // 避免 UI 先渲染空規則
     }
   };
 
-  // 🔵 新增：儲存預設規則到後端
+  // 每次到此頁面 or 月份變更，重新載入
+  useEffect(() => {
+    setRulesLoaded(false);
+    loadDefaultPricingRules();
+  }, [year, month]);
+
+  // ---------------------- 自動儲存預設規則 ----------------------
   const saveDefaultPricingRules = async () => {
     try {
       await axios.post("/api/default-pricing-rules", {
@@ -52,19 +57,16 @@ const DailyPricingSettings = () => {
         saturday: saturdayRules,
         sunday: sundayRules
       });
-      console.log("預設規則已保存");
     } catch (err) {
       console.error("儲存預設電價規則失敗", err);
     }
   };
 
-  // 🔵 新增：每次三種規則更新時，自動保存
   useEffect(() => {
-    saveDefaultPricingRules();
+    if (rulesLoaded) saveDefaultPricingRules();
   }, [weekdayRules, saturdayRules, sundayRules]);
 
-  // ---------------- 原本就有的程式碼 -----------------
-
+  // ---------------------- 月曆生成 ----------------------
   useEffect(() => {
     generateCalendar();
   }, [year, month]);
@@ -101,6 +103,7 @@ const DailyPricingSettings = () => {
     setDailySettings(res.data);
   };
 
+  // ---------------------- 規則編輯區 ----------------------
   const renderRuleEditor = (rules, setRules) => (
     <div className="space-y-2">
       {rules.map((r, i) => (
@@ -162,6 +165,7 @@ const DailyPricingSettings = () => {
     </div>
   );
 
+  // 套用模版（工作日、六、日）
   const handleApplyTemplate = async (type) => {
     let rules = [];
     if (type === "weekday") rules = weekdayRules;
@@ -185,7 +189,7 @@ const DailyPricingSettings = () => {
 
   const handleApplyHoliday = async (date) => {
     if (!sundayRules.length) {
-      alert("⚠️ 尚未設定例假日規則");
+      alert("⚠️ 尚未設定星期日規則");
       return;
     }
 
@@ -232,6 +236,11 @@ const DailyPricingSettings = () => {
       alert("❌ 儲存失敗");
     }
   };
+
+  // ---------------------- Loading 保護 ----------------------
+  if (!rulesLoaded) {
+    return <div className="text-white">載入中...</div>;
+  }
 
   return (
     <div className="text-white max-w-6xl mx-auto">
@@ -299,10 +308,11 @@ const DailyPricingSettings = () => {
         )}
       </div>
 
-      {/* 預設規則 */}
+      {/* 預設規則區域 */}
       <div className="bg-gray-800 p-4 rounded">
         <h3 className="font-semibold text-lg mb-4">📋 預設電價規則</h3>
 
+        {/* 工作日 */}
         <div className="mb-6">
           <h4 className="text-yellow-300 font-bold mb-2">◆ 工作日 (週一～週五)</h4>
           {renderRuleEditor(weekdayRules, setWeekdayRules)}
@@ -311,6 +321,7 @@ const DailyPricingSettings = () => {
           </button>
         </div>
 
+        {/* 星期六 */}
         <div className="mb-6">
           <h4 className="text-blue-300 font-bold mb-2">◆ 星期六</h4>
           {renderRuleEditor(saturdayRules, setSaturdayRules)}
@@ -319,6 +330,7 @@ const DailyPricingSettings = () => {
           </button>
         </div>
 
+        {/* 星期日 */}
         <div>
           <h4 className="text-green-300 font-bold mb-2">◆ 星期日</h4>
           {renderRuleEditor(sundayRules, setSundayRules)}
