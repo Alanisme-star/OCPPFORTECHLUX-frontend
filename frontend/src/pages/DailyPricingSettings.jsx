@@ -26,10 +26,11 @@ const DailyPricingSettings = () => {
   const [saturdayRules, setSaturdayRules] = useState([]);
   const [sundayRules, setSundayRules] = useState([]);
 
-  // 🔵 新增：載入預設規則（第一次進入頁面）
+  // 🟣 重新讀取預設規則（每次進入頁面都會跑）
   useEffect(() => {
     loadDefaultPricingRules();
-  }, []);
+  }, [year, month]);
+
 
   // 🔵 新增：讀取後端的預設規則
   const loadDefaultPricingRules = async () => {
