@@ -8,20 +8,38 @@ dayjs.extend(isoWeek);
 
 // ⭐ 檢查是否完整覆蓋 24 小時（00:00~24:00）
 function isFullDay(rules) {
-  if (!rules.length) return true; // 無規則 = 不檢查
+  // 沒有任何規則 → 視為「沒設定這一天」，不檢查
+  if (!rules.length) return true;
 
   const toMin = (t) => {
-    const [h, m] = t.split(":").map(Number);
+    if (!t) return null;
+    if (t === "24:00") return 1440; // 特別處理 24:00
+    const [hStr, mStr] = t.split(":");
+    const h = Number(hStr);
+    const m = Number(mStr);
+    if (Number.isNaN(h) || Number.isNaN(m)) return null;
     return h * 60 + m;
   };
 
-  const seg = rules
-    .map((r) => ({ s: toMin(r.startTime), e: toMin(r.endTime) }))
-    .sort((a, b) => a.s - b.s);
+  const rawSeg = rules.map((r) => ({
+    s: toMin(r.startTime),
+    e: toMin(r.endTime),
+  }));
 
+  // 有任一筆時間格式不完整或錯誤 → 視為未填滿
+  if (rawSeg.some((se) => se.s === null || se.e === null)) return false;
+
+  const seg = rawSeg.sort((a, b) => a.s - b.s);
+
+  // 必須從 00:00 開始
   if (seg[0].s !== 0) return false;
-  if (seg[seg.length - 1].e !== 1440) return false;
 
+  // 最後一段結束時間必須接近一天結束：
+  // 允許 23:59 (1439) 或 24:00 (1440)
+  const lastEnd = seg[seg.length - 1].e;
+  if (lastEnd < 1439) return false;
+
+  // 中間不能斷開：每一段的結束時間要剛好接到下一段的開始時間
   for (let i = 0; i < seg.length - 1; i++) {
     if (seg[i].e !== seg[i + 1].s) return false;
   }
@@ -32,7 +50,7 @@ function isFullDay(rules) {
 const types = [
   { value: "peak", label: "尖峰", color: "#EF4444" },
   { value: "mid", label: "半尖峰", color: "#F59E0B" },
-  { value: "off", label: "離峰", color: "#3B82F6" }
+  { value: "off", label: "離峰", color: "#3B82F6" },
 ];
 
 const weekdayLabels = ["日", "一", "二", "三", "四", "五", "六"];
@@ -44,10 +62,12 @@ const DailyPricingSettings = () => {
   const [selectedDate, setSelectedDate] = useState(null);
   const [dailySettings, setDailySettings] = useState([]);
 
+  // 預設規則
   const [weekdayRules, setWeekdayRules] = useState([]);
   const [saturdayRules, setSaturdayRules] = useState([]);
   const [sundayRules, setSundayRules] = useState([]);
 
+  // 避免 render 空畫面
   const [rulesLoaded, setRulesLoaded] = useState(false);
 
   // ---------------------- 載入預設規則 ----------------------
@@ -60,10 +80,11 @@ const DailyPricingSettings = () => {
     } catch (err) {
       console.error("無法載入預設電價規則", err);
     } finally {
-      setRulesLoaded(true);
+      setRulesLoaded(true); // 避免 UI 先渲染空規則
     }
   };
 
+  // 每次到此頁面 or 月份變更，重新載入
   useEffect(() => {
     setRulesLoaded(false);
     loadDefaultPricingRules();
@@ -75,7 +96,7 @@ const DailyPricingSettings = () => {
       await axios.post("/api/default-pricing-rules", {
         weekday: weekdayRules,
         saturday: saturdayRules,
-        sunday: sundayRules
+        sunday: sundayRules,
       });
     } catch (err) {
       console.error("儲存預設電價規則失敗", err);
@@ -100,11 +121,9 @@ const DailyPricingSettings = () => {
 
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = dayjs(`${year}-${month}-${d}`).format("YYYY-MM-DD");
-
       const res = await axios.get("/api/daily-pricing", {
-        params: { date: dateStr }
+        params: { date: dateStr },
       });
-
       const isSet = res.data.length > 0;
       const weekDay = dayjs(dateStr).day();
 
@@ -115,7 +134,6 @@ const DailyPricingSettings = () => {
         else if (weekDay === 6) color = "blue";
         else color = "yellow";
       }
-
       newCalendar.push({ date: dateStr, color });
     }
 
@@ -149,10 +167,10 @@ const DailyPricingSettings = () => {
             ))}
           </select>
 
-          {/* ⭐ 強制 24 小時制：加入 inputMode="numeric" */}
+          {/* ⭐ 15 分鐘一格，支援 24 小時制 value */}
           <input
             type="time"
-            step="60"
+            step={900} // 15 分鐘 = 900 秒
             inputMode="numeric"
             value={r.startTime}
             onChange={(e) => {
@@ -163,10 +181,9 @@ const DailyPricingSettings = () => {
             className="text-black px-2 py-1"
           />
 
-          {/* ⭐ 強制 24 小時制 */}
           <input
             type="time"
-            step="60"
+            step={900}
             inputMode="numeric"
             value={r.endTime}
             onChange={(e) => {
@@ -211,8 +228,8 @@ const DailyPricingSettings = () => {
               startTime: "08:00",
               endTime: "12:00",
               price: 0,
-              label: "peak"
-            }
+              label: "peak",
+            },
           ])
         }
         className="mt-1 bg-gray-600 px-2 py-1 rounded"
@@ -222,7 +239,7 @@ const DailyPricingSettings = () => {
     </div>
   );
 
-  // 套用模板（工作日、六、日）
+  // 套用模版（工作日、六、日）
   const handleApplyTemplate = async (type) => {
     let rules = [];
     if (type === "weekday") rules = weekdayRules;
@@ -234,7 +251,7 @@ const DailyPricingSettings = () => {
       return;
     }
 
-    // ⭐ 防呆：必須設定滿 24 小時
+    // ⭐ 防呆：必須設定完整 24 小時（該類別有設定的情況下）
     if (!isFullDay(rules)) {
       alert("⚠️ 尚未設定完畢（請設定滿 24 小時）");
       return;
@@ -245,7 +262,7 @@ const DailyPricingSettings = () => {
       await axios.post("/api/internal/duplicate-daily-pricing", {
         type,
         rules,
-        start
+        start,
       });
       alert("✅ 套用成功！");
       generateCalendar();
@@ -260,10 +277,14 @@ const DailyPricingSettings = () => {
       return;
     }
 
+    // ⭐ 例假日也沿用星期日規則 → 也一起檢查是否滿 24 小時
+    if (!isFullDay(sundayRules)) {
+      alert("⚠️ 星期日規則尚未設定完畢（請設定滿 24 小時）");
+      return;
+    }
+
     try {
-      await axios.delete("/api/daily-pricing", {
-        params: { date }
-      });
+      await axios.delete("/api/daily-pricing", { params: { date } });
 
       for (let rule of sundayRules) {
         await axios.post("/api/daily-pricing", {
@@ -271,7 +292,7 @@ const DailyPricingSettings = () => {
           startTime: rule.startTime,
           endTime: rule.endTime,
           price: rule.price,
-          label: "holiday"
+          label: "holiday",
         });
       }
 
@@ -286,7 +307,7 @@ const DailyPricingSettings = () => {
   const handleSave = async () => {
     if (!selectedDate) return;
 
-    // ⭐ 儲存時也需符合 24 小時設定
+    // ⭐ 儲存當天設定時，也要檢查是否已填滿 24 小時
     if (!isFullDay(dailySettings)) {
       alert("⚠️ 尚未設定完畢（請設定滿 24 小時）");
       return;
@@ -294,7 +315,7 @@ const DailyPricingSettings = () => {
 
     try {
       await axios.delete("/api/daily-pricing", {
-        params: { date: selectedDate }
+        params: { date: selectedDate },
       });
 
       for (let entry of dailySettings) {
@@ -303,7 +324,7 @@ const DailyPricingSettings = () => {
           startTime: entry.startTime,
           endTime: entry.endTime,
           price: entry.price,
-          label: entry.label
+          label: entry.label,
         });
       }
 
@@ -336,7 +357,6 @@ const DailyPricingSettings = () => {
             </option>
           ))}
         </select>
-
         <select
           value={month}
           onChange={(e) => setMonth(Number(e.target.value))}
@@ -420,7 +440,9 @@ const DailyPricingSettings = () => {
 
         {/* 工作日 */}
         <div className="mb-6">
-          <h4 className="text-yellow-300 font-bold mb-2">◆ 工作日 (週一～週五)</h4>
+          <h4 className="text-yellow-300 font-bold mb-2">
+            ◆ 工作日 (週一～週五)
+          </h4>
           {renderRuleEditor(weekdayRules, setWeekdayRules)}
           <button
             onClick={() => handleApplyTemplate("weekday")}
