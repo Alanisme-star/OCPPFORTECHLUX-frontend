@@ -6,9 +6,9 @@ import isoWeek from "dayjs/plugin/isoWeek";
 dayjs.extend(weekday);
 dayjs.extend(isoWeek);
 
-// ⭐ 新增：檢查是否完整覆蓋 24 小時（00:00~24:00）
+// ⭐ 檢查是否完整覆蓋 24 小時（00:00~24:00）
 function isFullDay(rules) {
-  if (!rules.length) return true; // 無規則 = 不需檢查
+  if (!rules.length) return true; // 無規則 = 不檢查
 
   const toMin = (t) => {
     const [h, m] = t.split(":").map(Number);
@@ -19,11 +19,11 @@ function isFullDay(rules) {
     .map((r) => ({ s: toMin(r.startTime), e: toMin(r.endTime) }))
     .sort((a, b) => a.s - b.s);
 
-  // 必須從 00:00 開始並到 24:00 結束
+  // 從 00:00 開始，並在 24:00（隔天 00:00）結束
   if (seg[0].s !== 0) return false;
   if (seg[seg.length - 1].e !== 1440) return false;
 
-  // 中間不能有缺口，也不能重疊
+  // 中間不能重疊或斷開
   for (let i = 0; i < seg.length - 1; i++) {
     if (seg[i].e !== seg[i + 1].s) return false;
   }
@@ -34,7 +34,7 @@ function isFullDay(rules) {
 const types = [
   { value: "peak", label: "尖峰", color: "#EF4444" },
   { value: "mid", label: "半尖峰", color: "#F59E0B" },
-  { value: "off", label: "離峰", color: "#3B82F6" },
+  { value: "off", label: "離峰", color: "#3B82F6" }
 ];
 
 const weekdayLabels = ["日", "一", "二", "三", "四", "五", "六"];
@@ -51,7 +51,6 @@ const DailyPricingSettings = () => {
   const [saturdayRules, setSaturdayRules] = useState([]);
   const [sundayRules, setSundayRules] = useState([]);
 
-  // 避免 render 空畫面
   const [rulesLoaded, setRulesLoaded] = useState(false);
 
   // ---------------------- 載入預設規則 ----------------------
@@ -79,7 +78,7 @@ const DailyPricingSettings = () => {
       await axios.post("/api/default-pricing-rules", {
         weekday: weekdayRules,
         saturday: saturdayRules,
-        sunday: sundayRules,
+        sunday: sundayRules
       });
     } catch (err) {
       console.error("儲存預設電價規則失敗", err);
@@ -104,7 +103,11 @@ const DailyPricingSettings = () => {
 
     for (let d = 1; d <= daysInMonth; d++) {
       const dateStr = dayjs(`${year}-${month}-${d}`).format("YYYY-MM-DD");
-      const res = await axios.get("/api/daily-pricing", { params: { date: dateStr } });
+
+      const res = await axios.get("/api/daily-pricing", {
+        params: { date: dateStr }
+      });
+
       const isSet = res.data.length > 0;
       const weekDay = dayjs(dateStr).day();
 
@@ -115,6 +118,7 @@ const DailyPricingSettings = () => {
         else if (weekDay === 6) color = "blue";
         else color = "yellow";
       }
+
       newCalendar.push({ date: dateStr, color });
     }
 
@@ -126,6 +130,7 @@ const DailyPricingSettings = () => {
     setSelectedDate(date);
     setDailySettings(res.data);
   };
+
   // ---------------------- 規則編輯區 ----------------------
   const renderRuleEditor = (rules, setRules) => (
     <div className="space-y-2">
@@ -147,8 +152,10 @@ const DailyPricingSettings = () => {
             ))}
           </select>
 
+          {/* ⭐ 改為 24 小時制 step=60 */}
           <input
             type="time"
+            step="60"
             value={r.startTime}
             onChange={(e) => {
               const copy = [...rules];
@@ -158,8 +165,10 @@ const DailyPricingSettings = () => {
             className="text-black px-2 py-1"
           />
 
+          {/* ⭐ 改為 24 小時制 step=60 */}
           <input
             type="time"
+            step="60"
             value={r.endTime}
             onChange={(e) => {
               const copy = [...rules];
@@ -199,7 +208,7 @@ const DailyPricingSettings = () => {
         onClick={() =>
           setRules([
             ...rules,
-            { startTime: "08:00", endTime: "12:00", price: 0, label: "peak" },
+            { startTime: "08:00", endTime: "12:00", price: 0, label: "peak" }
           ])
         }
         className="mt-1 bg-gray-600 px-2 py-1 rounded"
@@ -221,7 +230,7 @@ const DailyPricingSettings = () => {
       return;
     }
 
-    // 🛡️ 防呆：必須設定滿 24 小時
+    // ⭐ 防呆：必須設定完整 24 小時
     if (!isFullDay(rules)) {
       alert("⚠️ 尚未設定完畢（請設定滿 24 小時）");
       return;
@@ -232,7 +241,7 @@ const DailyPricingSettings = () => {
       await axios.post("/api/internal/duplicate-daily-pricing", {
         type,
         rules,
-        start,
+        start
       });
       alert("✅ 套用成功！");
       generateCalendar();
@@ -248,7 +257,9 @@ const DailyPricingSettings = () => {
     }
 
     try {
-      await axios.delete("/api/daily-pricing", { params: { date } });
+      await axios.delete("/api/daily-pricing", {
+        params: { date }
+      });
 
       for (let rule of sundayRules) {
         await axios.post("/api/daily-pricing", {
@@ -256,7 +267,7 @@ const DailyPricingSettings = () => {
           startTime: rule.startTime,
           endTime: rule.endTime,
           price: rule.price,
-          label: "holiday",
+          label: "holiday"
         });
       }
 
@@ -271,7 +282,7 @@ const DailyPricingSettings = () => {
   const handleSave = async () => {
     if (!selectedDate) return;
 
-    // 🛡️ 防呆：每日直接編輯也需滿 24 小時
+    // ⭐ 儲存時防呆（每日設定也需完整 24 小時）
     if (!isFullDay(dailySettings)) {
       alert("⚠️ 尚未設定完畢（請設定滿 24 小時）");
       return;
@@ -279,7 +290,7 @@ const DailyPricingSettings = () => {
 
     try {
       await axios.delete("/api/daily-pricing", {
-        params: { date: selectedDate },
+        params: { date: selectedDate }
       });
 
       for (let entry of dailySettings) {
@@ -288,7 +299,7 @@ const DailyPricingSettings = () => {
           startTime: entry.startTime,
           endTime: entry.endTime,
           price: entry.price,
-          label: entry.label,
+          label: entry.label
         });
       }
 
@@ -298,6 +309,7 @@ const DailyPricingSettings = () => {
       alert("❌ 儲存失敗");
     }
   };
+
   // ---------------------- Loading 保護 ----------------------
   if (!rulesLoaded) {
     return <div className="text-white">載入中...</div>;
@@ -320,6 +332,7 @@ const DailyPricingSettings = () => {
             </option>
           ))}
         </select>
+
         <select
           value={month}
           onChange={(e) => setMonth(Number(e.target.value))}
@@ -375,7 +388,9 @@ const DailyPricingSettings = () => {
         {sundayRules.length ? (
           sundayRules.map((e, idx) => (
             <div key={idx} className="flex gap-2 mb-2">
-              <span>{types.find((t) => t.value === e.label)?.label || e.label}</span>
+              <span>
+                {types.find((t) => t.value === e.label)?.label || e.label}
+              </span>
               <span>{e.startTime}</span>
               <span>{e.endTime}</span>
               <span>{e.price}</span>
