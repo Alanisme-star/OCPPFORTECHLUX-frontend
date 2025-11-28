@@ -19,11 +19,9 @@ function isFullDay(rules) {
     .map((r) => ({ s: toMin(r.startTime), e: toMin(r.endTime) }))
     .sort((a, b) => a.s - b.s);
 
-  // 從 00:00 開始，並在 24:00（隔天 00:00）結束
   if (seg[0].s !== 0) return false;
   if (seg[seg.length - 1].e !== 1440) return false;
 
-  // 中間不能重疊或斷開
   for (let i = 0; i < seg.length - 1; i++) {
     if (seg[i].e !== seg[i + 1].s) return false;
   }
@@ -46,7 +44,6 @@ const DailyPricingSettings = () => {
   const [selectedDate, setSelectedDate] = useState(null);
   const [dailySettings, setDailySettings] = useState([]);
 
-  // 預設規則
   const [weekdayRules, setWeekdayRules] = useState([]);
   const [saturdayRules, setSaturdayRules] = useState([]);
   const [sundayRules, setSundayRules] = useState([]);
@@ -152,10 +149,11 @@ const DailyPricingSettings = () => {
             ))}
           </select>
 
-          {/* ⭐ 改為 24 小時制 step=60 */}
+          {/* ⭐ 強制 24 小時制：加入 inputMode="numeric" */}
           <input
             type="time"
             step="60"
+            inputMode="numeric"
             value={r.startTime}
             onChange={(e) => {
               const copy = [...rules];
@@ -165,10 +163,11 @@ const DailyPricingSettings = () => {
             className="text-black px-2 py-1"
           />
 
-          {/* ⭐ 改為 24 小時制 step=60 */}
+          {/* ⭐ 強制 24 小時制 */}
           <input
             type="time"
             step="60"
+            inputMode="numeric"
             value={r.endTime}
             onChange={(e) => {
               const copy = [...rules];
@@ -208,7 +207,12 @@ const DailyPricingSettings = () => {
         onClick={() =>
           setRules([
             ...rules,
-            { startTime: "08:00", endTime: "12:00", price: 0, label: "peak" }
+            {
+              startTime: "08:00",
+              endTime: "12:00",
+              price: 0,
+              label: "peak"
+            }
           ])
         }
         className="mt-1 bg-gray-600 px-2 py-1 rounded"
@@ -218,7 +222,7 @@ const DailyPricingSettings = () => {
     </div>
   );
 
-  // 套用模版（工作日、六、日）
+  // 套用模板（工作日、六、日）
   const handleApplyTemplate = async (type) => {
     let rules = [];
     if (type === "weekday") rules = weekdayRules;
@@ -230,7 +234,7 @@ const DailyPricingSettings = () => {
       return;
     }
 
-    // ⭐ 防呆：必須設定完整 24 小時
+    // ⭐ 防呆：必須設定滿 24 小時
     if (!isFullDay(rules)) {
       alert("⚠️ 尚未設定完畢（請設定滿 24 小時）");
       return;
@@ -282,7 +286,7 @@ const DailyPricingSettings = () => {
   const handleSave = async () => {
     if (!selectedDate) return;
 
-    // ⭐ 儲存時防呆（每日設定也需完整 24 小時）
+    // ⭐ 儲存時也需符合 24 小時設定
     if (!isFullDay(dailySettings)) {
       alert("⚠️ 尚未設定完畢（請設定滿 24 小時）");
       return;
