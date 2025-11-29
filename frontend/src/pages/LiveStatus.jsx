@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
-import axios from "../axiosInstance";
+import axios from "../axiosInstance"; // ← 依你的專案實際路徑調整
+
 
 export default function LiveStatus() {
   // 卡片 / 充電樁
@@ -26,7 +27,7 @@ export default function LiveStatus() {
   const [cpStatus, setCpStatus] = useState("Unknown");
 
   // 餘額
-  const [rawBalance, setRawBalance] = useState(0);
+  const [rawBalance, setRawBalance] = useState(null);   // 初始為 null 而不是 0
   const [displayBalance, setDisplayBalance] = useState(0);
 
   // 停充後畫面凍結
@@ -35,15 +36,21 @@ export default function LiveStatus() {
   const [rawAtFreeze, setRawAtFreeze] = useState(null);
   const prevStatusRef = useRef(cpStatus);
 
+  // 自動停樁
+  const [sentAutoStop, setSentAutoStop] = useState(false);
+  const [stopMsg, setStopMsg] = useState("");
+
   // 交易時間
   const [startTime, setStartTime] = useState("");
   const [stopTime, setStopTime] = useState("");
 
-  // 累積時間
+  // ⭐ 新增：本次充電累積時間
   const [elapsedTime, setElapsedTime] = useState("—");
 
-  // 分段電價
+  // ⭐ 新增：分段電價明細
   const [priceBreakdown, setPriceBreakdown] = useState([]);
+
+
 
   // ---------- 格式化時間 ----------
   const formatTime = (isoString) => {
@@ -72,10 +79,8 @@ export default function LiveStatus() {
           axios.get("/api/cards"),
           axios.get("/api/charge-points"),
         ]);
-
         const cardsData = Array.isArray(cards.data) ? cards.data : [];
         const cpsData = Array.isArray(cps.data) ? cps.data : [];
-
         setCardList(cardsData);
         setCpList(cpsData);
 
@@ -92,7 +97,6 @@ export default function LiveStatus() {
       }
     })();
   }, []);
-
   // ---------- 電價 ----------
   useEffect(() => {
     let cancelled = false;
@@ -110,14 +114,14 @@ export default function LiveStatus() {
       }
     };
     fetchPrice();
-    const t = setInterval(fetchPrice, 60000);
+    const t = setInterval(fetchPrice, 60_000);
     return () => {
       cancelled = true;
       clearInterval(t);
     };
   }, []);
 
-  // ---------- 樁狀態抓取 ----------
+  // ---------- 樁態 ----------
   useEffect(() => {
     if (!cpId) return;
     let cancelled = false;
@@ -131,20 +135,24 @@ export default function LiveStatus() {
     const fetchStatus = async () => {
       try {
         const [dbRes, cacheRes] = await Promise.allSettled([
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-status`),
+          axios.get(
+            `/api/charge-points/${encodeURIComponent(cpId)}/latest-status`
+          ),
           axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/status`),
         ]);
 
-        let dbStatus = "Unknown", dbTs = 0;
+        let dbStatus = "Unknown",
+          dbTs = 0;
         if (dbRes.status === "fulfilled") {
-          const d = dbRes.value.data;
+          const d = dbRes.value?.data;
           dbStatus = (d?.status ?? d ?? "Unknown") || "Unknown";
           dbTs = safeParseTime(d?.timestamp);
         }
 
-        let cacheStatus = "Unknown", cacheTs = 0;
+        let cacheStatus = "Unknown",
+          cacheTs = 0;
         if (cacheRes.status === "fulfilled") {
-          const c = cacheRes.value.data;
+          const c = cacheRes.value?.data;
           if (typeof c === "string") {
             cacheStatus = c || "Unknown";
           } else {
@@ -154,10 +162,18 @@ export default function LiveStatus() {
         }
 
         let chosen = "Unknown";
-        if (dbStatus === "Unknown" && cacheStatus !== "Unknown") chosen = cacheStatus;
-        else if (cacheStatus === "Unknown" && dbStatus !== "Unknown") chosen = dbStatus;
-        else if (dbStatus !== "Unknown" && cacheStatus !== "Unknown") {
-          chosen = cacheTs >= dbTs ? cacheStatus : dbStatus;
+        if (dbStatus === "Unknown" && cacheStatus !== "Unknown") {
+          chosen = cacheStatus;
+        } else if (cacheStatus === "Unknown" && dbStatus !== "Unknown") {
+          chosen = dbStatus;
+        } else if (dbStatus !== "Unknown" && cacheStatus !== "Unknown") {
+          if (cacheTs && dbTs) {
+            chosen = cacheTs >= dbTs ? cacheStatus : dbStatus;
+          } else if (dbStatus === "Available" && cacheStatus === "Charging") {
+            chosen = cacheStatus;
+          } else {
+            chosen = dbStatus;
+          }
         }
 
         if (!cancelled) {
@@ -170,7 +186,7 @@ export default function LiveStatus() {
     };
 
     fetchStatus();
-    const t = setInterval(fetchStatus, 2000);
+    const t = setInterval(fetchStatus, 2_000);
     return () => {
       cancelled = true;
       clearInterval(t);
@@ -195,7 +211,6 @@ export default function LiveStatus() {
         const kw = Number(live?.power ?? 0);
         const vv = Number(live?.voltage ?? 0);
         const aa = Number(live?.current ?? 0);
-
         setLivePowerKw(Number.isFinite(kw) ? kw : 0);
         setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
         setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
@@ -207,15 +222,37 @@ export default function LiveStatus() {
           live?.estimated_energy ??
           0
         );
-
         let kwh = Number.isFinite(session) ? session : 0;
+
+        // ✅ 改良版：只有當後端確認「沒有進行中交易」時才歸零
+        if (cpStatus === "Available" && kwh > 0) {
+          try {
+            const txCheck = await axios.get(
+              `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction/summary`
+            );
+            const hasActiveTx = txCheck.data?.found;
+            if (!hasActiveTx) {
+              console.debug(`[DEBUG] 狀態=Available 且無交易 → 顯示 0`);
+              kwh = 0;
+            } else {
+              console.debug(`[DEBUG] 狀態=Available 但仍有交易 → 保留現值 ${kwh}`);
+            }
+          } catch (err) {
+            console.warn("⚠️ 無法確認交易狀態，暫保留現值", err);
+          }
+        }
+
         setLiveEnergyKWh(kwh);
 
-        setLiveCost((prev) => {
-          if (typeof live?.estimated_amount === "number") {
+
+        // 🧮 改為信任後端傳回的跨時段電價金額
+        setLiveCost((prevCost) => {
+          if (live && typeof live.estimated_amount === "number" && !isNaN(live.estimated_amount)) {
             return live.estimated_amount;
+          } else {
+            console.debug("⚠️ 後端暫無金額資料，保持上一次值避免跳動");
+            return prevCost; // 不再 fallback，改保留上一次值
           }
-          return prev;
         });
       } catch (err) {
         console.error("❌ 即時量測更新失敗：", err);
@@ -224,13 +261,15 @@ export default function LiveStatus() {
 
     tick();
     const t = setInterval(tick, 1000);
+
     return () => {
       cancelled = true;
       clearInterval(t);
     };
   }, [cpId, pricePerKWh]);
 
-  // ---------- 餘額抓取 ----------
+
+  // ---------- 餘額 ----------
   useEffect(() => {
     if (!cardId) return;
     let cancelled = false;
@@ -241,284 +280,409 @@ export default function LiveStatus() {
           `/api/cards/${encodeURIComponent(cardId)}/balance`
         );
         const bal = Number(data?.balance ?? data ?? 0);
-        if (!cancelled) setRawBalance(bal);
+        if (!cancelled) {
+          setRawBalance(Number.isFinite(bal) ? bal : 0);
+        }
       } catch {}
     };
 
     fetchBalance();
-    const t = setInterval(fetchBalance, 5000);
+    const t = setInterval(fetchBalance, 5_000);
     return () => {
       cancelled = true;
       clearInterval(t);
     };
   }, [cardId]);
-
-  // ---------- 顯示餘額（不自動停充） ----------
+  // ---------- 狀態切換 ----------
   useEffect(() => {
-    // liveCost 或 rawBalance 可能在頁面切換瞬間變成 0 → 造成誤判
-    // 此版本：保留上一個有效值，不讓餘額突然跳到 0
-    setDisplayBalance((prev) => {
-      const nb = rawBalance - liveCost;
-
-      // 若計算結果為 NaN → 保留上一個正常值
-      if (Number.isNaN(nb)) return prev;
-
-      // 若計算結果 < 0，但 rawBalance 並未真正為 0 → 永遠不自動停充
-      if (nb < 0 && rawBalance > 0) return prev;
-
-      // 若為正常值 → 更新
-      return nb >= 0 ? nb : 0;
-    });
-  }, [rawBalance, liveCost]);
-
-  // ============================================================
-  // 🚫 **完全移除自動停充邏輯**
-  // ============================================================
-  // 以下邏輯原本長這樣：
-  //
-  // if (!sentAutoStop && cpStatus === "Charging" && displayBalance <= 0.01) {
-  //   axios.post(`/api/charge-points/${cpId}/stop`);
-  // }
-  //
-  // → 造成換頁瞬間 displayBalance = 0，就誤停充
-  //
-  // 🔥 已依方案 A 完全移除，不再做任何停充動作
-  // ============================================================
-
-  // ---------- 偵測 StopTransaction，凍結畫面 ----------
-  useEffect(() => {
-    if (!cpId) return;
-
-    const prevStatus = prevStatusRef.current;
-    prevStatusRef.current = cpStatus;
-
-    if (prevStatus === "Charging" && cpStatus !== "Charging") {
-      // 樁端真的停充（不是前端觸發）
+    const prev = prevStatusRef.current;
+    if (prev === "Charging" && cpStatus !== "Charging") {
       setFrozenAfterStop(true);
-      setFrozenCost(liveCost);
-      setRawAtFreeze(rawBalance);
-      setStopTime(new Date().toISOString());
+      setFrozenCost(Number.isFinite(liveCost) ? liveCost : 0);
+      setRawAtFreeze(Number.isFinite(rawBalance) ? rawBalance : 0);
+      setStopMsg("充電已自動停止（餘額不足或後端命令）");
+      setTimeout(() => setStopMsg(""), 5000); // ⏳ 5秒後自動清除
+    }
+    prevStatusRef.current = cpStatus;
+  }, [cpStatus, liveCost, rawBalance]);
+
+
+
+  // ⭐ 當樁狀態變成 Available（可用）時，重置分段電價統計
+  useEffect(() => {
+    if (cpStatus === "Available") {
+      setPriceBreakdown([]);      
+      setLiveCost(0);             
+      setLiveEnergyKWh(0);        
     }
   }, [cpStatus]);
 
-  // ---------- 若重新開始充電，解除凍結 ----------
+
+
+  // ⭐ 當狀態從非 Charging → Charging，重置交易時間
   useEffect(() => {
-    if (cpStatus === "Charging") {
+    const prev = prevStatusRef.current;
+    if (prev !== "Charging" && cpStatus === "Charging") {
+      setStopMsg("");   // ✅ 新開始充電 → 清除舊訊息
+      setStartTime("");
+      setStopTime("");
+    }
+    prevStatusRef.current = cpStatus;
+  }, [cpStatus]);
+
+  // ⭐ 新增：當開始新一輪充電時，重置所有即時量測與預估
+  useEffect(() => {
+    const prev = prevStatusRef.current;
+    if (prev !== "Charging" && cpStatus === "Charging") {
+      setLiveEnergyKWh(0);
+      setLiveCost(0);
+      setLivePowerKw(0);
+      setLiveVoltageV(0);
+      setLiveCurrentA(0);
+    }
+  }, [cpStatus]);
+
+
+  // ---------- 扣款後解除凍結 ----------
+  useEffect(() => {
+    if (!frozenAfterStop || rawAtFreeze == null) return;
+    if (Number.isFinite(rawBalance) && rawBalance < rawAtFreeze - 0.01) {
       setFrozenAfterStop(false);
       setFrozenCost(0);
       setRawAtFreeze(null);
-      setStartTime(new Date().toISOString());
     }
-  }, [cpStatus]);
+  }, [rawBalance, frozenAfterStop, rawAtFreeze]);
 
-  // ---------- 點卡片抓餘額 ----------
-  const onCardChange = (e) => {
-    const newCard = e.target.value;
-    setCardId(newCard);
-  };
+  // ---------- 顯示餘額 ----------
+  useEffect(() => {
+    const base =
+      frozenAfterStop && rawAtFreeze != null ? rawAtFreeze : rawBalance;
+    const cost = frozenAfterStop ? frozenCost : liveCost;
+    const nb =
+      (Number.isFinite(base) ? base : 0) -
+      (Number.isFinite(cost) ? cost : 0);
+    setDisplayBalance(nb > 0 ? nb : 0);
+  }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
 
-  // ---------- 點樁抓狀態 ----------
-  const onCpChange = (e) => {
-    const newCp = e.target.value;
-    setCpId(newCp);
-    setFrozenAfterStop(false);
-    setFrozenCost(0);
-    setRawAtFreeze(null);
-  };
 
-  // ---------- 分段電價統計 ----------
+  // ---------- 🧩 自動停充判斷 ----------
+  useEffect(() => {
+    // 條件：尚未送出停充、目前正在充電、餘額接近零、確實有充電樁ID
+    if (
+      !sentAutoStop &&
+      cpStatus === "Charging" &&
+      displayBalance <= 0.01 &&
+      cpId
+    ) {
+      console.log("⚠️ 偵測餘額歸零，準備自動停充...");
+      setSentAutoStop(true);
+      setStopMsg("⚠️ 餘額不足，自動發送停止充電命令…");
+
+      axios
+        .post(`/api/charge-points/${encodeURIComponent(cpId)}/stop`)
+        .then(() => {
+          console.log("✅ 自動停充成功");
+          setStopMsg("🔔 餘額不足，已自動停止充電。");
+        })
+        .catch((err) => {
+          console.error("❌ 自動停充失敗：", err);
+          setStopMsg("");
+          // 若失敗，允許重新嘗試
+          setSentAutoStop(false);
+        });
+    }
+  }, [displayBalance, cpStatus, cpId, sentAutoStop]);
+
+
+
+
+  // ---------- 切換樁時重置 ----------
+  useEffect(() => {
+    setLivePowerKw(0);
+    setLiveVoltageV(0);
+    setLiveCurrentA(0);
+    setSentAutoStop(false);
+    setStopMsg("");
+    setStartTime("");
+    setStopTime("");
+    setElapsedTime("—"); // ⭐ 新增：切換時也重置
+  }, [cpId]);
+
+  // ---------- 抓取交易時間 ----------
   useEffect(() => {
     if (!cpId) return;
 
-    let cancelled = false;
-
-    const fetchPriceBreakdown = async () => {
+    const fetchTxInfo = async () => {
       try {
-        const { data } = await axios.get(
-          `/api/charge-points/${encodeURIComponent(cpId)}/price-breakdown`
+        // ⭐ 改成只打 /current-transaction/summary
+        const res = await axios.get(
+          `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction/summary`
         );
-        if (!cancelled) {
-          if (Array.isArray(data)) setPriceBreakdown(data);
-          else setPriceBreakdown([]);
+
+        if (res.data?.found && res.data.start_timestamp) {
+          // ⭐ 保護條件：如果已經有 startTime，且目前狀態是 Charging，就不要再覆蓋
+          setStartTime((prev) => {
+            if (prev && cpStatus === "Charging") {
+              return prev; // 不跳動，保持現有的
+            }
+            return res.data.start_timestamp;
+          });
+          setStopTime(""); // 進行中交易沒有 stopTime
+        } else {
+          // ✅ 僅在狀態真的是 Available 或 Finishing 時才清空
+          if (["Available", "Finishing", "Faulted"].includes(cpStatus)) {
+            setStartTime("");
+            setStopTime("");
+            setElapsedTime("—");
+          } else {
+            console.debug("⚠️ 保留 startTime 與 elapsedTime（避免跨日誤清）");
+          }
         }
-      } catch {
-        if (!cancelled) setPriceBreakdown([]);
+
+      } catch (err) {
+        console.error("讀取交易資訊失敗:", err);
       }
     };
 
-    const t = setInterval(fetchPriceBreakdown, 3000);
-    fetchPriceBreakdown();
+    fetchTxInfo();
+    const t = setInterval(fetchTxInfo, 5_000);
+    return () => clearInterval(t);
+  }, [cpId, cpStatus]);  // ⭐ 保持依賴 cpId / cpStatus
 
+
+  // ---------- ⭐ 最終改良版：計算本次充電累積時間（停止後歸零 + 新充電重新計算） ----------
+  useEffect(() => {
+    let timer;
+
+    if (startTime && cpStatus === "Charging") {
+      // 充電中 → 開始計時
+      timer = setInterval(() => {
+        const start = Date.parse(startTime);
+        if (!isNaN(start)) {
+          const now = stopTime ? Date.parse(stopTime) : Date.now();
+          const diff = Math.max(0, now - start);
+          const hh = String(Math.floor(diff / 3600000)).padStart(2, "0");
+          const mm = String(Math.floor((diff % 3600000) / 60000)).padStart(2, "0");
+          const ss = String(Math.floor((diff % 60000) / 1000)).padStart(2, "0");
+          setElapsedTime(`${hh}:${mm}:${ss}`);
+        }
+      }, 1000);
+    } else {
+      // 非充電中 → 停止計時並歸零
+      clearInterval(timer);
+      setElapsedTime("—");
+
+      // ⭐ 同步重置起止時間，避免下次重啟用到舊資料
+      setStartTime("");
+      setStopTime("");
+    }
+
+    return () => clearInterval(timer);
+  }, [startTime, stopTime, cpStatus]);
+
+
+  // ⭐ 自動抓取分段電價明細
+  useEffect(() => {
+    if (!cpId) return;
+    let cancelled = false;
+
+    const fetchBreakdown = async () => {
+      try {
+        const { data } = await axios.get(
+          `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction/price-breakdown`
+        );
+
+        // ⚡ 若樁狀態是 Available → 必須清空，避免殘留上一筆交易
+        if (cpStatus === "Available") {
+          setPriceBreakdown([]);
+          return;
+        }
+
+        if (!cancelled && data?.found) {
+          setPriceBreakdown(data.segments || []);
+        } else if (!cancelled) {
+          setPriceBreakdown([]);
+        }
+      } catch (err) {
+        console.warn("❌ 分段電價取得失敗：", err);
+      }
+    };
+
+    fetchBreakdown();
+    const t = setInterval(fetchBreakdown, 2000);
     return () => {
       cancelled = true;
       clearInterval(t);
     };
-  }, [cpId]);
+  }, [cpId, cpStatus]);  // ★ 注意：這裡必須把 cpStatus 加入依賴
 
-  // ---------- 累積時間顯示 ----------
-  useEffect(() => {
-    if (cpStatus !== "Charging") {
-      setElapsedTime("—");
-      return;
-    }
 
-    const startTs = Date.now();
-    const timer = setInterval(() => {
-      const diff = Date.now() - startTs;
-      const sec = Math.floor(diff / 1000);
-      const h = String(Math.floor(sec / 3600)).padStart(2, "0");
-      const m = String(Math.floor((sec % 3600) / 60)).padStart(2, "0");
-      const s = String(sec % 60).padStart(2, "0");
-      setElapsedTime(`${h}:${m}:${s}`);
-    }, 1000);
+  // ---------- 狀態顯示 ----------
+  const statusLabel = (s) => {
+    const map = {
+      Available: "可用",
+      Preparing: "準備中",
+      Charging: "充電中",
+      SuspendedEV: "暫停（車端）",
+      SuspendedEVSE: "暫停（樁端）",
+      Finishing: "結束中",
+      Faulted: "故障",
+      Unavailable: "停用",
+      Unknown: "未知",
+    };
+    return map[s] || s || "未知";
+  };
+  const wrap = { padding: 20, color: "#fff" };
+  const inputStyle = {
+    width: "100%",
+    padding: 8,
+    margin: "8px 0",
+    background: "#1e1e1e",
+    color: "#fff",
+    border: "1px solid #ccc",
+    borderRadius: 6,
+  };
 
-    return () => clearInterval(timer);
-  }, [cpStatus]);
-
-  // ============================================================
-  //                       🔽 介面渲染 (UI) 🔽
-  // ============================================================
   return (
-    <div className="live-status-page" style={{ padding: "20px" }}>
-      {/* 卡片選單 */}
-      <div className="form-row">
-        <label>卡片 ID：</label>
-        <select value={cardId} onChange={onCardChange}>
-          {cardList.map((c) => (
-            <option key={c.card_id} value={c.card_id}>
-              {c.card_id}
+    <div style={wrap}>
+      <h2>📡 即時狀態</h2>
+
+
+      <label>卡片 ID：</label>
+      <select
+        value={cardId}
+        onChange={(e) => setCardId(e.target.value)}
+        style={inputStyle}
+      >
+        {cardList.map((c) => {
+          const id = c.card_id ?? c.cardId ?? "";
+          return (
+            <option key={id} value={id}>
+              {id}
             </option>
-          ))}
-        </select>
-      </div>
+          );
+        })}
+      </select>
 
-      {/* 樁選單 */}
-      <div className="form-row">
-        <label>充電樁：</label>
-        <select value={cpId} onChange={onCpChange}>
-          {cpList.map((cp) => (
-            <option
-              key={cp.chargePointId ?? cp.id}
-              value={cp.chargePointId ?? cp.id}
-            >
-              {cp.name ?? cp.id ?? cp.chargePointId}
-            </option>
-          ))}
-        </select>
-      </div>
+      <p>
+        ⚡ 電價：{pricePerKWh.toFixed(2)} 元/kWh
+        {priceFallback ? "（預設）" : ""} {priceLabel ? `｜${priceLabel}` : ""}
+      </p>
 
-      <hr />
 
-      {/* 電價 */}
-      <div className="info">
-        <span>⚡ 電價：</span>
-        <b>{pricePerKWh.toFixed(2)} 元/kWh</b>
-        {priceLabel && <span>｜{priceLabel}</span>}
-        {priceFallback && <span style={{ color: "orange" }}>（fallback）</span>}
-      </div>
+      <p>💳 卡片餘額：{displayBalance.toFixed(3)} 元</p>
 
-      {/* 餘額 */}
-      <div className="info">
-        <span>💳 卡片餘額：</span>
-        <b>{displayBalance.toFixed(3)} 元</b>
-      </div>
+      <p>🔌 狀態：{statusLabel(cpStatus)}</p>
+      {stopMsg && (
+            <p style={{ color: "orange", position: "relative", paddingRight: "24px" }}>
+                  {stopMsg}
+                  <span
+                        onClick={() => setStopMsg("")}
+                        style={{
+                              position: "absolute",
+                              right: 0,
+                              top: 0,
+                              cursor: "pointer",
+                              fontWeight: "bold"
+                        }}
+                  >
+                        ✕
+                  </span>
+            </p>
+      )}
 
-      {/* 狀態 */}
-      <div className="info">
-        <span>🧍 狀態：</span>
-        <b>{cpStatus}</b>
-      </div>
 
-      <hr />
+      <p>💳 選擇卡片 ID：{cardId || "—"}</p>
 
-      {/* 即時資料 */}
-      <div className="info">
-        <span>⚡ 即時功率：</span>
-        <b>{livePowerKw.toFixed(2)} kW</b>
-      </div>
-      <div className="info">
-        <span>🔌 電壓：</span>
-        <b>{liveVoltageV.toFixed(1)} V</b>
-      </div>
-      <div className="info">
-        <span>🔋 電流：</span>
-        <b>{liveCurrentA.toFixed(1)} A</b>
-      </div>
+      <p>⚡ 即時功率：{livePowerKw.toFixed(2)} kW</p>
+      <p>🔋 本次充電累積電量：{liveEnergyKWh.toFixed(3)} kWh</p>
+      <p>💰 預估電費（多時段）：{liveCost.toFixed(3)} 元</p>
 
-      {/* 累積電量 */}
-      <div className="info">
-        <span>🔄 本次充電累積電量：</span>
-        <b>{liveEnergyKWh.toFixed(3)} kWh</b>
-      </div>
 
-      {/* 預估電費 */}
-      <div className="info">
-        <span>💰 預估電費：</span>
-        <b>{liveCost.toFixed(3)} 元</b>
-      </div>
 
-      {/* 計時 */}
-      <div className="info">
-        <span>⏳ 累積時間：</span>
-        <b>{elapsedTime}</b>
-      </div>
 
-      <hr />
-
-      {/* 分段電價統計 */}
-      <div style={{ marginTop: "20px" }}>
+      {/* ✅ 分段電價統計 */}
+      <div style={{ marginTop: 20, padding: 12, background: "#333", borderRadius: 8 }}>
         <h3>分段電價統計</h3>
 
         {priceBreakdown.length === 0 ? (
-          <div style={{ opacity: 0.5 }}>尚無分段資料</div>
+          <p>尚無分段資料</p>
         ) : (
-          <table style={{ width: "100%", marginTop: "10px", color: "#fff" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", color: "#fff" }}>
             <thead>
               <tr>
-                <th align="left">時段</th>
-                <th align="right">度數 (kWh)</th>
-                <th align="right">電價</th>
-                <th align="right">小計</th>
+                <th style={{ borderBottom: "1px solid #666", textAlign: "left" }}>時間段</th>
+                <th style={{ borderBottom: "1px solid #666", textAlign: "right" }}>用電量 (kWh)</th>
+                <th style={{ borderBottom: "1px solid #666", textAlign: "right" }}>電價 (元/kWh)</th>
+                <th style={{ borderBottom: "1px solid #666", textAlign: "right" }}>小計 (元)</th>
               </tr>
             </thead>
+
+
             <tbody>
-              {priceBreakdown.map((p, idx) => (
-                <tr key={idx}>
-                  <td>
-                    {p.start} ~ {p.end}
-                  </td>
-                  <td align="right">{p.kwh.toFixed(3)}</td>
-                  <td align="right">{p.price.toFixed(2)}</td>
-                  <td align="right">{p.cost.toFixed(2)}</td>
-                </tr>
-              ))}
+              {priceBreakdown.map((seg, idx) => {
+                const start = seg.start ? new Date(seg.start) : null;
+                const end = seg.end ? new Date(seg.end) : null;
+
+                const formatTime = (d) =>
+                  d
+                    ? d.toLocaleTimeString("zh-TW", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true,
+                      })
+                    : "—";
+
+                return (
+                  <tr key={idx}>
+                    <td>
+                      {formatTime(start)} → {formatTime(end)}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      {Number(seg.kwh).toFixed(4)}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      {Number(seg.price).toFixed(0)}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      {Number(seg.subtotal).toFixed(2)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
+
+
+
+
+
+
+
           </table>
         )}
 
-        <div style={{ marginTop: "10px", textAlign: "right", fontSize: "20px" }}>
-          合計金額：<b>{priceBreakdown.reduce((a, b) => a + b.cost, 0).toFixed(2)}</b> 元
+        <div style={{ marginTop: 10, fontWeight: "bold", fontSize: "1.2em", textAlign: "right" }}>
+          合計金額：{liveCost.toFixed(2)} 元
         </div>
       </div>
 
-      <hr />
 
-      {/* 停止後凍結顯示 */}
-      {frozenAfterStop && (
-        <div
-          style={{
-            marginTop: "20px",
-            padding: "10px",
-            background: "#333",
-            borderRadius: "5px",
-          }}
-        >
-          <h3>本次充電已結束</h3>
-          <div>🔋 本次電費：{frozenCost.toFixed(2)} 元</div>
-          <div>💳 結束時餘額：{rawAtFreeze?.toFixed?.(2)} 元</div>
-          <div>⏱ 充電結束時間：{formatTime(stopTime)}</div>
-        </div>
-      )}
+
+
+
+
+      <p>🔋 電壓：{liveVoltageV.toFixed(1)} V</p>
+      <p>🔌 電流：{liveCurrentA.toFixed(1)} A</p>
+
+      <p>⏱️ 充電開始時間：{formatTime(startTime)}</p>
+      <p>⏱️ 充電結束時間：{formatTime(stopTime)}</p>
+
+
+
+
+      
+      <p>⏳ 本次充電累積時間：{elapsedTime}</p>
+
     </div>
   );
 }
