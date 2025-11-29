@@ -353,16 +353,30 @@ export default function LiveStatus() {
     }
   }, [rawBalance, frozenAfterStop, rawAtFreeze]);
 
-  // ---------- 顯示餘額 ----------
+  // ---------- 顯示餘額（安全版，避免換頁瞬間變 0） ----------
   useEffect(() => {
+    // ⚠️ 重要：rawBalance 尚未載入時不要更新（initial mount）
+    if (rawBalance === null) return;
+
     const base =
       frozenAfterStop && rawAtFreeze != null ? rawAtFreeze : rawBalance;
     const cost = frozenAfterStop ? frozenCost : liveCost;
-    const nb =
-      (Number.isFinite(base) ? base : 0) -
-      (Number.isFinite(cost) ? cost : 0);
-    setDisplayBalance(nb > 0 ? nb : 0);
+
+    // ⚠️ base 或 cost 若無效，避免更新成 0（保持原值）
+    if (!Number.isFinite(base) || !Number.isFinite(cost)) return;
+
+    const nb = base - cost;
+
+    // ⭐ 不能把餘額從「有錢」瞬間改成 0（會誤觸自動停充）
+    setDisplayBalance((prev) => {
+      // 若算出的 nb 小於 0，但前一個值是大於 0 → 保留前值
+      if (nb < 0 && prev > 0) return prev;
+
+      // 正常情況：nb > 0 就用 nb，否則 0
+      return nb > 0 ? nb : 0;
+    });
   }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
+
 
 
   // ---------- 🧩 自動停充判斷 ----------
