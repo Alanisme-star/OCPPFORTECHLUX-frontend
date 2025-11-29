@@ -379,16 +379,26 @@ export default function LiveStatus() {
 
 
 
-  // ---------- 🧩 自動停充判斷 ----------
+  // ---------- 🧩 改良安全版：自動停充判斷 ----------
   useEffect(() => {
-    // 條件：尚未送出停充、目前正在充電、餘額接近零、確實有充電樁ID
+    if (cpStatus !== "Charging" || !cpId) {
+      lowBalanceCounter.current = 0;    // 非充電 → 重置
+      return;
+    }
+
+    // 只有在餘額真的 <= 0 時才計次
+    if (displayBalance <= 0.01) {
+      lowBalanceCounter.current++;
+    } else {
+      lowBalanceCounter.current = 0; // 有錢 → 重置計數
+    }
+
+    // ⭐ 至少連續 5 秒餘額 <= 0 才真的停充（避免換頁誤判）
     if (
       !sentAutoStop &&
-      cpStatus === "Charging" &&
-      displayBalance <= 0.01 &&
-      cpId
+      lowBalanceCounter.current >= 5
     ) {
-      console.log("⚠️ 偵測餘額歸零，準備自動停充...");
+      console.log("⚠️ 連續 5 秒餘額不足 → 自動停充");
       setSentAutoStop(true);
       setStopMsg("⚠️ 餘額不足，自動發送停止充電命令…");
 
@@ -401,7 +411,6 @@ export default function LiveStatus() {
         .catch((err) => {
           console.error("❌ 自動停充失敗：", err);
           setStopMsg("");
-          // 若失敗，允許重新嘗試
           setSentAutoStop(false);
         });
     }
