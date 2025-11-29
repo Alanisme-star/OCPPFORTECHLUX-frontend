@@ -424,7 +424,8 @@ export default function LiveStatus() {
     setLivePowerKw(0);
     setLiveVoltageV(0);
     setLiveCurrentA(0);
-    setSentAutoStop(false);
+    // ❌ 不要重置 sentAutoStop（否則換頁後會重新觸發自動停樁）
+    // setSentAutoStop(false);
     setStopMsg("");
     setStartTime("");
     setStopTime("");
