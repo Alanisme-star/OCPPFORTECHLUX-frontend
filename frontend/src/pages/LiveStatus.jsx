@@ -36,22 +36,8 @@ export default function LiveStatus() {
   const [rawAtFreeze, setRawAtFreeze] = useState(null);
   const prevStatusRef = useRef(cpStatus);
 
-  // ---------- 🧩 sentAutoStop（持久化版） ----------
-  const [sentAutoStop, setSentAutoStop] = useState(() => {
-    try {
-      return localStorage.getItem("sentAutoStop") === "true";
-    } catch {
-      return false;
-    }
-  });
-
-  // 每當 sentAutoStop 改變，就寫回 localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem("sentAutoStop", sentAutoStop ? "true" : "false");
-    } catch {}
-  }, [sentAutoStop]);
-
+  // 自動停樁
+  const [sentAutoStop, setSentAutoStop] = useState(false);
   const [stopMsg, setStopMsg] = useState("");
 
   // 交易時間
@@ -379,16 +365,16 @@ export default function LiveStatus() {
   }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
 
 
-  // ---------- 🧩 自動停充判斷（修正版） ----------
+  // ---------- 🧩 自動停充判斷 ----------
   useEffect(() => {
-    // 條件：尚未送出停充、目前正在充電、後端餘額(rawBalance)接近零、確實有充電樁ID
+    // 條件：尚未送出停充、目前正在充電、餘額接近零、確實有充電樁ID
     if (
       !sentAutoStop &&
       cpStatus === "Charging" &&
-      rawBalance <= 0.01 &&   // ←⭐ 使用後端餘額，不再用 displayBalance
+      displayBalance <= 0.01 &&
       cpId
     ) {
-      console.log("⚠️ 偵測後端餘額歸零，準備自動停充...");
+      console.log("⚠️ 偵測餘額歸零，準備自動停充...");
       setSentAutoStop(true);
       setStopMsg("⚠️ 餘額不足，自動發送停止充電命令…");
 
@@ -405,28 +391,22 @@ export default function LiveStatus() {
           setSentAutoStop(false);
         });
     }
-  }, [rawBalance, cpStatus, cpId, sentAutoStop]);
+  }, [displayBalance, cpStatus, cpId, sentAutoStop]);
 
 
 
 
-
-  // ---------- 🧩 sentAutoStop（持久化版） ----------
-  const [sentAutoStop, setSentAutoStop] = useState(() => {
-    try {
-      return localStorage.getItem("sentAutoStop") === "true";
-    } catch {
-      return false;
-    }
-  });
-
-  // 每當 sentAutoStop 改變，就寫回 localStorage
+  // ---------- 切換樁時重置 ----------
   useEffect(() => {
-    try {
-      localStorage.setItem("sentAutoStop", sentAutoStop ? "true" : "false");
-    } catch {}
-  }, [sentAutoStop]);
-
+    setLivePowerKw(0);
+    setLiveVoltageV(0);
+    setLiveCurrentA(0);
+    setSentAutoStop(false);
+    setStopMsg("");
+    setStartTime("");
+    setStopTime("");
+    setElapsedTime("—"); // ⭐ 新增：切換時也重置
+  }, [cpId]);
 
   // ---------- 抓取交易時間 ----------
   useEffect(() => {
