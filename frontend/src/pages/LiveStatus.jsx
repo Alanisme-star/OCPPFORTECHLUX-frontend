@@ -36,8 +36,22 @@ export default function LiveStatus() {
   const [rawAtFreeze, setRawAtFreeze] = useState(null);
   const prevStatusRef = useRef(cpStatus);
 
-  // 自動停樁
-  const [sentAutoStop, setSentAutoStop] = useState(false);
+  // ---------- 🧩 sentAutoStop（持久化版） ----------
+  const [sentAutoStop, setSentAutoStop] = useState(() => {
+    try {
+      return localStorage.getItem("sentAutoStop") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  // 每當 sentAutoStop 改變，就寫回 localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem("sentAutoStop", sentAutoStop ? "true" : "false");
+    } catch {}
+  }, [sentAutoStop]);
+
   const [stopMsg, setStopMsg] = useState("");
 
   // 交易時間
@@ -397,17 +411,22 @@ export default function LiveStatus() {
 
 
 
-  // ---------- 切換樁時重置 ----------
+  // ---------- 🧩 sentAutoStop（持久化版） ----------
+  const [sentAutoStop, setSentAutoStop] = useState(() => {
+    try {
+      return localStorage.getItem("sentAutoStop") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  // 每當 sentAutoStop 改變，就寫回 localStorage
   useEffect(() => {
-    setLivePowerKw(0);
-    setLiveVoltageV(0);
-    setLiveCurrentA(0);
-    //setSentAutoStop(false);
-    setStopMsg("");
-    setStartTime("");
-    setStopTime("");
-    setElapsedTime("—"); // ⭐ 新增：切換時也重置
-  }, [cpId]);
+    try {
+      localStorage.setItem("sentAutoStop", sentAutoStop ? "true" : "false");
+    } catch {}
+  }, [sentAutoStop]);
+
 
   // ---------- 抓取交易時間 ----------
   useEffect(() => {
