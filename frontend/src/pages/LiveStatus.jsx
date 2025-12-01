@@ -401,7 +401,7 @@ export default function LiveStatus() {
     setLivePowerKw(0);
     setLiveVoltageV(0);
     setLiveCurrentA(0);
-    setSentAutoStop(false);
+    //setSentAutoStop(false);
     setStopMsg("");
     setStartTime("");
     setStopTime("");
