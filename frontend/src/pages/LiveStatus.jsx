@@ -365,16 +365,16 @@ export default function LiveStatus() {
   }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
 
 
-  // ---------- 🧩 自動停充判斷 ----------
+  // ---------- 🧩 自動停充判斷（修正版） ----------
   useEffect(() => {
-    // 條件：尚未送出停充、目前正在充電、餘額接近零、確實有充電樁ID
+    // 條件：尚未送出停充、目前正在充電、後端餘額(rawBalance)接近零、確實有充電樁ID
     if (
       !sentAutoStop &&
       cpStatus === "Charging" &&
-      displayBalance <= 0.01 &&
+      rawBalance <= 0.01 &&   // ←⭐ 使用後端餘額，不再用 displayBalance
       cpId
     ) {
-      console.log("⚠️ 偵測餘額歸零，準備自動停充...");
+      console.log("⚠️ 偵測後端餘額歸零，準備自動停充...");
       setSentAutoStop(true);
       setStopMsg("⚠️ 餘額不足，自動發送停止充電命令…");
 
@@ -391,7 +391,8 @@ export default function LiveStatus() {
           setSentAutoStop(false);
         });
     }
-  }, [displayBalance, cpStatus, cpId, sentAutoStop]);
+  }, [rawBalance, cpStatus, cpId, sentAutoStop]);
+
 
 
 
