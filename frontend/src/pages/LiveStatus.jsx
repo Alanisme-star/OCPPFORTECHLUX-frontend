@@ -27,7 +27,7 @@ export default function LiveStatus() {
   const [cpStatus, setCpStatus] = useState("Unknown");
 
   // 餘額
-  const [rawBalance, setRawBalance] = useState(null);   // 初始為 null 而不是 0
+  const [rawBalance, setRawBalance] = useState(0);
   const [displayBalance, setDisplayBalance] = useState(0);
 
   // 停充後畫面凍結
@@ -353,52 +353,28 @@ export default function LiveStatus() {
     }
   }, [rawBalance, frozenAfterStop, rawAtFreeze]);
 
-  // ---------- 顯示餘額（安全版，避免換頁瞬間變 0） ----------
+  // ---------- 顯示餘額 ----------
   useEffect(() => {
-    // ⚠️ 重要：rawBalance 尚未載入時不要更新（initial mount）
-    if (rawBalance === null) return;
-
     const base =
       frozenAfterStop && rawAtFreeze != null ? rawAtFreeze : rawBalance;
     const cost = frozenAfterStop ? frozenCost : liveCost;
-
-    // ⚠️ base 或 cost 若無效，避免更新成 0（保持原值）
-    if (!Number.isFinite(base) || !Number.isFinite(cost)) return;
-
-    const nb = base - cost;
-
-    // ⭐ 不能把餘額從「有錢」瞬間改成 0（會誤觸自動停充）
-    setDisplayBalance((prev) => {
-      // 若算出的 nb 小於 0，但前一個值是大於 0 → 保留前值
-      if (nb < 0 && prev > 0) return prev;
-
-      // 正常情況：nb > 0 就用 nb，否則 0
-      return nb > 0 ? nb : 0;
-    });
+    const nb =
+      (Number.isFinite(base) ? base : 0) -
+      (Number.isFinite(cost) ? cost : 0);
+    setDisplayBalance(nb > 0 ? nb : 0);
   }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
 
 
-
-  // ---------- 🧩 改良安全版：自動停充判斷 ----------
+  // ---------- 🧩 自動停充判斷 ----------
   useEffect(() => {
-    if (cpStatus !== "Charging" || !cpId) {
-      lowBalanceCounter.current = 0;    // 非充電 → 重置
-      return;
-    }
-
-    // 只有在餘額真的 <= 0 時才計次
-    if (displayBalance <= 0.01) {
-      lowBalanceCounter.current++;
-    } else {
-      lowBalanceCounter.current = 0; // 有錢 → 重置計數
-    }
-
-    // ⭐ 至少連續 5 秒餘額 <= 0 才真的停充（避免換頁誤判）
+    // 條件：尚未送出停充、目前正在充電、餘額接近零、確實有充電樁ID
     if (
       !sentAutoStop &&
-      lowBalanceCounter.current >= 5
+      cpStatus === "Charging" &&
+      displayBalance <= 0.01 &&
+      cpId
     ) {
-      console.log("⚠️ 連續 5 秒餘額不足 → 自動停充");
+      console.log("⚠️ 偵測餘額歸零，準備自動停充...");
       setSentAutoStop(true);
       setStopMsg("⚠️ 餘額不足，自動發送停止充電命令…");
 
@@ -411,6 +387,7 @@ export default function LiveStatus() {
         .catch((err) => {
           console.error("❌ 自動停充失敗：", err);
           setStopMsg("");
+          // 若失敗，允許重新嘗試
           setSentAutoStop(false);
         });
     }
