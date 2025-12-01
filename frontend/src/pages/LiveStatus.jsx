@@ -379,36 +379,42 @@ export default function LiveStatus() {
 
 
 
-  // ---------- 🧩 最終修正版：自動停充判斷（避免換頁誤判） ----------
+  // ---------- 🧩 改良安全版：自動停充判斷 ----------
   useEffect(() => {
     if (cpStatus !== "Charging" || !cpId) {
-      lowBalanceCounter.current = 0;
+      lowBalanceCounter.current = 0;    // 非充電 → 重置
       return;
     }
 
-    // ⭐ 使用 rawBalance（後端真餘額），不是 displayBalance（前端計算）
-    if (rawBalance !== null && rawBalance <= 0.01) {
+    // 只有在餘額真的 <= 0 時才計次
+    if (displayBalance <= 0.01) {
       lowBalanceCounter.current++;
     } else {
-      lowBalanceCounter.current = 0;
+      lowBalanceCounter.current = 0; // 有錢 → 重置計數
     }
 
-    // ⭐ rawBalance 連續 5 秒 <= 0 才真正停充
-    if (!sentAutoStop && lowBalanceCounter.current >= 5) {
-      console.log("⚠️後端餘額連續 5 秒 <=0 → 自動停樁");
+    // ⭐ 至少連續 5 秒餘額 <= 0 才真的停充（避免換頁誤判）
+    if (
+      !sentAutoStop &&
+      lowBalanceCounter.current >= 5
+    ) {
+      console.log("⚠️ 連續 5 秒餘額不足 → 自動停充");
       setSentAutoStop(true);
       setStopMsg("⚠️ 餘額不足，自動發送停止充電命令…");
 
       axios
         .post(`/api/charge-points/${encodeURIComponent(cpId)}/stop`)
-        .then(() => setStopMsg("🔔 餘額不足，已自動停止充電。"))
-        .catch(() => {
+        .then(() => {
+          console.log("✅ 自動停充成功");
+          setStopMsg("🔔 餘額不足，已自動停止充電。");
+        })
+        .catch((err) => {
+          console.error("❌ 自動停充失敗：", err);
           setStopMsg("");
           setSentAutoStop(false);
         });
     }
-  }, [rawBalance, cpStatus, cpId, sentAutoStop]);
-
+  }, [displayBalance, cpStatus, cpId, sentAutoStop]);
 
 
 
@@ -418,7 +424,6 @@ export default function LiveStatus() {
     setLivePowerKw(0);
     setLiveVoltageV(0);
     setLiveCurrentA(0);
-    // ❌ 不要重置 sentAutoStop（否則換頁後會重新觸發自動停樁）
     setSentAutoStop(false);
     setStopMsg("");
     setStartTime("");
