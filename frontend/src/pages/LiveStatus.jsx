@@ -199,64 +199,79 @@ export default function LiveStatus() {
     let cancelled = false;
 
     const tick = async () => {
-      try {
-        const [liveRes, energyRes] = await Promise.all([
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/live-status`),
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-energy`),
-        ]);
+        try {
+            const [liveRes, energyRes] = await Promise.all([
+                axios.get(`/api/charge-ppoints/${encodeURIComponent(cpId)}/live-status`),
+                axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-energy`),
+            ]);
 
-        if (cancelled) return;
+            if (cancelled) return;
 
-        const live = liveRes.data || {};
-        const kw = Number(live?.power ?? 0);
-        const vv = Number(live?.voltage ?? 0);
-        const aa = Number(live?.current ?? 0);
-        setLivePowerKw(Number.isFinite(kw) ? kw : 0);
-        setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
-        setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
+            const live = liveRes.data || {};
+            const kw = Number(live?.power ?? 0);
+            const vv = Number(live?.voltage ?? 0);
+            const aa = Number(live?.current ?? 0);
 
-        const e = energyRes.data || {};
-        const session = Number(
-          e?.sessionEnergyKWh ??
-          e?.totalEnergyKWh ??
-          live?.estimated_energy ??
-          0
-        );
-        let kwh = Number.isFinite(session) ? session : 0;
+            // ⭐ 先設定
+            setLivePowerKw(Number.isFinite(kw) ? kw : 0);
+            setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
+            setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
 
-        // ✅ 改良版：只有當後端確認「沒有進行中交易」時才歸零
-        if (cpStatus === "Available" && kwh > 0) {
-          try {
-            const txCheck = await axios.get(
-              `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction/summary`
+            const e = energyRes.data || {};
+            const session = Number(
+                e?.sessionEnergyKWh ??
+                e?.totalEnergyKWh ??
+                live?.estimated_energy ??
+                0
             );
-            const hasActiveTx = txCheck.data?.found;
-            if (!hasActiveTx) {
-              console.debug(`[DEBUG] 狀態=Available 且無交易 → 顯示 0`);
-              kwh = 0;
-            } else {
-              console.debug(`[DEBUG] 狀態=Available 但仍有交易 → 保留現值 ${kwh}`);
+            let kwh = Number.isFinite(session) ? session : 0;
+
+            // -------------------------------------------
+            // 🔧 新增：只要後端已回到 Available → 前端強制全數清零
+            // -------------------------------------------
+            if (cpStatus === "Available") {
+                console.debug("🔧 [前端] 樁狀態 = Available → 強制所有即時數據歸零");
+
+                setLiveEnergyKWh(0);
+                setLiveCost(0);
+                setPriceBreakdown([]);
+
+                return;   // ⭐ 直接結束 tick()，避免後續邏輯亂動
             }
-          } catch (err) {
-            console.warn("⚠️ 無法確認交易狀態，暫保留現值", err);
-          }
+            // -------------------------------------------
+
+            // 只有當後端確認「沒有進行中交易」時才歸零
+            if (cpStatus === "Available" && kwh > 0) {
+                try {
+                    const txCheck = await axios.get(
+                        `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction/summary`
+                    );
+                    const hasActiveTx = txCheck.data?.found;
+                    if (!hasActiveTx) {
+                        console.debug(`[DEBUG] 狀態=Available 且無交易 → 顯示 0`);
+                        kwh = 0;
+                    } else {
+                        console.debug(`[DEBUG] 狀態=Available 但仍有交易 → 保留現值 ${kwh}`);
+                    }
+                } catch (err) {
+                    console.warn("⚠️ 無法確認交易狀態，暫保留現值", err);
+                }
+            }
+
+            setLiveEnergyKWh(kwh);
+
+            // 🧮 改為信任後端傳回的跨時段電價金額
+            setLiveCost((prevCost) => {
+                if (live && typeof live.estimated_amount === "number" && !isNaN(live.estimated_amount)) {
+                    return live.estimated_amount;
+                } else {
+                    console.debug("⚠️ 後端暫無金額資料，保持上一次值避免跳動");
+                    return prevCost;
+                }
+            });
+        } catch (err) {
+            console.error("❌ 即時量測更新失敗：", err);
         }
-
-        setLiveEnergyKWh(kwh);
-
-
-        // 🧮 改為信任後端傳回的跨時段電價金額
-        setLiveCost((prevCost) => {
-          if (live && typeof live.estimated_amount === "number" && !isNaN(live.estimated_amount)) {
-            return live.estimated_amount;
-          } else {
-            console.debug("⚠️ 後端暫無金額資料，保持上一次值避免跳動");
-            return prevCost; // 不再 fallback，改保留上一次值
-          }
-        });
-      } catch (err) {
-        console.error("❌ 即時量測更新失敗：", err);
-      }
     };
 
     tick();
