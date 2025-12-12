@@ -474,7 +474,7 @@ export default function LiveStatus() {
         );
 
         // ⭐ Available 時禁止覆寫資料（維持前端清空）
-        if (!cancelled && cpStatus !== "Charging") {
+        if (!cancelled && cpStatus !== "Available") {
 
           // ⭐ 只有 backend confirmed found=true 才更新
           if (data?.found) {
