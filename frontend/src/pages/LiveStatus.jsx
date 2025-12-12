@@ -293,12 +293,18 @@ export default function LiveStatus() {
 
   // ⭐ 當樁狀態變成 Available（可用）時，重置分段電價統計
   useEffect(() => {
-    if (cpStatus === "Available") {
-      setPriceBreakdown([]);      
-      setLiveCost(0);             
-      setLiveEnergyKWh(0);        
-    }
+      const prev = prevStatusRef.current;
+
+      // ⭐ 只有「充電結束後」回到 Available 才清空
+      if (prev === "Charging" && cpStatus === "Available") {
+          setPriceBreakdown([]);
+          setLiveCost(0);
+          setLiveEnergyKWh(0);
+      }
+
+      prevStatusRef.current = cpStatus;
   }, [cpStatus]);
+
 
 
 
