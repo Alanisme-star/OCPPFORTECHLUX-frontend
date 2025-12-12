@@ -276,18 +276,7 @@ export default function LiveStatus() {
       clearInterval(t);
     };
   }, [cardId]);
-  // ---------- 狀態切換 ----------
-  useEffect(() => {
-    const prev = prevStatusRef.current;
-    if (prev === "Charging" && cpStatus !== "Charging") {
-      setFrozenAfterStop(true);
-      setFrozenCost(Number.isFinite(liveCost) ? liveCost : 0);
-      setRawAtFreeze(Number.isFinite(rawBalance) ? rawBalance : 0);
-      setStopMsg("充電已自動停止（餘額不足或後端命令）");
-      setTimeout(() => setStopMsg(""), 5000); // ⏳ 5秒後自動清除
-    }
-    prevStatusRef.current = cpStatus;
-  }, [cpStatus, liveCost, rawBalance]);
+
 
 
 
@@ -509,6 +498,28 @@ export default function LiveStatus() {
 
 
 
+  // ⭐ 當樁狀態變成 Available 時，清空分段電價（安全不跳動）
+  useEffect(() => {
+    if (cpStatus === "Available") {
+      console.log("🔄 樁已回到 Available → 強制清空本次資料");
+
+      setPriceBreakdown([]);   // 分段電價清空
+      setLiveCost(0);          // 預估電費歸零
+      setLiveEnergyKWh(0);     // 累積電量歸零
+
+      setStartTime("");
+      setStopTime("");
+      setElapsedTime("—");
+
+      // ⭐ 全部凍結狀態一併清除
+      setFrozenAfterStop(false);
+      setFrozenCost(0);
+      setRawAtFreeze(null);
+
+      setSentAutoStop(false);
+      setStopMsg("");
+    }
+  }, [cpStatus]);
 
 
 
