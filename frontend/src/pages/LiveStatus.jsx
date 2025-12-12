@@ -498,6 +498,32 @@ export default function LiveStatus() {
   }, [cpId, cpStatus]);
 
 
+  // ⭐ 當樁態變為 Available 時，前端強制歸零，並且阻止 tick() 再吃回舊資料
+  useEffect(() => {
+    if (cpStatus === "Available") {
+      console.log("🔄 樁已回到 Available → 強制清空本次資料");
+
+      setLiveEnergyKWh(0);     // 累積電量歸零
+      setLiveCost(0);          // 預估電費歸零
+      setPriceBreakdown([]);   // 分段電價清空
+
+      setStartTime("");
+      setStopTime("");
+      setElapsedTime("—");
+
+      // ⭐ 阻擋 autoStop 重複狀態殘留
+      setFrozenAfterStop(false);
+      setFrozenCost(0);
+      setRawAtFreeze(null);
+
+      // ⭐ 停止上一次的自動停樁紀錄
+      setSentAutoStop(false);
+      setStopMsg("");
+    }
+  }, [cpStatus]);
+
+
+
 
   // ---------- 狀態顯示 ----------
   const statusLabel = (s) => {
@@ -668,3 +694,4 @@ export default function LiveStatus() {
     </div>
   );
 }
+
