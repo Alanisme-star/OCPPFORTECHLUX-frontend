@@ -478,14 +478,17 @@ export default function LiveStatus() {
           `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction/price-breakdown`
         );
 
-        // ⭐ Available 不強制清空，避免模擬器永遠無資料
-        if (!cancelled) {
-          if (data?.found) {
-            setPriceBreakdown(data.segments || []);
-          } else {
-            setPriceBreakdown([]);
-          }
+        // ⭐ Available 時禁止覆寫資料（維持前端清空的狀態）
+        if (cpStatus !== "Available") {
+            if (!cancelled) {
+                if (data?.found) {
+                    setPriceBreakdown(data.segments || []);
+                } else {
+                    setPriceBreakdown([]);
+                }
+            }
         }
+
 
       } catch (err) {
         console.warn("❌ 分段電價取得失敗：", err);
