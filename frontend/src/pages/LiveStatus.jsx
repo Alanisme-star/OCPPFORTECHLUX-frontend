@@ -201,7 +201,7 @@ export default function LiveStatus() {
     const tick = async () => {
       try {
         const [liveRes, energyRes] = await Promise.all([
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/live-status`),
+          axios.get(`/api/charge-ppoints/${encodeURIComponent(cpId)}/live-status`),
           axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-energy`),
         ]);
 
@@ -216,7 +216,7 @@ export default function LiveStatus() {
         setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
         setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
 
-        // ⭐ 改良：信任模擬器 / 後端回傳的 kWh，不再因 Available 清空
+        // ⭐ 解析後端回傳
         const e = energyRes.data || {};
         const session = Number(
           e?.sessionEnergyKWh ??
@@ -224,16 +224,17 @@ export default function LiveStatus() {
           live?.estimated_energy ??
           0
         );
-
         const kwh = Number.isFinite(session) ? session : 0;
-        setLiveEnergyKWh(kwh);
 
-        // ⭐ 改良：沒有 estimated_amount → 回傳 0，而不是上一筆
-        setLiveCost(
-          typeof live.estimated_amount === "number" && !isNaN(live.estimated_amount)
-            ? live.estimated_amount
-            : 0
-        );
+        // ⭐ Only update when Charging
+        if (cpStatus === "Charging") {
+          setLiveEnergyKWh(kwh);
+          setLiveCost(
+            typeof live.estimated_amount === "number"
+              ? live.estimated_amount
+              : 0
+          );
+        }
 
       } catch (err) {
         console.error("❌ 即時量測更新失敗：", err);
@@ -246,7 +247,8 @@ export default function LiveStatus() {
       cancelled = true;
       clearInterval(t);
     };
-  }, [cpId, pricePerKWh]);
+  }, [cpId, pricePerKWh, cpStatus]);
+
 
 
   // ---------- 餘額 ----------
