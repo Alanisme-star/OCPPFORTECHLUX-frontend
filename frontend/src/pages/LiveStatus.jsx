@@ -652,16 +652,6 @@ export default function LiveStatus() {
         </table>
       )}
 
-
-
-
-
-
-
-
-          </table>
-        )}
-
         <div style={{ marginTop: 10, fontWeight: "bold", fontSize: "1.2em", textAlign: "right" }}>
           合計金額：{liveCost.toFixed(2)} 元
         </div>
