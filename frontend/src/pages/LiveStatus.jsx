@@ -462,7 +462,7 @@ export default function LiveStatus() {
   }, [startTime, stopTime, cpStatus]);
 
 
-  // ⭐ 自動抓取分段電價明細
+  // ⭐ 自動抓取分段電價明細（修正版）
   useEffect(() => {
     if (!cpId) return;
     let cancelled = false;
@@ -473,15 +473,25 @@ export default function LiveStatus() {
           `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction/price-breakdown`
         );
 
-        // ⭐ Available 時禁止覆寫資料（維持前端清空）
-        if (!cancelled && cpStatus !== "Available") {
+        if (cancelled) return;
 
-          // ⭐ 只有 backend confirmed found=true 才更新
-          if (data?.found) {
-            setPriceBreakdown(data.segments || []);
-          }
-          // 🚫 不再在 found=false 時清空，避免跳動
+        // ✅ Available 一律清空（避免殘留上一筆）
+        if (cpStatus === "Available") {
+          setPriceBreakdown([]);
+          return;
         }
+
+        // ✅ 僅 Charging / Finishing 且 found=true 才顯示
+        if (
+          (cpStatus === "Charging" || cpStatus === "Finishing") &&
+          data?.found
+        ) {
+          setPriceBreakdown(data.segments || []);
+          return;
+        }
+
+        // ✅ Preparing / Suspended / found=false → 強制清空
+        setPriceBreakdown([]);
 
       } catch (err) {
         console.warn("❌ 分段電價取得失敗：", err);
@@ -495,6 +505,7 @@ export default function LiveStatus() {
       clearInterval(t);
     };
   }, [cpId, cpStatus]);
+
 
 
 
