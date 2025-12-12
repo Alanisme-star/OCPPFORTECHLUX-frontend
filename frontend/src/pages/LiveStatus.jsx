@@ -349,11 +349,14 @@ export default function LiveStatus() {
   useEffect(() => {
     // 條件：尚未送出停充、目前正在充電、餘額接近零、確實有充電樁ID
     if (
-      !sentAutoStop &&
-      cpStatus === "Charging" &&
-      displayBalance <= 0.01 &&
-      cpId
+        !sentAutoStop &&
+        cpStatus === "Charging" &&
+        Number.isFinite(displayBalance) &&
+        displayBalance > 0 &&          // 🚫 避免 displayBalance=0 的瞬間誤判
+        displayBalance <= 0.01 &&      // 真的到臨界點才停樁
+        cpId
     ) {
+
       console.log("⚠️ 偵測餘額歸零，準備自動停充...");
       setSentAutoStop(true);
       setStopMsg("⚠️ 餘額不足，自動發送停止充電命令…");
