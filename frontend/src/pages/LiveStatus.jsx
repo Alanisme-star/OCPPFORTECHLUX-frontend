@@ -350,7 +350,6 @@ export default function LiveStatus() {
         !sentAutoStop &&
         cpStatus === "Charging" &&
         Number.isFinite(displayBalance) &&
-        displayBalance > 0 &&          // 🚫 避免 displayBalance=0 的瞬間誤判
         displayBalance <= 0.01 &&      // 真的到臨界點才停樁
         cpId
     ) {
