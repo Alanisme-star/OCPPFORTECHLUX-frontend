@@ -478,17 +478,15 @@ export default function LiveStatus() {
           `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction/price-breakdown`
         );
 
-        // ⭐ Available 時禁止覆寫資料（維持前端清空的狀態）
-        if (cpStatus !== "Available") {
-            if (!cancelled) {
-                if (data?.found) {
-                    setPriceBreakdown(data.segments || []);
-                } else {
-                    setPriceBreakdown([]);
-                }
-            }
-        }
+        // ⭐ Available 時禁止覆寫資料（維持前端清空）
+        if (!cancelled && cpStatus !== "Available") {
 
+          // ⭐ 只有 backend confirmed found=true 才更新
+          if (data?.found) {
+            setPriceBreakdown(data.segments || []);
+          }
+          // 🚫 不再在 found=false 時清空，避免跳動
+        }
 
       } catch (err) {
         console.warn("❌ 分段電價取得失敗：", err);
@@ -502,6 +500,7 @@ export default function LiveStatus() {
       clearInterval(t);
     };
   }, [cpId, cpStatus]);
+
 
 
   // ⭐ 當樁態變為 Available 時，前端強制歸零，並且阻止 tick() 再吃回舊資料
