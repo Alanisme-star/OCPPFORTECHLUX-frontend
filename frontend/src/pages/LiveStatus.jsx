@@ -609,56 +609,49 @@ export default function LiveStatus() {
 
 
 
-      {/* ✅ 分段電價統計 */}
-      <div style={{ marginTop: 20, padding: 12, background: "#333", borderRadius: 8 }}>
-        <h3>分段電價統計</h3>
+      {/* ⭐ 只有正在充電時才顯示分段明細，其餘狀態一律不顯示 */}
+      {cpStatus !== "Charging" ? (
+        <p>尚無分段資料</p>
+      ) : priceBreakdown.length === 0 ? (
+        <p>尚無分段資料</p>
+      ) : (
+        <table style={{ width: "100%", borderCollapse: "collapse", color: "#fff" }}>
+          <thead>
+            <tr>
+              <th style={{ borderBottom: "1px solid #666", textAlign: "left" }}>時間段</th>
+              <th style={{ borderBottom: "1px solid #666", textAlign: "right" }}>用電量 (kWh)</th>
+              <th style={{ borderBottom: "1px solid #666", textAlign: "right" }}>電價 (元/kWh)</th>
+              <th style={{ borderBottom: "1px solid #666", textAlign: "right" }}>小計 (元)</th>
+            </tr>
+          </thead>
 
-        {priceBreakdown.length === 0 ? (
-          <p>尚無分段資料</p>
-        ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", color: "#fff" }}>
-            <thead>
-              <tr>
-                <th style={{ borderBottom: "1px solid #666", textAlign: "left" }}>時間段</th>
-                <th style={{ borderBottom: "1px solid #666", textAlign: "right" }}>用電量 (kWh)</th>
-                <th style={{ borderBottom: "1px solid #666", textAlign: "right" }}>電價 (元/kWh)</th>
-                <th style={{ borderBottom: "1px solid #666", textAlign: "right" }}>小計 (元)</th>
-              </tr>
-            </thead>
+          <tbody>
+            {priceBreakdown.map((seg, idx) => {
+              const start = seg.start ? new Date(seg.start) : null;
+              const end = seg.end ? new Date(seg.end) : null;
 
+              const formatTime = (d) =>
+                d
+                  ? d.toLocaleTimeString("zh-TW", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      hour12: true,
+                    })
+                  : "—";
 
-            <tbody>
-              {priceBreakdown.map((seg, idx) => {
-                const start = seg.start ? new Date(seg.start) : null;
-                const end = seg.end ? new Date(seg.end) : null;
+              return (
+                <tr key={idx}>
+                  <td>{formatTime(start)} → {formatTime(end)}</td>
+                  <td style={{ textAlign: "right" }}>{Number(seg.kwh).toFixed(4)}</td>
+                  <td style={{ textAlign: "right" }}>{Number(seg.price).toFixed(0)}</td>
+                  <td style={{ textAlign: "right" }}>{Number(seg.subtotal).toFixed(2)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
 
-                const formatTime = (d) =>
-                  d
-                    ? d.toLocaleTimeString("zh-TW", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                        hour12: true,
-                      })
-                    : "—";
-
-                return (
-                  <tr key={idx}>
-                    <td>
-                      {formatTime(start)} → {formatTime(end)}
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      {Number(seg.kwh).toFixed(4)}
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      {Number(seg.price).toFixed(0)}
-                    </td>
-                    <td style={{ textAlign: "right" }}>
-                      {Number(seg.subtotal).toFixed(2)}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
 
 
 
