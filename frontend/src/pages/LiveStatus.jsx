@@ -201,7 +201,7 @@ export default function LiveStatus() {
     const tick = async () => {
       try {
         const [liveRes, energyRes] = await Promise.all([
-          axios.get(`/api/charge-ppoints/${encodeURIComponent(cpId)}/live-status`),
+          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/live-status`),
           axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/latest-energy`),
         ]);
 
@@ -248,6 +248,7 @@ export default function LiveStatus() {
       clearInterval(t);
     };
   }, [cpId, pricePerKWh, cpStatus]);
+
 
 
 
