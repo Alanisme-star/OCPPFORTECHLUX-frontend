@@ -212,18 +212,9 @@ export default function LiveStatus() {
         const vv = Number(live?.voltage ?? 0);
         const aa = Number(live?.current ?? 0);
 
-        // ⭐ 僅在 Charging / Finishing 時才顯示即時量測
-        if (cpStatus === "Charging" || cpStatus === "Finishing") {
-                setLivePowerKw(Number.isFinite(kw) ? kw : 0);
-                setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
-                setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
-        } else {
-                // ⭐ 其他狀態一律視為 0（顯示層防呆）
-                setLivePowerKw(0);
-                setLiveVoltageV(0);
-                setLiveCurrentA(0);
-        }
-
+        setLivePowerKw(Number.isFinite(kw) ? kw : 0);
+        setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
+        setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
 
         // ⭐ 解析後端回傳
         const e = energyRes.data || {};
