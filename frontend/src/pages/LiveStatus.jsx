@@ -36,6 +36,11 @@ export default function LiveStatus() {
   const [rawAtFreeze, setRawAtFreeze] = useState(null);
   const prevStatusRef = useRef(cpStatus);
 
+  // ⭐ 自動停充安全旗標（不受換頁影響）
+  const seenPositiveBalanceRef = useRef(false);   // 是否曾看過餘額 > 0
+  const autoStopUsedRef = useRef(false);          // 本交易是否已自動停充過
+
+
   // 自動停樁
   const [sentAutoStop, setSentAutoStop] = useState(false);
   const [stopMsg, setStopMsg] = useState("");
@@ -278,47 +283,29 @@ export default function LiveStatus() {
   }, [cardId]);
 
 
-
-
-  // ⭐ 當樁狀態變成 Available（可用）時，重置分段電價統計
-  useEffect(() => {
-      const prev = prevStatusRef.current;
-
-      // ⭐ 只有「充電結束後」回到 Available 才清空
-      if (prev === "Charging" && cpStatus === "Available") {
-          setPriceBreakdown([]);
-          setLiveCost(0);
-          setLiveEnergyKWh(0);
-      }
-
-      prevStatusRef.current = cpStatus;
-  }, [cpStatus]);
-
-
-
-
-  // ⭐ 當狀態從非 Charging → Charging，重置交易時間
-  useEffect(() => {
-    const prev = prevStatusRef.current;
-    if (prev !== "Charging" && cpStatus === "Charging") {
-      setStopMsg("");   // ✅ 新開始充電 → 清除舊訊息
-      setStartTime("");
-      setStopTime("");
-    }
-    prevStatusRef.current = cpStatus;
-  }, [cpStatus]);
-
   // ⭐ 新增：當開始新一輪充電時，重置所有即時量測與預估
   useEffect(() => {
     const prev = prevStatusRef.current;
+
     if (prev !== "Charging" && cpStatus === "Charging") {
       setLiveEnergyKWh(0);
       setLiveCost(0);
       setLivePowerKw(0);
       setLiveVoltageV(0);
       setLiveCurrentA(0);
+
+      // ⭐ 新交易開始 → 重置自動停充判斷
+      seenPositiveBalanceRef.current = false;
+      autoStopUsedRef.current = false;
+
+      setStopMsg("");
+      setStartTime("");
+      setStopTime("");
     }
+
+    prevStatusRef.current = cpStatus;
   }, [cpStatus]);
+
 
 
   // ---------- 扣款後解除凍結 ----------
@@ -340,53 +327,45 @@ export default function LiveStatus() {
       (Number.isFinite(base) ? base : 0) -
       (Number.isFinite(cost) ? cost : 0);
     setDisplayBalance(nb > 0 ? nb : 0);
+
+    // ⭐ 記錄：本交易中曾經看過餘額 > 0
+    if (cpStatus === "Charging" && nb > 0) {
+      seenPositiveBalanceRef.current = true;
+    }
+
   }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
 
 
   // ---------- 🧩 自動停充判斷 ----------
   useEffect(() => {
-    // 條件：尚未送出停充、目前正在充電、餘額接近零、確實有充電樁ID
     if (
-        !sentAutoStop &&
-        cpStatus === "Charging" &&
-        Number.isFinite(displayBalance) &&
-        displayBalance <= 0.01 &&      // 真的到臨界點才停樁
-        cpId
+      cpStatus === "Charging" &&
+      cpId &&
+      !autoStopUsedRef.current &&        // 本交易尚未停充
+      seenPositiveBalanceRef.current &&  // 曾經看過餘額 > 0
+      Number.isFinite(displayBalance) &&
+      displayBalance <= 0.01             // 現在才變成 0
     ) {
+      console.log("⚠️ 偵測餘額由正轉零，自動停充");
 
-      console.log("⚠️ 偵測餘額歸零，準備自動停充...");
+      autoStopUsedRef.current = true;    // 🔒 鎖定，只停一次
       setSentAutoStop(true);
       setStopMsg("⚠️ 餘額不足，自動發送停止充電命令…");
 
       axios
         .post(`/api/charge-points/${encodeURIComponent(cpId)}/stop`)
         .then(() => {
-          console.log("✅ 自動停充成功");
           setStopMsg("🔔 餘額不足，已自動停止充電。");
         })
-        .catch((err) => {
-          console.error("❌ 自動停充失敗：", err);
-          setStopMsg("");
-          // 若失敗，允許重新嘗試
+        .catch(() => {
+          // 若失敗，解除鎖定允許重試
+          autoStopUsedRef.current = false;
           setSentAutoStop(false);
+          setStopMsg("");
         });
     }
-  }, [displayBalance, cpStatus, cpId, sentAutoStop]);
+  }, [displayBalance, cpStatus, cpId]);
 
-
-
-
-  // ---------- 切換樁時重置 ----------
-  useEffect(() => {
-    setLivePowerKw(0);
-    setLiveVoltageV(0);
-    setLiveCurrentA(0);
-    setSentAutoStop(false);
-    setStopMsg("");
-    setStartTime("");
-    setStopTime("");
-    setElapsedTime("—"); // ⭐ 新增：切換時也重置
-  }, [cpId]);
 
   // ---------- 抓取交易時間 ----------
   useEffect(() => {
