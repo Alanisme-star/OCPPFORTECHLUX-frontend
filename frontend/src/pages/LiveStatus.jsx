@@ -555,9 +555,7 @@ export default function LiveStatus() {
       setElapsedTime("—");
 
       // ⭐ 全部凍結狀態一併清除
-      setFrozenAfterStop(false);
-      setFrozenCost(0);
-      setRawAtFreeze(null);
+
 
       setSentAutoStop(false);
       setStopMsg("");
