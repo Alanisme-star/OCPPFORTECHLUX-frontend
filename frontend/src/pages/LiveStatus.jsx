@@ -344,9 +344,7 @@ export default function LiveStatus() {
   useEffect(() => {
     if (!frozenAfterStop || rawAtFreeze == null) return;
     if (Number.isFinite(rawBalance) && rawBalance < rawAtFreeze - 0.01) {
-      setFrozenAfterStop(false);
-      setFrozenCost(0);
-      setRawAtFreeze(null);
+
     }
   }, [rawBalance, frozenAfterStop, rawAtFreeze]);
 
