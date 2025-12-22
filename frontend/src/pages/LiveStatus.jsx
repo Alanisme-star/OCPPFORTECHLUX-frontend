@@ -40,6 +40,10 @@ export default function LiveStatus() {
   const seenPositiveBalanceRef = useRef(false);   // 是否曾看過餘額 > 0
   const autoStopUsedRef = useRef(false);          // 本交易是否已自動停充過
 
+  // ✅ 新增：交易層級保護
+  const currentTxIdRef = useRef(null);            // 目前進行中的 transaction_id
+  const warmupRef = useRef(true);                 // 換頁暖機期（避免第一秒誤判）
+
 
   // 自動停樁
   const [sentAutoStop, setSentAutoStop] = useState(false);
@@ -231,6 +235,11 @@ export default function LiveStatus() {
         setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
         setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
 
+        // ✅ 一旦成功收到「有效即時功率」，解除暖機
+        if (Number.isFinite(kw) && kw > 0) {
+          warmupRef.current = false;
+        }
+
         const e = energyRes.data || {};
         const session = Number(
           e?.sessionEnergyKWh ??
@@ -301,9 +310,11 @@ export default function LiveStatus() {
       setLiveVoltageV(0);
       setLiveCurrentA(0);
 
-      // ⭐ 新交易開始 → 重置自動停充判斷
+      // ✅ 新交易開始 → 重置所有自動停充狀態
       seenPositiveBalanceRef.current = false;
       autoStopUsedRef.current = false;
+      currentTxIdRef.current = null;
+      warmupRef.current = true;
 
       setStopMsg("");
       setStartTime("");
@@ -343,19 +354,21 @@ export default function LiveStatus() {
   }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
 
 
-  // ---------- 🧩 自動停充判斷 ----------
+  // ---------- 🧩 自動停充判斷（交易級保護 + 換頁安全） ----------
   useEffect(() => {
     if (
       cpStatus === "Charging" &&
       cpId &&
-      !autoStopUsedRef.current &&        // 本交易尚未停充
-      seenPositiveBalanceRef.current &&  // 曾經看過餘額 > 0
+      currentTxIdRef.current &&        // ✅ 必須綁定交易（避免換頁誤判）
+      !warmupRef.current &&            // ✅ 已完成暖機（避免第一秒誤判）
+      !autoStopUsedRef.current &&      // 本交易尚未停充
+      seenPositiveBalanceRef.current &&// 曾經看過餘額 > 0
       Number.isFinite(displayBalance) &&
-      displayBalance <= 0.01             // 現在才變成 0
+      displayBalance <= 0.01           // 現在才變成 0
     ) {
-      console.log("⚠️ 偵測餘額由正轉零，自動停充");
+      console.log("⚠️ 偵測餘額由正轉零，自動停充（交易級）");
 
-      autoStopUsedRef.current = true;    // 🔒 鎖定，只停一次
+      autoStopUsedRef.current = true;  // 🔒 鎖定，只停一次
       setSentAutoStop(true);
       setStopMsg("⚠️ 餘額不足，自動發送停止充電命令…");
 
@@ -374,6 +387,7 @@ export default function LiveStatus() {
   }, [displayBalance, cpStatus, cpId]);
 
 
+
   // ---------- 抓取交易時間 ----------
   useEffect(() => {
     if (!cpId) return;
@@ -386,14 +400,20 @@ export default function LiveStatus() {
         );
 
         if (res.data?.found && res.data.start_timestamp) {
-          // ⭐ 保護條件：如果已經有 startTime，且目前狀態是 Charging，就不要再覆蓋
+
+          // ✅ 新增：只在尚未設定時，記住本筆交易 ID
+          if (res.data.transaction_id && !currentTxIdRef.current) {
+            currentTxIdRef.current = res.data.transaction_id;
+          }
+
           setStartTime((prev) => {
             if (prev && cpStatus === "Charging") {
-              return prev; // 不跳動，保持現有的
+              return prev;
             }
             return res.data.start_timestamp;
           });
-          setStopTime(""); // 進行中交易沒有 stopTime
+          setStopTime("");
+        
         } else {
           // ✅ 僅在狀態真的是 Available 或 Finishing 時才清空
           if (["Available", "Finishing", "Faulted"].includes(cpStatus)) {
