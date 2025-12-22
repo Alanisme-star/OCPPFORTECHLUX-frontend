@@ -218,6 +218,20 @@ export default function LiveStatus() {
 
         const live = liveRes.data || {};
 
+
+        // ⭐ 新增：StopTransaction 後，後端提供的「扣款後餘額」
+        // 只在尚未凍結時才接手，避免覆蓋使用者畫面
+        if (
+          !frozenAfterStop &&
+          live?.last_balance != null &&
+          Number.isFinite(live.last_balance)
+        ) {
+          setFrozenAfterStop(true);
+          setFrozenCost(0);                  // 停充後即時電費已歸零
+          setRawAtFreeze(live.last_balance); // ⭐ 關鍵：直接用後端最終餘額
+        }
+
+
         // ⭐⭐⭐ 關鍵修正：非 Charging → 即時量測一律歸零 ⭐⭐⭐
         if (cpStatus !== "Charging") {
           setLivePowerKw(0);
@@ -339,19 +353,34 @@ export default function LiveStatus() {
   // ---------- 顯示餘額 ----------
   useEffect(() => {
     const base =
-      frozenAfterStop && rawAtFreeze != null ? rawAtFreeze : rawBalance;
-    const cost = frozenAfterStop ? frozenCost : liveCost;
+      frozenAfterStop && rawAtFreeze != null
+        ? rawAtFreeze
+        : rawBalance;
+
+    const cost =
+      frozenAfterStop
+        ? frozenCost
+        : liveCost;
+
     const nb =
       (Number.isFinite(base) ? base : 0) -
       (Number.isFinite(cost) ? cost : 0);
+
     setDisplayBalance(nb > 0 ? nb : 0);
 
-    // ⭐ 記錄：本交易中曾經看過餘額 > 0
+    // ⭐ 僅在 Charging 時才標記「曾有正餘額」
     if (cpStatus === "Charging" && nb > 0) {
       seenPositiveBalanceRef.current = true;
     }
+  }, [
+    rawBalance,
+    liveCost,
+    frozenAfterStop,
+    frozenCost,
+    rawAtFreeze,
+    cpStatus,
+  ]);
 
-  }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
 
 
   // ---------- 🧩 自動停充判斷（交易級保護 + 換頁安全） ----------
