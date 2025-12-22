@@ -218,27 +218,13 @@ export default function LiveStatus() {
 
         const live = liveRes.data || {};
 
-
-        // ⭐ StopTransaction 後：永久鎖定後端最終餘額
-        if (
-          live?.last_balance != null &&
-          Number.isFinite(live.last_balance)
-        ) {
-          setFrozenAfterStop(true);
-          setFrozenCost(0);
-          setRawAtFreeze(live.last_balance);
-        }
-
-
-
-        // ✅ 僅在「真正停充」時才歸零（避免狀態抖動誤清）
-        if (cpStatus === "Available" || cpStatus === "Faulted") {
+        // ⭐⭐⭐ 關鍵修正：非 Charging → 即時量測一律歸零 ⭐⭐⭐
+        if (cpStatus !== "Charging") {
           setLivePowerKw(0);
           setLiveVoltageV(0);
           setLiveCurrentA(0);
           return;
         }
-        // ⛔ Preparing / Suspended / Finishing → 保留最後量測
 
         // ↓↓↓ 以下僅在 Charging 時才會執行 ↓↓↓
         const kw = Number(live?.power ?? 0);
@@ -344,41 +330,28 @@ export default function LiveStatus() {
   useEffect(() => {
     if (!frozenAfterStop || rawAtFreeze == null) return;
     if (Number.isFinite(rawBalance) && rawBalance < rawAtFreeze - 0.01) {
-
+      setFrozenAfterStop(false);
+      setFrozenCost(0);
+      setRawAtFreeze(null);
     }
   }, [rawBalance, frozenAfterStop, rawAtFreeze]);
 
   // ---------- 顯示餘額 ----------
   useEffect(() => {
     const base =
-      frozenAfterStop && rawAtFreeze != null
-        ? rawAtFreeze
-        : rawBalance;
-
-    const cost =
-      frozenAfterStop
-        ? frozenCost
-        : liveCost;
-
+      frozenAfterStop && rawAtFreeze != null ? rawAtFreeze : rawBalance;
+    const cost = frozenAfterStop ? frozenCost : liveCost;
     const nb =
       (Number.isFinite(base) ? base : 0) -
       (Number.isFinite(cost) ? cost : 0);
-
     setDisplayBalance(nb > 0 ? nb : 0);
 
-    // ⭐ 僅在 Charging 時才標記「曾有正餘額」
+    // ⭐ 記錄：本交易中曾經看過餘額 > 0
     if (cpStatus === "Charging" && nb > 0) {
       seenPositiveBalanceRef.current = true;
     }
-  }, [
-    rawBalance,
-    liveCost,
-    frozenAfterStop,
-    frozenCost,
-    rawAtFreeze,
-    cpStatus,
-  ]);
 
+  }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
 
 
   // ---------- 🧩 自動停充判斷（交易級保護 + 換頁安全） ----------
@@ -555,7 +528,9 @@ export default function LiveStatus() {
       setElapsedTime("—");
 
       // ⭐ 全部凍結狀態一併清除
-
+      setFrozenAfterStop(false);
+      setFrozenCost(0);
+      setRawAtFreeze(null);
 
       setSentAutoStop(false);
       setStopMsg("");
