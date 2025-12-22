@@ -219,17 +219,16 @@ export default function LiveStatus() {
         const live = liveRes.data || {};
 
 
-        // ⭐ 新增：StopTransaction 後，後端提供的「扣款後餘額」
-        // 只在尚未凍結時才接手，避免覆蓋使用者畫面
+        // ⭐ StopTransaction 後：永久鎖定後端最終餘額
         if (
-          !frozenAfterStop &&
           live?.last_balance != null &&
           Number.isFinite(live.last_balance)
         ) {
           setFrozenAfterStop(true);
-          setFrozenCost(0);                  // 停充後即時電費已歸零
-          setRawAtFreeze(live.last_balance); // ⭐ 關鍵：直接用後端最終餘額
+          setFrozenCost(0);
+          setRawAtFreeze(live.last_balance);
         }
+
 
 
         // ✅ 僅在「真正停充」時才歸零（避免狀態抖動誤清）
