@@ -213,6 +213,16 @@ export default function LiveStatus() {
         if (cancelled) return;
 
         const live = liveRes.data || {};
+
+        // ⭐⭐⭐ 關鍵修正：非 Charging → 即時量測一律歸零 ⭐⭐⭐
+        if (cpStatus !== "Charging") {
+          setLivePowerKw(0);
+          setLiveVoltageV(0);
+          setLiveCurrentA(0);
+          return;
+        }
+
+        // ↓↓↓ 以下僅在 Charging 時才會執行 ↓↓↓
         const kw = Number(live?.power ?? 0);
         const vv = Number(live?.voltage ?? 0);
         const aa = Number(live?.current ?? 0);
@@ -221,7 +231,6 @@ export default function LiveStatus() {
         setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
         setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
 
-        // ⭐ 解析後端回傳
         const e = energyRes.data || {};
         const session = Number(
           e?.sessionEnergyKWh ??
@@ -231,15 +240,12 @@ export default function LiveStatus() {
         );
         const kwh = Number.isFinite(session) ? session : 0;
 
-        // ⭐ Only update when Charging
-        if (cpStatus === "Charging") {
-          setLiveEnergyKWh(kwh);
-          setLiveCost(
-            typeof live.estimated_amount === "number"
-              ? live.estimated_amount
-              : 0
-          );
-        }
+        setLiveEnergyKWh(kwh);
+        setLiveCost(
+          typeof live.estimated_amount === "number"
+            ? live.estimated_amount
+            : 0
+        );
 
       } catch (err) {
         console.error("❌ 即時量測更新失敗：", err);
@@ -252,7 +258,8 @@ export default function LiveStatus() {
       cancelled = true;
       clearInterval(t);
     };
-  }, [cpId, pricePerKWh, cpStatus]);
+  }, [cpId, cpStatus]);
+
 
 
 
