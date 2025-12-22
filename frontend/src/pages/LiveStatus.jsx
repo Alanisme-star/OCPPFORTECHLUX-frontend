@@ -232,13 +232,14 @@ export default function LiveStatus() {
         }
 
 
-        // ⭐⭐⭐ 關鍵修正：非 Charging → 即時量測一律歸零 ⭐⭐⭐
-        if (cpStatus !== "Charging") {
+        // ✅ 僅在「真正停充」時才歸零（避免狀態抖動誤清）
+        if (cpStatus === "Available" || cpStatus === "Faulted") {
           setLivePowerKw(0);
           setLiveVoltageV(0);
           setLiveCurrentA(0);
           return;
         }
+        // ⛔ Preparing / Suspended / Finishing → 保留最後量測
 
         // ↓↓↓ 以下僅在 Charging 時才會執行 ↓↓↓
         const kw = Number(live?.power ?? 0);
