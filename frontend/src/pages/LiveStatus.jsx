@@ -336,22 +336,28 @@ export default function LiveStatus() {
     }
   }, [rawBalance, frozenAfterStop, rawAtFreeze]);
 
-  // ---------- 顯示餘額 ----------
+  // ---------- 顯示餘額（方案 A：只信後端） ----------
   useEffect(() => {
-    const base =
-      frozenAfterStop && rawAtFreeze != null ? rawAtFreeze : rawBalance;
-    const cost = frozenAfterStop ? frozenCost : liveCost;
-    const nb =
-      (Number.isFinite(base) ? base : 0) -
-      (Number.isFinite(cost) ? cost : 0);
-    setDisplayBalance(nb > 0 ? nb : 0);
+    let nb = 0;
 
-    // ⭐ 記錄：本交易中曾經看過餘額 > 0
-    if (cpStatus === "Charging" && nb > 0) {
-      seenPositiveBalanceRef.current = true;
+    if (cpStatus === "Charging") {
+      // 充電中：顯示即時預估扣款
+      const base = Number.isFinite(rawBalance) ? rawBalance : 0;
+      const cost = Number.isFinite(liveCost) ? liveCost : 0;
+      nb = base - cost;
+
+      // ⭐ 記錄：本交易中曾經看過餘額 > 0
+      if (nb > 0) {
+        seenPositiveBalanceRef.current = true;
+      }
+    } else {
+      // ⭐⭐⭐ 非 Charging：一律只顯示後端餘額 ⭐⭐⭐
+      nb = Number.isFinite(rawBalance) ? rawBalance : 0;
     }
 
-  }, [rawBalance, liveCost, frozenAfterStop, frozenCost, rawAtFreeze]);
+    setDisplayBalance(nb > 0 ? nb : 0);
+  }, [rawBalance, liveCost, cpStatus]);
+
 
 
   // ---------- 🧩 自動停充判斷（交易級保護 + 換頁安全） ----------
