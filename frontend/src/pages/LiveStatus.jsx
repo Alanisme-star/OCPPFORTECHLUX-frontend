@@ -514,28 +514,26 @@ export default function LiveStatus() {
 
 
 
-  // ⭐ 當樁狀態變成 Available 時，清空分段電價（安全不跳動）
+  // ⭐ 修正版：樁狀態變成 Available → 保留金額，不清扣款
   useEffect(() => {
     if (cpStatus === "Available") {
-      console.log("🔄 樁已回到 Available → 強制清空本次資料");
+      console.log("🔄 樁已回到 Available → 保留本次扣款結果");
 
-      setPriceBreakdown([]);   // 分段電價清空
-      setLiveCost(0);          // 預估電費歸零
-      setLiveEnergyKWh(0);     // 累積電量歸零
+      // ✅ 只清顯示用資料（不影響金額）
+      setPriceBreakdown([]);
 
       setStartTime("");
       setStopTime("");
       setElapsedTime("—");
 
-      // ⭐ 全部凍結狀態一併清除
-      setFrozenAfterStop(false);
-      setFrozenCost(0);
-      setRawAtFreeze(null);
+      // ❌ 不要清 liveCost / liveEnergyKWh
+      // ❌ 不要清 frozen 狀態（避免餘額回跳）
 
       setSentAutoStop(false);
       setStopMsg("");
     }
   }, [cpStatus]);
+
 
 
 
