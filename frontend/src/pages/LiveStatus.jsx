@@ -67,6 +67,13 @@ export default function LiveStatus() {
   const [overviewLoading, setOverviewLoading] = useState(false);
   const [overviewError, setOverviewError] = useState("");
 
+  // =======================
+  // ⭐ 多樁總覽模擬開關（方案 A）
+  // true  → 使用前端假資料（模擬 2~3 台）
+  // false → 使用真實後端 API
+  // =======================
+  const ENABLE_OVERVIEW_MOCK = true;
+
   const getCpId = (cp) => cp?.chargePointId ?? cp?.id ?? cp?.charge_point_id ?? "";
 
 
@@ -120,7 +127,48 @@ export default function LiveStatus() {
   // ---------- ⭐ Overview：輪詢多樁摘要 ----------
   useEffect(() => {
     if (viewMode !== "overview") return;
+
+    // =======================
+    // ⭐ 模擬多樁（方案 A）
+    // =======================
+    if (ENABLE_OVERVIEW_MOCK) {
+      setOverviewRows([
+        {
+          cpId: "TW*MSI*E000100",
+          status: "Charging",
+          powerKw: 3.18,
+          energyKWh: 0.012,
+          cost: 1.10,
+          ts: Date.now(),
+        },
+        {
+          cpId: "TW*MSI*E000101",
+          status: "Available",
+          powerKw: 0,
+          energyKWh: 0,
+          cost: 0,
+          ts: Date.now(),
+        },
+        {
+          cpId: "TW*MSI*E000102",
+          status: "Faulted",
+          powerKw: 0,
+          energyKWh: 0,
+          cost: 0,
+          ts: Date.now(),
+        },
+      ]);
+
+      setOverviewLoading(false);
+      setOverviewError("");
+      return; // ⛔ 不跑真實 API
+    }
+
+    // =======================
+    // 以下為「原本真實輪詢邏輯」（完全保留）
+    // =======================
     if (!cpList || cpList.length === 0) return;
+
 
     let cancelled = false;
     let inFlight = false;
