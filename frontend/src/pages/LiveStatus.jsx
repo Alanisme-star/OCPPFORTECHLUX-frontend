@@ -72,7 +72,7 @@ export default function LiveStatus() {
   // true  → 使用前端假資料（模擬 2~3 台）
   // false → 使用真實後端 API
   // =======================
-  const ENABLE_OVERVIEW_MOCK = true;
+  const ENABLE_OVERVIEW_MOCK = false;
 
   const getCpId = (cp) => cp?.chargePointId ?? cp?.id ?? cp?.charge_point_id ?? "";
 
