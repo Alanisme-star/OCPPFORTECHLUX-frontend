@@ -59,6 +59,16 @@ export default function LiveStatus() {
   // ⭐ 新增：分段電價明細
   const [priceBreakdown, setPriceBreakdown] = useState([]);
 
+  // =======================
+  // ⭐ Overview（多樁總覽）模式
+  // =======================
+  const [viewMode, setViewMode] = useState("detail"); // "detail" | "overview"
+  const [overviewRows, setOverviewRows] = useState([]);
+  const [overviewLoading, setOverviewLoading] = useState(false);
+  const [overviewError, setOverviewError] = useState("");
+
+  const getCpId = (cp) => cp?.chargePointId ?? cp?.id ?? cp?.charge_point_id ?? "";
+
 
 
   // ---------- 格式化時間 ----------
@@ -106,6 +116,125 @@ export default function LiveStatus() {
       }
     })();
   }, []);
+
+  // ---------- ⭐ Overview：輪詢多樁摘要 ----------
+  useEffect(() => {
+    if (viewMode !== "overview") return;
+    if (!cpList || cpList.length === 0) return;
+
+    let cancelled = false;
+    let inFlight = false;
+
+    const safeParseTime = (ts) => {
+      if (!ts) return 0;
+      const v = Date.parse(ts);
+      return Number.isFinite(v) ? v : 0;
+    };
+
+    const fetchOne = async (oneCpId) => {
+      // 這裡只拿「總覽需要的最小資料」：status + power + session kWh + estimated cost
+      // ✅ 完全不影響既有單樁詳情邏輯（單樁仍照原本 polling）。
+      const row = {
+        cpId: oneCpId,
+        status: "Unknown",
+        powerKw: 0,
+        energyKWh: 0,
+        cost: 0,
+        ts: Date.now(),
+      };
+
+      try {
+        const [dbRes, cacheRes, liveRes, energyRes] = await Promise.allSettled([
+          axios.get(`/api/charge-points/${encodeURIComponent(oneCpId)}/latest-status`),
+          axios.get(`/api/charge-points/${encodeURIComponent(oneCpId)}/status`),
+          axios.get(`/api/charge-points/${encodeURIComponent(oneCpId)}/live-status`),
+          axios.get(`/api/charge-points/${encodeURIComponent(oneCpId)}/latest-energy`),
+        ]);
+
+        // ---- status（沿用你原本的「DB vs cache」取用規則） ----
+        let dbStatus = "Unknown", dbTs = 0;
+        if (dbRes.status === "fulfilled") {
+          const d = dbRes.value?.data;
+          dbStatus = (d?.status ?? d ?? "Unknown") || "Unknown";
+          dbTs = safeParseTime(d?.timestamp);
+        }
+        let cacheStatus = "Unknown", cacheTs = 0;
+        if (cacheRes.status === "fulfilled") {
+          const c = cacheRes.value?.data;
+          if (typeof c === "string") {
+            cacheStatus = c || "Unknown";
+          } else {
+            cacheStatus = c?.status || "Unknown";
+            cacheTs = safeParseTime(c?.timestamp);
+          }
+        }
+        let chosen = "Unknown";
+        if (dbStatus === "Unknown" && cacheStatus !== "Unknown") {
+          chosen = cacheStatus;
+        } else if (cacheStatus === "Unknown" && dbStatus !== "Unknown") {
+          chosen = dbStatus;
+        } else if (dbStatus !== "Unknown" && cacheStatus !== "Unknown") {
+          if (cacheTs && dbTs) {
+            chosen = cacheTs >= dbTs ? cacheStatus : dbStatus;
+          } else if (dbStatus === "Available" && cacheStatus === "Charging") {
+            chosen = cacheStatus;
+          } else {
+            chosen = dbStatus;
+          }
+        }
+        if (chosen === "未知") chosen = "Unknown";
+        row.status = chosen;
+
+        // ---- live ----
+        if (liveRes.status === "fulfilled") {
+          const live = liveRes.value?.data || {};
+          const kw = Number(live?.power ?? 0);
+          row.powerKw = Number.isFinite(kw) ? kw : 0;
+          row.cost = typeof live?.estimated_amount === "number" ? live.estimated_amount : 0;
+        }
+        if (energyRes.status === "fulfilled") {
+          const e = energyRes.value?.data || {};
+          const session = Number(e?.sessionEnergyKWh ?? e?.totalEnergyKWh ?? 0);
+          row.energyKWh = Number.isFinite(session) ? session : 0;
+        }
+
+        // 非 Charging：為了「總覽一眼看懂」，功率歸零
+        if (row.status !== "Charging") {
+          row.powerKw = 0;
+        }
+
+        row.ts = Date.now();
+        return row;
+      } catch (e) {
+        return row;
+      }
+    };
+
+    const tick = async () => {
+      if (inFlight) return;
+      inFlight = true;
+      setOverviewError("");
+      setOverviewLoading(true);
+      try {
+        const ids = cpList.map(getCpId).filter(Boolean);
+        const rows = await Promise.all(ids.map((id) => fetchOne(id)));
+        if (!cancelled) setOverviewRows(rows);
+      } catch (err) {
+        if (!cancelled) setOverviewError("Overview 更新失敗");
+      } finally {
+        inFlight = false;
+        if (!cancelled) setOverviewLoading(false);
+      }
+    };
+
+    tick();
+    const t = setInterval(tick, 2_000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [viewMode, cpList]);
+
   // ---------- 電價 ----------
   useEffect(() => {
     let cancelled = false;
@@ -268,6 +397,7 @@ export default function LiveStatus() {
       clearInterval(t);
     };
   }, [cpId, cpStatus]);
+
 
 
 
@@ -440,8 +570,6 @@ export default function LiveStatus() {
     const t = setInterval(fetchTxInfo, 5_000);
     return () => clearInterval(t);
   }, [cpId, cpStatus]);  // ⭐ 保持依賴 cpId / cpStatus
-
-
   // ---------- ⭐ 最終改良版：計算本次充電累積時間（停止後歸零 + 新充電重新計算） ----------
   useEffect(() => {
     let timer;
@@ -575,7 +703,110 @@ export default function LiveStatus() {
     <div style={wrap}>
       <h2>📡 即時狀態</h2>
 
+      {/* ====== View Mode Switch ====== */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", margin: "12px 0 16px" }}>
+        <button
+          onClick={() => setViewMode("detail")}
+          style={{
+            padding: "8px 12px",
+            borderRadius: 8,
+            border: viewMode === "detail" ? "1px solid #fff" : "1px solid #666",
+            background: viewMode === "detail" ? "#2a2a2a" : "#151515",
+            color: "#fff",
+            cursor: "pointer",
+          }}
+        >
+          🧾 單樁詳情
+        </button>
+        <button
+          onClick={() => setViewMode("overview")}
+          style={{
+            padding: "8px 12px",
+            borderRadius: 8,
+            border: viewMode === "overview" ? "1px solid #fff" : "1px solid #666",
+            background: viewMode === "overview" ? "#2a2a2a" : "#151515",
+            color: "#fff",
+            cursor: "pointer",
+          }}
+        >
+          🧩 多樁總覽
+        </button>
+        <div style={{ opacity: 0.8, fontSize: 12 }}>
+          {viewMode === "overview" ? "（總覽模式：每 2 秒更新一次摘要）" : ""}
+        </div>
+      </div>
 
+      {viewMode === "overview" ? (
+        <div>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div style={{ fontWeight: "bold" }}>📋 多設備監控總覽</div>
+            <div style={{ fontSize: 12, opacity: 0.8 }}>
+              {overviewLoading ? "更新中…" : ""} {overviewError ? `｜${overviewError}` : ""}
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+              gap: 12,
+            }}
+          >
+            {(overviewRows || []).map((r) => (
+              <div
+                key={r.cpId}
+                style={{
+                  border: "1px solid #444",
+                  borderRadius: 12,
+                  padding: 12,
+                  background: "#202020",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <div style={{ fontWeight: "bold" }}>🔌 {r.cpId}</div>
+                  <div style={{ fontSize: 12, opacity: 0.9 }}>{statusLabel(r.status)}</div>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", rowGap: 6, columnGap: 10, fontSize: 14 }}>
+                  <div>⚡ 功率</div>
+                  <div style={{ textAlign: "right" }}>{Number(r.powerKw || 0).toFixed(2)} kW</div>
+                  <div>🔋 本次電量</div>
+                  <div style={{ textAlign: "right" }}>{Number(r.energyKWh || 0).toFixed(3)} kWh</div>
+                  <div>💰 預估金額</div>
+                  <div style={{ textAlign: "right" }}>{Number(r.cost || 0).toFixed(2)} 元</div>
+                </div>
+
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
+                  <div style={{ fontSize: 12, opacity: 0.7 }}>
+                    更新：{new Date(r.ts || Date.now()).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setCpId(r.cpId);
+                      setViewMode("detail");
+                    }}
+                    style={{
+                      padding: "6px 10px",
+                      borderRadius: 8,
+                      border: "1px solid #666",
+                      background: "#151515",
+                      color: "#fff",
+                      cursor: "pointer",
+                    }}
+                  >
+                    查看
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {(!overviewRows || overviewRows.length === 0) && (
+            <div style={{ marginTop: 12, opacity: 0.8 }}>尚無充電樁資料</div>
+          )}
+        </div>
+      ) : (
+        <>
       <label>卡片 ID：</label>
       <select
         value={cardId}
@@ -584,6 +815,22 @@ export default function LiveStatus() {
       >
         {cardList.map((c) => {
           const id = c.card_id ?? c.cardId ?? "";
+          return (
+            <option key={id} value={id}>
+              {id}
+            </option>
+          );
+        })}
+      </select>
+
+      <label>充電樁 ID：</label>
+      <select
+        value={cpId}
+        onChange={(e) => setCpId(e.target.value)}
+        style={inputStyle}
+      >
+        {cpList.map((cp) => {
+          const id = cp.chargePointId ?? cp.id ?? "";
           return (
             <option key={id} value={id}>
               {id}
@@ -687,13 +934,7 @@ export default function LiveStatus() {
           合計金額：{liveCost.toFixed(2)} 元
         </div>
       </div>
-
-
-
-
-
-
-      <p>🔋 電壓：{liveVoltageV.toFixed(1)} V</p>
+      <p>⚡ 電壓：{liveVoltageV.toFixed(1)} V</p>
       <p>🔌 電流：{liveCurrentA.toFixed(1)} A</p>
 
       <p>⏱️ 充電開始時間：{formatTime(startTime)}</p>
@@ -705,7 +946,8 @@ export default function LiveStatus() {
       
       <p>⏳ 本次充電累積時間：{elapsedTime}</p>
 
+        </>
+      )}
     </div>
   );
 }
-
