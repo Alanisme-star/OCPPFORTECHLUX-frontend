@@ -20,6 +20,16 @@ export default function LiveStatus() {
   const [liveCurrentA, setLiveCurrentA] = useState(0);
   const [liveEnergyKWh, setLiveEnergyKWh] = useState(0);
 
+  // ⭐ 新增：電流上限（A）— 先做前端 UI，可先不接後端
+  const CURRENT_LIMIT_OPTIONS = [6, 10, 16, 32];
+  const [currentLimitA, setCurrentLimitA] = useState(16);
+  const [currentLimitDirty, setCurrentLimitDirty] = useState(false); // 使用者是否動過 slider
+
+  // ⭐ 新增：套用狀態（避免滑一下就打 API）
+  const [applyLoading, setApplyLoading] = useState(false);
+  const [applyMsg, setApplyMsg] = useState("");
+
+
   // 電費
   const [liveCost, setLiveCost] = useState(0);
 
@@ -669,8 +679,26 @@ export default function LiveStatus() {
   }, [cpStatus]);
 
 
+  // ⭐ 新增：送出電流上限到後端（Step1：先送到後端，後端先只收+存+log）
+  const applyCurrentLimitToBackend = async () => {
+    if (!cpId) return;
 
+    setApplyLoading(true);
+    setApplyMsg("");
 
+    try {
+      await axios.post(
+        `/api/charge-points/${encodeURIComponent(cpId)}/current-limit`,
+        { limit_amps: Number(currentLimitA) }
+      );
+      setApplyMsg(`✅ 已送出上限：${Number(currentLimitA)}A`);
+    } catch (err) {
+      setApplyMsg(`❌ 送出失敗：${err?.message || "unknown"}`);
+    } finally {
+      setApplyLoading(false);
+      setCurrentLimitDirty(false);
+    }
+  };
 
 
   // ---------- 狀態顯示 ----------
@@ -936,6 +964,90 @@ export default function LiveStatus() {
       </div>
       <p>⚡ 電壓：{liveVoltageV.toFixed(1)} V</p>
       <p>🔌 電流：{liveCurrentA.toFixed(1)} A</p>
+
+      {/* ===================== */}
+      {/* ⭐ 電流控制（前端先做 UI） */}
+      {/* ===================== */}
+      <div style={{ marginTop: 14, padding: 12, background: "#2a2a2a", borderRadius: 10, border: "1px solid #444" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div style={{ fontWeight: "bold" }}>🎚️ 充電電流上限</div>
+          <div style={{ fontSize: 12, opacity: 0.85 }}>
+            目前設定：<b>{currentLimitA}A</b> {currentLimitDirty ? "（已調整）" : "（預設）"}
+          </div>
+        </div>
+
+        {/* 快速選單：6A / 10A / 16A / 32A */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          {CURRENT_LIMIT_OPTIONS.map((a) => (
+            <button
+              key={a}
+              onClick={() => {
+                setCurrentLimitA(a);
+                setCurrentLimitDirty(true);
+              }}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 8,
+                border: a === currentLimitA ? "1px solid #fff" : "1px solid #666",
+                background: a === currentLimitA ? "#3a3a3a" : "#1a1a1a",
+                color: "#fff",
+                cursor: "pointer",
+              }}
+            >
+              {a}A
+            </button>
+          ))}
+        </div>
+
+        {/* Slider（更直覺） */}
+        <input
+          type="range"
+          min={6}
+          max={32}
+          step={1}
+          value={currentLimitA}
+          onChange={(e) => {
+            setCurrentLimitA(Number(e.target.value));
+            setCurrentLimitDirty(true);
+          }}
+          style={{ width: "100%" }}
+        />
+
+
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10 }}>
+        <button
+          onClick={applyCurrentLimitToBackend}
+          disabled={applyLoading || !currentLimitDirty}
+          style={{
+            padding: "8px 12px",
+            borderRadius: 8,
+            border: "1px solid #666",
+            background: applyLoading || !currentLimitDirty ? "#1a1a1a" : "#3a3a3a",
+            color: "#fff",
+            cursor: applyLoading || !currentLimitDirty ? "not-allowed" : "pointer",
+            opacity: applyLoading || !currentLimitDirty ? 0.7 : 1,
+          }}
+        >
+          {applyLoading ? "套用中…" : "套用上限到充電樁"}
+        </button>
+
+        {applyMsg && (
+          <div style={{ fontSize: 12, opacity: 0.9 }}>
+            {applyMsg}
+          </div>
+        )}
+      </div>
+
+
+
+        <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8, lineHeight: 1.5 }}>
+          建議常用檔位：6A / 10A / 16A / 32A（你也可以用 slider 微調）。
+          <br />
+          ※ 目前先做前端 UI；下一步再把 currentLimitA 送到後端，才會真的限制樁的輸出。
+        </div>
+      </div>
+
+
 
       <p>⏱️ 充電開始時間：{formatTime(startTime)}</p>
       <p>⏱️ 充電結束時間：{formatTime(stopTime)}</p>
