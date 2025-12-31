@@ -1,20 +1,40 @@
-// src/pages/ChargePoints.jsx
 import React, { useEffect, useState } from "react";
 import axios from "../axiosInstance";
-// 已移除：import { Button } from "@/components/ui/button";
 
+/**
+ * 充電樁狀態選項
+ */
 const STATUS_OPTIONS = [
   { value: "enabled", label: "啟用" },
   { value: "disabled", label: "停用" },
 ];
 
+/**
+ * 常用電流選項（業界實務）
+ */
+const CURRENT_OPTIONS = [
+  { value: 6, label: "6A（低負載 / 夜間）" },
+  { value: 10, label: "10A（家用安全）" },
+  { value: 16, label: "16A（標準）" },
+  { value: 32, label: "32A（最大）" },
+];
+
 const ChargePoints = () => {
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [form, setForm] = useState({ charge_point_id: "", name: "", status: "enabled" });
+
+  const [form, setForm] = useState({
+    charge_point_id: "",
+    name: "",
+    status: "enabled",
+    max_current: 16, // ⭐ 新增：最大電流（預設 16A）
+  });
+
   const [editingId, setEditingId] = useState(null);
 
-  // 取得列表
+  /**
+   * 取得充電樁列表
+   */
   const fetchList = async () => {
     setLoading(true);
     try {
@@ -26,50 +46,68 @@ const ChargePoints = () => {
     setLoading(false);
   };
 
-  useEffect(() => { fetchList(); }, []);
+  useEffect(() => {
+    fetchList();
+  }, []);
 
-  // 表單欄位異動
+  /**
+   * 表單欄位變動
+   */
   const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
+    const { name, value } = e.target;
+    setForm({ ...form, [name]: value });
   };
 
-  // 新增 or 編輯
+  /**
+   * 新增 / 編輯送出
+   */
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // 將 payload 欄位名轉為駝峰命名
+
     const payload = {
       chargePointId: form.charge_point_id,
       name: form.name,
       status: form.status,
+      maxCurrent: Number(form.max_current), // ⭐ 預留給後端
     };
+
     try {
       if (editingId) {
-        // 編輯
         await axios.put(`/api/charge-points/${editingId}`, payload);
         setEditingId(null);
       } else {
-        // 新增
         await axios.post("/api/charge-points", payload);
       }
-      setForm({ charge_point_id: "", name: "", status: "enabled" });
+
+      setForm({
+        charge_point_id: "",
+        name: "",
+        status: "enabled",
+        max_current: 16,
+      });
+
       fetchList();
     } catch (err) {
       alert("儲存失敗：" + err.message);
     }
   };
 
-  // 編輯填表
+  /**
+   * 開始編輯
+   */
   const startEdit = (row) => {
-    // row 取回的是後端資料（駝峰），轉回表單格式
     setForm({
       charge_point_id: row.chargePointId || row.charge_point_id || "",
       name: row.name || "",
       status: row.status || "enabled",
+      max_current: row.maxCurrent || row.max_current || 16,
     });
     setEditingId(row.chargePointId || row.charge_point_id);
   };
 
-  // 刪除
+  /**
+   * 刪除
+   */
   const handleDelete = async (id) => {
     if (!window.confirm("確定刪除？")) return;
     try {
@@ -82,29 +120,34 @@ const ChargePoints = () => {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-4">充電樁白名單管理</h2>
-      <form className="mb-6 flex flex-wrap gap-4 items-end" onSubmit={handleSubmit}>
+      <h2 className="text-2xl font-bold mb-4">充電樁管理（含電流限制）</h2>
+
+      {/* 新增 / 編輯表單 */}
+      <form
+        className="mb-6 flex flex-wrap gap-4 items-end"
+        onSubmit={handleSubmit}
+      >
         <div>
-          <label>充電樁ID           
+          <label>
+            充電樁 ID
             <input
               type="text"
               name="charge_point_id"
               className="input input-bordered ml-2 p-1 rounded text-black"
               value={form.charge_point_id}
               onChange={(e) => {
-                // 防呆：不允許輸入 URL encoded (%2A) 字元
                 const raw = e.target.value.replace(/%2A/gi, "*");
                 setForm({ ...form, charge_point_id: raw });
               }}
               required
               disabled={!!editingId}
             />
-            {/* 原本的提示訊息已刪除 */}
           </label>
-
         </div>
+
         <div>
-          <label>名稱
+          <label>
+            名稱
             <input
               type="text"
               name="name"
@@ -115,31 +158,74 @@ const ChargePoints = () => {
             />
           </label>
         </div>
+
         <div>
-          <label>狀態
+          <label>
+            狀態
             <select
               name="status"
               className="ml-2 p-1 rounded text-black"
               value={form.status}
               onChange={handleChange}
-              required
             >
-              {STATUS_OPTIONS.map(opt => (
-                <option value={opt.value} key={opt.value}>{opt.label}</option>
+              {STATUS_OPTIONS.map((opt) => (
+                <option value={opt.value} key={opt.value}>
+                  {opt.label}
+                </option>
               ))}
             </select>
           </label>
         </div>
-        <button type="submit" className="ml-2 px-4 py-1 rounded bg-blue-600 text-white">{editingId ? "更新" : "新增"}</button>
+
+        {/* ⭐ 最大電流設定（Dropdown） */}
+        <div>
+          <label>
+            最大電流
+            <select
+              name="max_current"
+              className="ml-2 p-1 rounded text-black"
+              value={form.max_current}
+              onChange={handleChange}
+            >
+              {CURRENT_OPTIONS.map((opt) => (
+                <option value={opt.value} key={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="text-xs text-gray-400 mt-1">
+            設定為「充電上限」，實際電流仍由車輛決定
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          className="ml-2 px-4 py-1 rounded bg-blue-600 text-white"
+        >
+          {editingId ? "更新" : "新增"}
+        </button>
+
         {editingId && (
-          <button type="button" className="ml-2 px-4 py-1 rounded bg-gray-500 text-white" onClick={() => {
-            setEditingId(null);
-            setForm({ charge_point_id: "", name: "", status: "enabled" });
-          }}>
+          <button
+            type="button"
+            className="ml-2 px-4 py-1 rounded bg-gray-500 text-white"
+            onClick={() => {
+              setEditingId(null);
+              setForm({
+                charge_point_id: "",
+                name: "",
+                status: "enabled",
+                max_current: 16,
+              });
+            }}
+          >
             取消編輯
           </button>
         )}
       </form>
+
+      {/* 列表 */}
       <div className="overflow-x-auto">
         <table className="table-auto w-full border rounded">
           <thead className="bg-gray-700">
@@ -147,21 +233,35 @@ const ChargePoints = () => {
               <th className="p-2">充電樁ID</th>
               <th className="p-2">名稱</th>
               <th className="p-2">狀態</th>
+              <th className="p-2">最大電流</th>
               <th className="p-2">操作</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={4}>載入中...</td></tr>
-            ) : (
-              list.length > 0 ? list.map(row => (
+              <tr>
+                <td colSpan={5}>載入中...</td>
+              </tr>
+            ) : list.length > 0 ? (
+              list.map((row) => (
                 <tr key={row.chargePointId || row.charge_point_id}>
-                  <td className="p-2">{row.chargePointId || row.charge_point_id}</td>
+                  <td className="p-2">
+                    {row.chargePointId || row.charge_point_id}
+                  </td>
                   <td className="p-2">{row.name}</td>
                   <td className="p-2">
-                    <span className={row.status === "enabled" ? "text-green-400" : "text-gray-400"}>
+                    <span
+                      className={
+                        row.status === "enabled"
+                          ? "text-green-400"
+                          : "text-gray-400"
+                      }
+                    >
                       {row.status === "enabled" ? "啟用" : "停用"}
                     </span>
+                  </td>
+                  <td className="p-2">
+                    {(row.maxCurrent || row.max_current || 16) + " A"}
                   </td>
                   <td className="p-2 space-x-2">
                     <button
@@ -172,13 +272,21 @@ const ChargePoints = () => {
                     </button>
                     <button
                       className="px-3 py-1 rounded border border-red-500 text-red-500 hover:bg-red-100"
-                      onClick={() => handleDelete(row.chargePointId || row.charge_point_id)}
+                      onClick={() =>
+                        handleDelete(
+                          row.chargePointId || row.charge_point_id
+                        )
+                      }
                     >
                       刪除
                     </button>
                   </td>
                 </tr>
-              )) : <tr><td colSpan={4}>無資料</td></tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={5}>無資料</td>
+              </tr>
             )}
           </tbody>
         </table>
