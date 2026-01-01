@@ -655,25 +655,6 @@ export default function LiveStatus() {
     };
   }, [cpId, cpStatus]);
 
-  // ⭐ 同步目前充電樁的最大電流設定（來自後端）
-  useEffect(() => {
-    if (!cpId || !cpList || cpList.length === 0) return;
-
-    const cp = cpList.find(
-      (c) =>
-        (c.chargePointId ?? c.id ?? c.charge_point_id) === cpId
-    );
-
-    const v =
-      cp?.max_current_a ??
-      cp?.maxCurrentA ??
-      cp?.maxCurrent;
-
-    if (v != null && Number.isFinite(Number(v))) {
-      setCurrentLimitA(Number(v));
-      setCurrentLimitDirty(false);
-    }
-  }, [cpId, cpList]);
 
 
 
@@ -706,26 +687,18 @@ export default function LiveStatus() {
     setApplyMsg("");
 
     try {
-      const res = await axios.post(
+      await axios.post(
         `/api/charge-points/${encodeURIComponent(cpId)}/current-limit`,
         { limit_amps: Number(currentLimitA) }
       );
-
-      const applied = res?.data?.applied_immediately;
-
-      if (applied) {
-        setApplyMsg(`✅ 已立即套用電流上限：${currentLimitA}A`);
-      } else {
-        setApplyMsg(`🕓 已設定電流上限：${currentLimitA}A（將於下一次充電生效）`);
-      }
+      setApplyMsg(`✅ 已送出上限：${Number(currentLimitA)}A`);
     } catch (err) {
-      setApplyMsg(`❌ 送出失敗：${err?.response?.data?.detail || err?.message || "unknown"}`);
+      setApplyMsg(`❌ 送出失敗：${err?.message || "unknown"}`);
     } finally {
       setApplyLoading(false);
       setCurrentLimitDirty(false);
     }
   };
-
 
 
   // ---------- 狀態顯示 ----------
@@ -759,15 +732,7 @@ export default function LiveStatus() {
       <h2>📡 即時狀態</h2>
 
       {/* ====== View Mode Switch ====== */}
-      <div
-        style={{
-          display: "flex",
-          gap: 8,
-          alignItems: "center",
-          flexWrap: "wrap",
-          margin: "12px 0 16px",
-        }}
-      >
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", margin: "12px 0 16px" }}>
         <button
           onClick={() => setViewMode("detail")}
           style={{
@@ -781,7 +746,6 @@ export default function LiveStatus() {
         >
           🧾 單樁詳情
         </button>
-
         <button
           onClick={() => setViewMode("overview")}
           style={{
@@ -795,60 +759,55 @@ export default function LiveStatus() {
         >
           🧩 多樁總覽
         </button>
-
         <div style={{ opacity: 0.8, fontSize: 12 }}>
-          {viewMode === "overview"
-            ? "（總覽模式：每 2 秒更新一次摘要）"
-            : ""}
+          {viewMode === "overview" ? "（總覽模式：每 2 秒更新一次摘要）" : ""}
         </div>
       </div>
 
-      {/* ===================================================== */}
-      {/* =================== OVERVIEW ======================== */}
-      {/* ===================================================== */}
-      {viewMode === "overview" && (
+      {viewMode === "overview" ? (
         <div>
-          <div style={{ display: "grid", gap: 12 }}>
-            {overviewRows.map((r, idx) => (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div style={{ fontWeight: "bold" }}>📋 多設備監控總覽</div>
+            <div style={{ fontSize: 12, opacity: 0.8 }}>
+              {overviewLoading ? "更新中…" : ""} {overviewError ? `｜${overviewError}` : ""}
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))",
+              gap: 12,
+            }}
+          >
+            {(overviewRows || []).map((r) => (
               <div
-                key={idx}
+                key={r.cpId}
                 style={{
-                  padding: 12,
-                  borderRadius: 10,
-                  background: "#1f1f1f",
                   border: "1px solid #444",
+                  borderRadius: 12,
+                  padding: 12,
+                  background: "#202020",
                 }}
               >
-                <div style={{ fontWeight: "bold", marginBottom: 6 }}>
-                  🔌 {r.cpId}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                  <div style={{ fontWeight: "bold" }}>🔌 {r.cpId}</div>
+                  <div style={{ fontSize: 12, opacity: 0.9 }}>{statusLabel(r.status)}</div>
                 </div>
 
-                <div style={{ fontSize: 13, opacity: 0.9 }}>
-                  狀態：{statusLabel(r.status)} <br />
-                  功率：{Number(r.powerKw || 0).toFixed(2)} kW <br />
-                  電流：{Number(r.currentA || 0).toFixed(1)} A <br />
-                  電量：{Number(r.energyKWh || 0).toFixed(3)} kWh
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", rowGap: 6, columnGap: 10, fontSize: 14 }}>
+                  <div>⚡ 功率</div>
+                  <div style={{ textAlign: "right" }}>{Number(r.powerKw || 0).toFixed(2)} kW</div>
+                  <div>🔋 本次電量</div>
+                  <div style={{ textAlign: "right" }}>{Number(r.energyKWh || 0).toFixed(3)} kWh</div>
+                  <div>💰 預估金額</div>
+                  <div style={{ textAlign: "right" }}>{Number(r.cost || 0).toFixed(2)} 元</div>
                 </div>
 
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    marginTop: 10,
-                  }}
-                >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 10 }}>
                   <div style={{ fontSize: 12, opacity: 0.7 }}>
-                    更新：
-                    {new Date(
-                      r.ts || Date.now()
-                    ).toLocaleTimeString("zh-TW", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                    })}
+                    更新：{new Date(r.ts || Date.now()).toLocaleTimeString("zh-TW", { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
                   </div>
-
                   <button
                     onClick={() => {
                       setCpId(r.cpId);
@@ -870,83 +829,236 @@ export default function LiveStatus() {
             ))}
           </div>
 
-          {overviewRows.length === 0 && (
-            <div style={{ marginTop: 12, opacity: 0.8 }}>
-              尚無充電樁資料
-            </div>
+          {(!overviewRows || overviewRows.length === 0) && (
+            <div style={{ marginTop: 12, opacity: 0.8 }}>尚無充電樁資料</div>
           )}
         </div>
+      ) : (
+        <>
+      <label>卡片 ID：</label>
+      <select
+        value={cardId}
+        onChange={(e) => setCardId(e.target.value)}
+        style={inputStyle}
+      >
+        {cardList.map((c) => {
+          const id = c.card_id ?? c.cardId ?? "";
+          return (
+            <option key={id} value={id}>
+              {id}
+            </option>
+          );
+        })}
+      </select>
+
+      <label>充電樁 ID：</label>
+      <select
+        value={cpId}
+        onChange={(e) => setCpId(e.target.value)}
+        style={inputStyle}
+      >
+        {cpList.map((cp) => {
+          const id = cp.chargePointId ?? cp.id ?? "";
+          return (
+            <option key={id} value={id}>
+              {id}
+            </option>
+          );
+        })}
+      </select>
+
+      <p>
+        ⚡ 電價：{pricePerKWh.toFixed(2)} 元/kWh
+        {priceFallback ? "（預設）" : ""} {priceLabel ? `｜${priceLabel}` : ""}
+      </p>
+
+
+      <p>💳 卡片餘額：{displayBalance.toFixed(3)} 元</p>
+
+      <p>🔌 狀態：{statusLabel(cpStatus)}</p>
+      {stopMsg && (
+            <p style={{ color: "orange", position: "relative", paddingRight: "24px" }}>
+                  {stopMsg}
+                  <span
+                        onClick={() => setStopMsg("")}
+                        style={{
+                              position: "absolute",
+                              right: 0,
+                              top: 0,
+                              cursor: "pointer",
+                              fontWeight: "bold"
+                        }}
+                  >
+                        ✕
+                  </span>
+            </p>
       )}
 
-      {/* ===================================================== */}
-      {/* ==================== DETAIL ========================= */}
-      {/* ===================================================== */}
-      {viewMode === "detail" && (
-        <div>
-          <label>卡片 ID：</label>
-          <select
-            value={cardId}
-            onChange={(e) => setCardId(e.target.value)}
-            style={inputStyle}
-          >
-            {cardList.map((c) => {
-              const id = c.card_id ?? c.cardId ?? "";
-              return (
-                <option key={id} value={id}>
-                  {id}
-                </option>
-              );
-            })}
-          </select>
 
-          <label>充電樁 ID：</label>
-          <select
-            value={cpId}
-            onChange={(e) => setCpId(e.target.value)}
-            style={inputStyle}
-          >
-            {cpList.map((cp) => {
-              const id = cp.chargePointId ?? cp.id ?? "";
-              return (
-                <option key={id} value={id}>
-                  {id}
-                </option>
-              );
-            })}
-          </select>
+      <p>💳 選擇卡片 ID：{cardId || "—"}</p>
 
-          <p>
-            ⚡ 電價：{pricePerKWh.toFixed(2)} 元/kWh
-            {priceFallback ? "（預設）" : ""}
-            {priceLabel ? `｜${priceLabel}` : ""}
-          </p>
+      <p>⚡ 即時功率：{livePowerKw.toFixed(2)} kW</p>
+      <p>🔋 本次充電累積電量：{liveEnergyKWh.toFixed(3)} kWh</p>
+      <p>💰 預估電費（多時段）：{liveCost.toFixed(3)} 元</p>
 
-          <p>💳 卡片餘額：{displayBalance.toFixed(3)} 元</p>
-          <p>🔌 狀態：{statusLabel(cpStatus)}</p>
 
-          {stopMsg && (
-            <p style={{ color: "orange" }}>
-              {stopMsg}
-              <span
-                onClick={() => setStopMsg("")}
-                style={{ marginLeft: 8, cursor: "pointer" }}
-              >
-                ✕
-              </span>
-            </p>
-          )}
 
-          <p>⚡ 即時功率：{livePowerKw.toFixed(2)} kW</p>
-          <p>🔋 累積電量：{liveEnergyKWh.toFixed(3)} kWh</p>
-          <p>💰 預估電費：{liveCost.toFixed(3)} 元</p>
 
-          <p>⚡ 電壓：{liveVoltageV.toFixed(1)} V</p>
-          <p>🔌 電流：{liveCurrentA.toFixed(1)} A</p>
+      {/* ✅ 分段電價統計 */}
+      <div style={{ marginTop: 20, padding: 12, background: "#333", borderRadius: 8 }}>
+        <h3>分段電價統計</h3>
 
-          <p>⏱️ 充電開始時間：{formatTime(startTime)}</p>
-          <p>⏱️ 充電結束時間：{formatTime(stopTime)}</p>
-          <p>⏳ 本次充電累積時間：{elapsedTime}</p>
+        {priceBreakdown.length === 0 ? (
+          <p>尚無分段資料</p>
+        ) : (
+          <table style={{ width: "100%", borderCollapse: "collapse", color: "#fff" }}>
+            <thead>
+              <tr>
+                <th style={{ borderBottom: "1px solid #666", textAlign: "left" }}>時間段</th>
+                <th style={{ borderBottom: "1px solid #666", textAlign: "right" }}>用電量 (kWh)</th>
+                <th style={{ borderBottom: "1px solid #666", textAlign: "right" }}>電價 (元/kWh)</th>
+                <th style={{ borderBottom: "1px solid #666", textAlign: "right" }}>小計 (元)</th>
+              </tr>
+            </thead>
+
+
+            <tbody>
+              {priceBreakdown.map((seg, idx) => {
+                const start = seg.start ? new Date(seg.start) : null;
+                const end = seg.end ? new Date(seg.end) : null;
+
+                const formatTime = (d) =>
+                  d
+                    ? d.toLocaleTimeString("zh-TW", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                        hour12: true,
+                      })
+                    : "—";
+
+                return (
+                  <tr key={idx}>
+                    <td>
+                      {formatTime(start)} → {formatTime(end)}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      {Number(seg.kwh).toFixed(4)}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      {Number(seg.price).toFixed(0)}
+                    </td>
+                    <td style={{ textAlign: "right" }}>
+                      {Number(seg.subtotal).toFixed(2)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+
+          </table>
+        )}
+
+        <div style={{ marginTop: 10, fontWeight: "bold", fontSize: "1.2em", textAlign: "right" }}>
+          合計金額：{liveCost.toFixed(2)} 元
         </div>
+      </div>
+      <p>⚡ 電壓：{liveVoltageV.toFixed(1)} V</p>
+      <p>🔌 電流：{liveCurrentA.toFixed(1)} A</p>
+
+      {/* ===================== */}
+      {/* ⭐ 電流控制（前端先做 UI） */}
+      {/* ===================== */}
+      <div style={{ marginTop: 14, padding: 12, background: "#2a2a2a", borderRadius: 10, border: "1px solid #444" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <div style={{ fontWeight: "bold" }}>🎚️ 充電電流上限</div>
+          <div style={{ fontSize: 12, opacity: 0.85 }}>
+            目前設定：<b>{currentLimitA}A</b> {currentLimitDirty ? "（已調整）" : "（預設）"}
+          </div>
+        </div>
+
+        {/* 快速選單：6A / 10A / 16A / 32A */}
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
+          {CURRENT_LIMIT_OPTIONS.map((a) => (
+            <button
+              key={a}
+              onClick={() => {
+                setCurrentLimitA(a);
+                setCurrentLimitDirty(true);
+              }}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 8,
+                border: a === currentLimitA ? "1px solid #fff" : "1px solid #666",
+                background: a === currentLimitA ? "#3a3a3a" : "#1a1a1a",
+                color: "#fff",
+                cursor: "pointer",
+              }}
+            >
+              {a}A
+            </button>
+          ))}
+        </div>
+
+        {/* Slider（更直覺） */}
+        <input
+          type="range"
+          min={6}
+          max={32}
+          step={1}
+          value={currentLimitA}
+          onChange={(e) => {
+            setCurrentLimitA(Number(e.target.value));
+            setCurrentLimitDirty(true);
+          }}
+          style={{ width: "100%" }}
+        />
+
+
+      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10 }}>
+        <button
+          onClick={applyCurrentLimitToBackend}
+          disabled={applyLoading || !currentLimitDirty}
+          style={{
+            padding: "8px 12px",
+            borderRadius: 8,
+            border: "1px solid #666",
+            background: applyLoading || !currentLimitDirty ? "#1a1a1a" : "#3a3a3a",
+            color: "#fff",
+            cursor: applyLoading || !currentLimitDirty ? "not-allowed" : "pointer",
+            opacity: applyLoading || !currentLimitDirty ? 0.7 : 1,
+          }}
+        >
+          {applyLoading ? "套用中…" : "套用上限到充電樁"}
+        </button>
+
+        {applyMsg && (
+          <div style={{ fontSize: 12, opacity: 0.9 }}>
+            {applyMsg}
+          </div>
+        )}
+      </div>
+
+
+
+        <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8, lineHeight: 1.5 }}>
+          建議常用檔位：6A / 10A / 16A / 32A（你也可以用 slider 微調）。
+          <br />
+          ※ 目前先做前端 UI；下一步再把 currentLimitA 送到後端，才會真的限制樁的輸出。
+        </div>
+      </div>
+
+
+
+      <p>⏱️ 充電開始時間：{formatTime(startTime)}</p>
+      <p>⏱️ 充電結束時間：{formatTime(stopTime)}</p>
+
+
+
+
+      
+      <p>⏳ 本次充電累積時間：{elapsedTime}</p>
+
+        </>
       )}
     </div>
   );
