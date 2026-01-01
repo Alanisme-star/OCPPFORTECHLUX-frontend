@@ -655,6 +655,25 @@ export default function LiveStatus() {
     };
   }, [cpId, cpStatus]);
 
+  // ⭐ 同步目前充電樁的最大電流設定（來自後端）
+  useEffect(() => {
+    if (!cpId || !cpList || cpList.length === 0) return;
+
+    const cp = cpList.find(
+      (c) =>
+        (c.chargePointId ?? c.id ?? c.charge_point_id) === cpId
+    );
+
+    const v =
+      cp?.max_current_a ??
+      cp?.maxCurrentA ??
+      cp?.maxCurrent;
+
+    if (v != null && Number.isFinite(Number(v))) {
+      setCurrentLimitA(Number(v));
+      setCurrentLimitDirty(false);
+    }
+  }, [cpId, cpList]);
 
 
 
@@ -687,18 +706,26 @@ export default function LiveStatus() {
     setApplyMsg("");
 
     try {
-      await axios.post(
+      const res = await axios.post(
         `/api/charge-points/${encodeURIComponent(cpId)}/current-limit`,
         { limit_amps: Number(currentLimitA) }
       );
-      setApplyMsg(`✅ 已送出上限：${Number(currentLimitA)}A`);
+
+      const applied = res?.data?.applied_immediately;
+
+      if (applied) {
+        setApplyMsg(`✅ 已立即套用電流上限：${currentLimitA}A`);
+      } else {
+        setApplyMsg(`🕓 已設定電流上限：${currentLimitA}A（將於下一次充電生效）`);
+      }
     } catch (err) {
-      setApplyMsg(`❌ 送出失敗：${err?.message || "unknown"}`);
+      setApplyMsg(`❌ 送出失敗：${err?.response?.data?.detail || err?.message || "unknown"}`);
     } finally {
       setApplyLoading(false);
       setCurrentLimitDirty(false);
     }
   };
+
 
 
   // ---------- 狀態顯示 ----------
@@ -1043,9 +1070,9 @@ export default function LiveStatus() {
         <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8, lineHeight: 1.5 }}>
           建議常用檔位：6A / 10A / 16A / 32A（你也可以用 slider 微調）。
           <br />
-          ※ 目前先做前端 UI；下一步再把 currentLimitA 送到後端，才會真的限制樁的輸出。
+          ※ 若充電中且樁支援 SmartCharging，將立即生效；否則於下一次充電生效。
         </div>
-      </div>
+
 
 
 
