@@ -1075,3 +1075,9 @@ export default function LiveStatus() {
       <p>⏱️ 充電結束時間：{formatTime(stopTime)}</p>
       <p>⏳ 本次充電累積時間：{elapsedTime}</p>
 
+        </>
+      )}
+    </div>
+  );
+}
+
