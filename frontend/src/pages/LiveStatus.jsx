@@ -1065,28 +1065,13 @@ export default function LiveStatus() {
         )}
       </div>
 
-
-
-        <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8, lineHeight: 1.5 }}>
-          建議常用檔位：6A / 10A / 16A / 32A（你也可以用 slider 微調）。
-          <br />
-          ※ 若充電中且樁支援 SmartCharging，將立即生效；否則於下一次充電生效。
-        </div>
-
-
-
+      <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8, lineHeight: 1.5 }}>
+        建議常用檔位：6A / 10A / 16A / 32A（你也可以用 slider 微調）。
+        <br />
+        ※ 若充電中且樁支援 SmartCharging，將立即生效；否則於下一次充電生效。
+      </div>
 
       <p>⏱️ 充電開始時間：{formatTime(startTime)}</p>
       <p>⏱️ 充電結束時間：{formatTime(stopTime)}</p>
-
-
-
-
-      
       <p>⏳ 本次充電累積時間：{elapsedTime}</p>
 
-        </>
-      )}
-    </div>
-  );
-}
