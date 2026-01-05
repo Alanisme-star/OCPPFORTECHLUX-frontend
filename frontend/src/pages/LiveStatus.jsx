@@ -43,12 +43,23 @@ export default function LiveStatus() {
         const data = await res.json();
         const val = Number(data?.maxCurrentA);
 
+        console.log(
+          "[DEBUG][CURRENT_LIMIT][GET]",
+          "cpId=", cpId,
+          "backendRaw=", data,
+          "backendVal=", val,
+          "dirty=", currentLimitDirty
+        );
+
         if (!cancelled && Number.isFinite(val)) {
-          // ⚠️ 如果使用者正在調整 slider，就不要覆蓋
           if (!currentLimitDirty) {
+            console.log("[DEBUG][CURRENT_LIMIT][APPLY_BACKEND]", val);
             setCurrentLimitA(val);
+          } else {
+            console.log("[DEBUG][CURRENT_LIMIT][SKIP_APPLY] dirty=true");
           }
         }
+
       } catch (err) {
         // 讀取失敗就維持目前 UI，不影響使用者操作
       }
@@ -724,11 +735,20 @@ export default function LiveStatus() {
     setApplyMsg("");
 
     try {
-      await axios.post(
-        `/api/charge-points/${encodeURIComponent(cpId)}/current-limit`,
-        { limit_amps: Number(currentLimitA) }
-      );
-      setApplyMsg(`✅ 已送出上限：${Number(currentLimitA)}A`);
+        console.log(
+            "[DEBUG][CURRENT_LIMIT][POST]",
+            "cpId=", cpId,
+            "send=", Number(currentLimitA)
+        );
+
+        await axios.post(
+            `/api/charge-points/${encodeURIComponent(cpId)}/current-limit`,
+            { limit_amps: Number(currentLimitA) }
+        );
+
+        console.log("[DEBUG][CURRENT_LIMIT][POST_OK]");
+        setApplyMsg(`✅ 已送出上限：${Number(currentLimitA)}A`);
+
     } catch (err) {
       setApplyMsg(`❌ 送出失敗：${err?.message || "unknown"}`);
     } finally {
