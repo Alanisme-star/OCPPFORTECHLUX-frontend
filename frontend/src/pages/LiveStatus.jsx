@@ -25,6 +25,43 @@ export default function LiveStatus() {
   const [currentLimitA, setCurrentLimitA] = useState(16);
   const [currentLimitDirty, setCurrentLimitDirty] = useState(false); // 使用者是否動過 slider
 
+  // =====================================================
+  // ⭐ 進頁 / 切換充電樁時，讀取後端保存的電流上限
+  // =====================================================
+  useEffect(() => {
+    if (!cpId) return;
+
+    let cancelled = false;
+
+    const fetchCurrentLimit = async () => {
+      try {
+        const res = await fetch(
+          `/api/charge-points/${encodeURIComponent(cpId)}/current-limit`
+        );
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const val = Number(data?.maxCurrentA);
+
+        if (!cancelled && Number.isFinite(val)) {
+          // ⚠️ 如果使用者正在調整 slider，就不要覆蓋
+          if (!currentLimitDirty) {
+            setCurrentLimitA(val);
+          }
+        }
+      } catch (err) {
+        // 讀取失敗就維持目前 UI，不影響使用者操作
+      }
+    };
+
+    fetchCurrentLimit();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [cpId]);   // 🔴 關鍵：換頁或切換樁就會觸發
+
+
   // ⭐ 新增：套用狀態（避免滑一下就打 API）
   const [applyLoading, setApplyLoading] = useState(false);
   const [applyMsg, setApplyMsg] = useState("");
