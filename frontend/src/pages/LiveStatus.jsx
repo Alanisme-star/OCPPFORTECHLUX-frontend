@@ -29,6 +29,7 @@ export default function LiveStatus() {
   // ⭐ 進頁 / 切換充電樁時，讀取後端保存的電流上限
   // =====================================================
   useEffect(() => {
+    console.log("[DEBUG][CURRENT_LIMIT][EFFECT_ENTER]", "cpId=", cpId);
     if (!cpId) return;
 
     let cancelled = false;
