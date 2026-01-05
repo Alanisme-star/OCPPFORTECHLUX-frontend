@@ -71,7 +71,7 @@ export default function LiveStatus() {
     return () => {
       cancelled = true;
     };
-  }, [cpId, viewMode]);   // 🔴 關鍵：換頁或切換樁就會觸發
+  }, [cpId]);   // 🔴 關鍵：換頁或切換樁就會觸發
 
 
   // ⭐ 新增：套用狀態（避免滑一下就打 API）
