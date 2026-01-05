@@ -22,7 +22,7 @@ export default function LiveStatus() {
 
   // ⭐ 新增：電流上限（A）— 先做前端 UI，可先不接後端
   const CURRENT_LIMIT_OPTIONS = [6, 10, 16, 32];
-  const [currentLimitA, setCurrentLimitA] = useState(16);
+  const [currentLimitA, setCurrentLimitA] = useState(null);
   const [currentLimitDirty, setCurrentLimitDirty] = useState(false); // 使用者是否動過 slider
 
   // =====================================================
@@ -30,39 +30,51 @@ export default function LiveStatus() {
   // =====================================================
   useEffect(() => {
     console.log("[DEBUG][CURRENT_LIMIT][EFFECT_ENTER]", "cpId=", cpId);
+
     if (!cpId) return;
 
     let cancelled = false;
 
+    // ✅ 關鍵修正 1：
+    // 換頁 / 切換充電樁時，允許後端值重新覆蓋
+    setCurrentLimitDirty(false);
+
     const fetchCurrentLimit = async () => {
       try {
-        const res = await fetch(
+        console.log(
+          "[DEBUG][CURRENT_LIMIT][GET][ENTER]",
+          "cpId=", cpId
+        );
+
+        // ✅ 關鍵修正 2：改用 axios（確保打到後端）
+        const res = await axios.get(
           `/api/charge-points/${encodeURIComponent(cpId)}/current-limit`
         );
-        if (!res.ok) return;
 
-        const data = await res.json();
+        const data = res?.data;
         const val = Number(data?.maxCurrentA);
 
         console.log(
-          "[DEBUG][CURRENT_LIMIT][GET]",
+          "[DEBUG][CURRENT_LIMIT][GET][OK]",
           "cpId=", cpId,
           "backendRaw=", data,
-          "backendVal=", val,
-          "dirty=", currentLimitDirty
+          "backendVal=", val
         );
 
+        // ✅ 關鍵修正 3：
+        // 後端有值就一定套用（跨頁回來最重要）
         if (!cancelled && Number.isFinite(val)) {
-          if (!currentLimitDirty) {
-            console.log("[DEBUG][CURRENT_LIMIT][APPLY_BACKEND]", val);
-            setCurrentLimitA(val);
-          } else {
-            console.log("[DEBUG][CURRENT_LIMIT][SKIP_APPLY] dirty=true");
-          }
+          console.log("[DEBUG][CURRENT_LIMIT][APPLY_BACKEND]", val);
+          setCurrentLimitA(val);
         }
 
       } catch (err) {
-        // 讀取失敗就維持目前 UI，不影響使用者操作
+        console.log(
+          "[DEBUG][CURRENT_LIMIT][GET][ERR]",
+          "cpId=", cpId,
+          "status=", err?.response?.status,
+          "msg=", err?.message
+        );
       }
     };
 
@@ -71,7 +83,7 @@ export default function LiveStatus() {
     return () => {
       cancelled = true;
     };
-  }, [cpId]);   // 🔴 關鍵：換頁或切換樁就會觸發
+  }, [cpId]);
 
 
   // ⭐ 新增：套用狀態（避免滑一下就打 API）
