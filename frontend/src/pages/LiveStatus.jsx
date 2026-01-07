@@ -20,6 +20,17 @@ export default function LiveStatus() {
   const [liveCurrentA, setLiveCurrentA] = useState(0);
   const [liveEnergyKWh, setLiveEnergyKWh] = useState(0);
 
+
+  // =======================
+  // 🏘️ Smart Charging（後端裁決顯示）
+  // =======================
+  const [smartEnabled, setSmartEnabled] = useState(false);
+  const [communityKw, setCommunityKw] = useState(0);
+  const [activeCars, setActiveCars] = useState(0);
+  const [allowedCurrentA, setAllowedCurrentA] = useState(null);
+  const [smartReason, setSmartReason] = useState("");
+
+
   // ⭐ 新增：電流上限（A）— 先做前端 UI，可先不接後端
   const CURRENT_LIMIT_OPTIONS = [6, 10, 16, 32];
   const [currentLimitA, setCurrentLimitA] = useState(null);
@@ -537,12 +548,57 @@ export default function LiveStatus() {
     }
   }, [rawBalance, frozenAfterStop, rawAtFreeze]);
 
-  // ---------- 顯示餘額（方案 A：只信後端） ----------
+  // ⭐ 方案 B：Charging → Suspended 時凍結顯示餘額；恢復 Charging 自動解除
+  useEffect(() => {
+    const isSuspended =
+      cpStatus === "SuspendedEV" || cpStatus === "SuspendedEVSE";
+
+    // 進入 Suspended：如果尚未凍結，立刻凍結（用 rawBalance - liveCost）
+    if (isSuspended && !frozenAfterStop) {
+      const base = Number.isFinite(rawBalance) ? rawBalance : 0;
+      const cost = Number.isFinite(liveCost) ? liveCost : 0;
+
+      setFrozenAfterStop(true);
+      setFrozenCost(cost);
+      setRawAtFreeze(base);
+
+      console.log(
+        "[FREEZE][BALANCE]",
+        "cpStatus=", cpStatus,
+        "rawBalance=", base,
+        "liveCost=", cost,
+        "frozenDisplay=", Math.max(0, base - cost)
+      );
+      return;
+    }
+
+    // Suspended → Charging：解除凍結，回到即時計算
+    if (cpStatus === "Charging" && frozenAfterStop) {
+      setFrozenAfterStop(false);
+      setFrozenCost(0);
+      setRawAtFreeze(null);
+
+      console.log("[FREEZE][RELEASE] resume charging");
+    }
+  }, [cpStatus, rawBalance, liveCost, frozenAfterStop]);
+
+
+  // ---------- 顯示餘額（方案 B：Suspended 凍結顯示） ----------
   useEffect(() => {
     let nb = 0;
 
+    // ✅ 如果目前處於凍結狀態（Suspended 時會被 Step1 設為 true）
+    if (frozenAfterStop && rawAtFreeze != null) {
+      nb = Math.max(
+        0,
+        rawAtFreeze - (Number.isFinite(frozenCost) ? frozenCost : 0)
+      );
+      setDisplayBalance(nb);
+      return;
+    }
+
+    // 充電中：顯示即時預估扣款
     if (cpStatus === "Charging") {
-      // 充電中：顯示即時預估扣款
       const base = Number.isFinite(rawBalance) ? rawBalance : 0;
       const cost = Number.isFinite(liveCost) ? liveCost : 0;
       nb = base - cost;
@@ -552,12 +608,20 @@ export default function LiveStatus() {
         seenPositiveBalanceRef.current = true;
       }
     } else {
-      // ⭐⭐⭐ 非 Charging：一律只顯示後端餘額 ⭐⭐⭐
+      // 其它狀態：顯示後端餘額（例如 Available / Finishing）
       nb = Number.isFinite(rawBalance) ? rawBalance : 0;
     }
 
     setDisplayBalance(nb > 0 ? nb : 0);
-  }, [rawBalance, liveCost, cpStatus]);
+  }, [
+    rawBalance,
+    liveCost,
+    cpStatus,
+    frozenAfterStop,
+    rawAtFreeze,
+    frozenCost,
+  ]);
+
 
 
 
@@ -771,6 +835,44 @@ export default function LiveStatus() {
   };
 
 
+  // =======================
+  // 🏘️ Smart Charging 狀態輪詢（後端裁決）
+  // =======================
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchSmartStatus = async () => {
+      try {
+        const { data } = await axios.get("/api/community-settings");
+
+        if (cancelled) return;
+
+        setSmartEnabled(!!data.enabled);
+        setCommunityKw(Number(data.contract_kw || 0));
+        setActiveCars(Number(data.active_charging_count || 0));
+        setAllowedCurrentA(
+          Number.isFinite(data.allowed_current_a)
+            ? Number(data.allowed_current_a)
+            : null
+        );
+
+        setSmartReason(data.blocked_reason || "");
+      } catch (err) {
+        console.warn("[SMART][UI] fetch failed", err?.message);
+      }
+    };
+
+    fetchSmartStatus();
+    const t = setInterval(fetchSmartStatus, 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, []);
+
+
+
+
   // ---------- 狀態顯示 ----------
   const statusLabel = (s) => {
     const map = {
@@ -905,6 +1007,53 @@ export default function LiveStatus() {
         </div>
       ) : (
         <>
+
+        {/* ===================== */}
+        {/* 🏘️ Smart Charging 狀態 */}
+        {/* ===================== */}
+        {smartEnabled && (
+          <div
+            style={{
+              marginBottom: 16,
+              padding: 12,
+              borderRadius: 10,
+              background: "#243028",
+              border: "1px solid #4caf50",
+            }}
+          >
+            <div style={{ fontWeight: "bold", marginBottom: 6 }}>
+              🏘️ 社區 Smart Charging
+            </div>
+
+            <div style={{ fontSize: 14, lineHeight: 1.6 }}>
+              <div>📐 契約容量：{communityKw} kW</div>
+              <div>🚗 目前充電車輛：{activeCars} 台</div>
+
+              {allowedCurrentA != null ? (
+                <div>
+                  🔌 每台實際限流：
+                  <b style={{ color: "#8cff9a" }}>
+                    {" "}
+                    {allowedCurrentA.toFixed(1)} A
+                  </b>
+                </div>
+              ) : (
+                <div style={{ color: "#ff8080" }}>
+                  ⛔ 條件不足，最後一台將被拒絕充電
+                </div>
+              )}
+
+              {smartReason && (
+                <div style={{ marginTop: 6, color: "#ffb74d" }}>
+                  ⚠️ 原因：{smartReason}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+
+
       <label>卡片 ID：</label>
       <select
         value={cardId}
@@ -1038,84 +1187,131 @@ export default function LiveStatus() {
       {/* ===================== */}
       {/* ⭐ 電流控制（前端先做 UI） */}
       {/* ===================== */}
-      <div style={{ marginTop: 14, padding: 12, background: "#2a2a2a", borderRadius: 10, border: "1px solid #444" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <div style={{ fontWeight: "bold" }}>🎚️ 充電電流上限</div>
-          <div style={{ fontSize: 12, opacity: 0.85 }}>
-            目前設定：<b>{currentLimitA}A</b> {currentLimitDirty ? "（已調整）" : "（預設）"}
-          </div>
-        </div>
-
-        {/* 快速選單：6A / 10A / 16A / 32A */}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 10 }}>
-          {CURRENT_LIMIT_OPTIONS.map((a) => (
-            <button
-              key={a}
-              onClick={() => {
-                setCurrentLimitA(a);
-                setCurrentLimitDirty(true);
-              }}
-              style={{
-                padding: "6px 10px",
-                borderRadius: 8,
-                border: a === currentLimitA ? "1px solid #fff" : "1px solid #666",
-                background: a === currentLimitA ? "#3a3a3a" : "#1a1a1a",
-                color: "#fff",
-                cursor: "pointer",
-              }}
-            >
-              {a}A
-            </button>
-          ))}
-        </div>
-
-        {/* Slider（更直覺） */}
-        <input
-          type="range"
-          min={6}
-          max={32}
-          step={1}
-          value={currentLimitA}
-          onChange={(e) => {
-            setCurrentLimitA(Number(e.target.value));
-            setCurrentLimitDirty(true);
-          }}
-          style={{ width: "100%" }}
-        />
-
-
-      <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 10 }}>
-        <button
-          onClick={applyCurrentLimitToBackend}
-          disabled={applyLoading || !currentLimitDirty}
+      {!smartEnabled && (
+        <div
           style={{
-            padding: "8px 12px",
-            borderRadius: 8,
-            border: "1px solid #666",
-            background: applyLoading || !currentLimitDirty ? "#1a1a1a" : "#3a3a3a",
-            color: "#fff",
-            cursor: applyLoading || !currentLimitDirty ? "not-allowed" : "pointer",
-            opacity: applyLoading || !currentLimitDirty ? 0.7 : 1,
+            marginTop: 14,
+            padding: 12,
+            background: "#2a2a2a",
+            borderRadius: 10,
+            border: "1px solid #444",
           }}
         >
-          {applyLoading ? "套用中…" : "套用上限到充電樁"}
-        </button>
-
-        {applyMsg && (
-          <div style={{ fontSize: 12, opacity: 0.9 }}>
-            {applyMsg}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 8,
+            }}
+          >
+            <div style={{ fontWeight: "bold" }}>🎚️ 充電電流上限</div>
+            <div style={{ fontSize: 12, opacity: 0.85 }}>
+              目前設定：<b>{currentLimitA}A</b>{" "}
+              {currentLimitDirty ? "（已調整）" : "（預設）"}
+            </div>
           </div>
-        )}
-      </div>
 
+          {/* 快速選單：6A / 10A / 16A / 32A */}
+          <div
+            style={{
+              display: "flex",
+              gap: 8,
+              flexWrap: "wrap",
+              marginBottom: 10,
+            }}
+          >
+            {CURRENT_LIMIT_OPTIONS.map((a) => (
+              <button
+                key={a}
+                onClick={() => {
+                  setCurrentLimitA(a);
+                  setCurrentLimitDirty(true);
+                }}
+                style={{
+                  padding: "6px 10px",
+                  borderRadius: 8,
+                  border:
+                    a === currentLimitA
+                      ? "1px solid #fff"
+                      : "1px solid #666",
+                  background:
+                    a === currentLimitA ? "#3a3a3a" : "#1a1a1a",
+                  color: "#fff",
+                  cursor: "pointer",
+                }}
+              >
+                {a}A
+              </button>
+            ))}
+          </div>
 
+          {/* Slider（更直覺） */}
+          <input
+            type="range"
+            min={6}
+            max={32}
+            step={1}
+            value={currentLimitA}
+            onChange={(e) => {
+              setCurrentLimitA(Number(e.target.value));
+              setCurrentLimitDirty(true);
+            }}
+            style={{ width: "100%" }}
+          />
 
-        <div style={{ marginTop: 8, fontSize: 12, opacity: 0.8, lineHeight: 1.5 }}>
-          建議常用檔位：6A / 10A / 16A / 32A（你也可以用 slider 微調）。
-          <br />
-          ※ 目前先做前端 UI；下一步再把 currentLimitA 送到後端，才會真的限制樁的輸出。
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              alignItems: "center",
+              marginTop: 10,
+            }}
+          >
+            <button
+              onClick={applyCurrentLimitToBackend}
+              disabled={applyLoading || !currentLimitDirty}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 8,
+                border: "1px solid #666",
+                background:
+                  applyLoading || !currentLimitDirty
+                    ? "#1a1a1a"
+                    : "#3a3a3a",
+                color: "#fff",
+                cursor:
+                  applyLoading || !currentLimitDirty
+                    ? "not-allowed"
+                    : "pointer",
+                opacity:
+                  applyLoading || !currentLimitDirty ? 0.7 : 1,
+              }}
+            >
+              {applyLoading ? "套用中…" : "套用上限到充電樁"}
+            </button>
+
+            {applyMsg && (
+              <div style={{ fontSize: 12, opacity: 0.9 }}>
+                {applyMsg}
+              </div>
+            )}
+          </div>
+
+          <div
+            style={{
+              marginTop: 8,
+              fontSize: 12,
+              opacity: 0.8,
+              lineHeight: 1.5,
+            }}
+          >
+            建議常用檔位：6A / 10A / 16A / 32A（你也可以用 slider 微調）。
+            <br />
+            ※ Smart Charging 啟用時，將由後端自動分配，無法手動調整。
+          </div>
         </div>
-      </div>
+      )}
 
 
 

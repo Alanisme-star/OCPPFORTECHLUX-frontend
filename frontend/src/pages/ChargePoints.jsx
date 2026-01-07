@@ -82,6 +82,31 @@ const ChargePoints = () => {
    */
   const [loading, setLoading] = useState(true);
 
+  // =======================
+  // 🏘️ 社區 Smart Charging 設定（契約容量）
+  // =======================
+  const [communityCfg, setCommunityCfg] = useState({
+    enabled: false,
+    contractKw: "",
+    voltageV: 220,
+    minCurrentA: 16,
+    maxCurrentA: 32,
+  });
+
+  const [communityPreview, setCommunityPreview] = useState({
+    totalCurrentA: 0,
+    maxCarsByMin: 0,
+    allowedCurrentA: null,
+    activeChargingCount: 0,
+  });
+
+  const [communityLoading, setCommunityLoading] = useState(false);
+  const [communitySaving, setCommunitySaving] = useState(false);
+  const [communityMsg, setCommunityMsg] = useState("");
+
+
+
+
   /**
    * 表單 state
    *
@@ -127,6 +152,80 @@ const ChargePoints = () => {
   useEffect(() => {
     fetchList();
   }, []);
+
+
+  // =======================
+  // 🏘️ 讀取社區 Smart Charging 設定
+  // =======================
+  const fetchCommunitySettings = async () => {
+    setCommunityLoading(true);
+    setCommunityMsg("");
+    try {
+      const res = await axios.get("/api/community-settings");
+      const d = res?.data || {};
+
+      // 表單用（給使用者可編輯的欄位）
+      setCommunityCfg({
+        enabled: !!d.enabled,
+        contractKw: d.contract_kw ?? d.contractKw ?? "",
+        voltageV: Number(d.voltage_v ?? d.voltageV ?? 220),
+        minCurrentA: Number(d.min_current_a ?? d.minCurrentA ?? 16),
+        maxCurrentA: Number(d.max_current_a ?? d.maxCurrentA ?? 32),
+      });
+
+      // 預覽用（純顯示）
+      setCommunityPreview({
+        totalCurrentA: Number(d.total_current_a ?? 0),
+        maxCarsByMin: Number(d.max_cars_by_min ?? 0),
+        allowedCurrentA:
+          Number.isFinite(Number(d.allowed_current_a))
+            ? Number(d.allowed_current_a)
+            : null,
+        activeChargingCount: Number(d.active_charging_count ?? 0),
+      });
+
+    } catch (err) {
+      setCommunityMsg("❌ 讀取社區設定失敗：" + (err?.message || "unknown"));
+    }
+    setCommunityLoading(false);
+  };
+
+  useEffect(() => {
+    fetchCommunitySettings();
+  }, []);
+
+  const handleCommunityChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setCommunityCfg((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
+
+  const saveCommunitySettings = async () => {
+    setCommunitySaving(true);
+    setCommunityMsg("");
+    try {
+      await axios.post("/api/community-settings", {
+        enabled: !!communityCfg.enabled,
+        contractKw: Number(communityCfg.contractKw || 0),
+        voltageV: Number(communityCfg.voltageV || 220),
+        phases: 1,
+        minCurrentA: Number(communityCfg.minCurrentA || 16),
+        maxCurrentA: Number(communityCfg.maxCurrentA || 32),
+      });
+
+      setCommunityMsg("✅ 已儲存社區 Smart Charging 設定");
+      // 儲存後重新拉一次，更新預覽數值
+      await fetchCommunitySettings();
+
+    } catch (err) {
+      setCommunityMsg("❌ 儲存失敗：" + (err?.message || "unknown"));
+    }
+    setCommunitySaving(false);
+  };
+
+
 
   /**
    * 表單欄位變動
@@ -232,6 +331,123 @@ const ChargePoints = () => {
   return (
     <div>
       <h2 className="text-2xl font-bold mb-4">{pageTitle}</h2>
+
+
+      {/* =========================
+          🏘️ 社區 Smart Charging（契約容量）
+         ========================= */}
+      <div className="mb-6 p-4 rounded border border-green-700 bg-gray-900">
+        <div className="flex items-center justify-between">
+          <div className="text-lg font-bold">🏘️ 社區 Smart Charging（契約容量）</div>
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="enabled"
+              checked={!!communityCfg.enabled}
+              onChange={handleCommunityChange}
+            />
+            啟用
+          </label>
+        </div>
+
+        <div className="mt-3 flex flex-wrap gap-4 items-end">
+          <div>
+            <label className="text-sm">
+              契約容量（kW）
+              <input
+                type="number"
+                name="contractKw"
+                className="input input-bordered ml-2 p-1 rounded text-black"
+                value={communityCfg.contractKw}
+                onChange={handleCommunityChange}
+                placeholder="例如 100"
+                min={0}
+              />
+            </label>
+          </div>
+
+          <div>
+            <label className="text-sm">
+              電壓（V）
+              <input
+                type="number"
+                name="voltageV"
+                className="input input-bordered ml-2 p-1 rounded text-black"
+                value={communityCfg.voltageV}
+                onChange={handleCommunityChange}
+                min={1}
+              />
+            </label>
+          </div>
+
+          <div>
+            <label className="text-sm">
+              最低電流（A）
+              <input
+                type="number"
+                name="minCurrentA"
+                className="input input-bordered ml-2 p-1 rounded text-black"
+                value={communityCfg.minCurrentA}
+                onChange={handleCommunityChange}
+                min={1}
+              />
+            </label>
+            <div className="text-xs text-gray-400 mt-1">低於此值：最後一台將被拒絕</div>
+          </div>
+
+          <div>
+            <label className="text-sm">
+              單樁上限（A）
+              <input
+                type="number"
+                name="maxCurrentA"
+                className="input input-bordered ml-2 p-1 rounded text-black"
+                value={communityCfg.maxCurrentA}
+                onChange={handleCommunityChange}
+                min={1}
+              />
+            </label>
+            <div className="text-xs text-gray-400 mt-1">高於此值：仍以此上限充電</div>
+          </div>
+
+          <button
+            type="button"
+            className="px-4 py-1 rounded bg-green-700 text-white"
+            onClick={saveCommunitySettings}
+            disabled={communitySaving}
+          >
+            {communitySaving ? "儲存中…" : "儲存設定"}
+          </button>
+
+          <button
+            type="button"
+            className="px-4 py-1 rounded bg-gray-700 text-white"
+            onClick={fetchCommunitySettings}
+            disabled={communityLoading}
+          >
+            {communityLoading ? "更新中…" : "重新讀取"}
+          </button>
+        </div>
+
+        <div className="mt-3 text-sm text-gray-200" style={{ lineHeight: 1.7 }}>
+          <div>🔎 預覽：</div>
+          <div>• 可用總電流：<b>{communityPreview.totalCurrentA}</b> A</div>
+          <div>• 目前充電台數：<b>{communityPreview.activeChargingCount}</b> 台</div>
+          <div>• 依最低電流推算「最多同時可充」：<b>{communityPreview.maxCarsByMin}</b> 台</div>
+          <div>
+            • 後端目前分配（每台）：{" "}
+            {communityPreview.allowedCurrentA != null ? (
+              <b className="text-green-300">{communityPreview.allowedCurrentA} A</b>
+            ) : (
+              <b className="text-red-300">（將拒絕最後一台）</b>
+            )}
+          </div>
+          {communityMsg && <div className="mt-2">{communityMsg}</div>}
+        </div>
+      </div>
+
+
 
       {/* =========================
           新增 / 編輯表單
