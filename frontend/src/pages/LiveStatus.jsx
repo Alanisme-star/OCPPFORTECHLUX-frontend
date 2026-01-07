@@ -119,12 +119,17 @@ export default function LiveStatus() {
   const prevStatusRef = useRef(cpStatus);
 
   // ⭐ 自動停充安全旗標（不受換頁影響）
-  const seenPositiveBalanceRef = useRef(false);   // 是否曾看過餘額 > 0
-  const autoStopUsedRef = useRef(false);          // 本交易是否已自動停充過
+  const seenPositiveBalanceRef = useRef(false);
+  const autoStopUsedRef = useRef(false);
 
   // ✅ 新增：交易層級保護
-  const currentTxIdRef = useRef(null);            // 目前進行中的 transaction_id
-  const warmupRef = useRef(true);                 // 換頁暖機期（避免第一秒誤判）
+  const currentTxIdRef = useRef(null);
+  const warmupRef = useRef(true);
+
+  // ✅ 新增：即時量測逾時保護（避免模擬器關閉後 UI 仍卡 Charging）
+  const lastLiveOkAtRef = useRef(0);          // 最後一次成功拿到 live-status 的時間（ms）
+  const [liveStale, setLiveStale] = useState(false);
+  const LIVE_STALE_MS = 15_000;              // 15 秒沒更新就視為逾時（可自行調整）
 
 
   // 自動停樁
@@ -427,15 +432,23 @@ export default function LiveStatus() {
 
         if (cancelled) return;
 
+        // ✅ 只要成功拿到回應，就視為「即時資料有更新」
+        lastLiveOkAtRef.current = Date.now();
+        setLiveStale(false);
+
         const live = liveRes.data || {};
 
-        // ⭐⭐⭐ 關鍵修正：非 Charging → 即時量測一律歸零 ⭐⭐⭐
-        if (cpStatus !== "Charging") {
+        // 🔒 Step4 Gate：非「有效充電」時，直接歸零並中斷
+        if (!isChargingEffective) {
           setLivePowerKw(0);
           setLiveVoltageV(0);
           setLiveCurrentA(0);
+          setLiveEnergyKWh(0);
+          setLiveCost(0);
           return;
         }
+
+
 
         // ↓↓↓ 以下僅在 Charging 時才會執行 ↓↓↓
         const kw = Number(live?.power ?? 0);
@@ -478,9 +491,44 @@ export default function LiveStatus() {
       cancelled = true;
       clearInterval(t);
     };
-  }, [cpId, cpStatus]);
+  }, [cpId, cpStatus, liveStale]);
 
 
+  // ✅ 新增：stale 偵測（Charging 但太久沒 live 更新 → 視為非充電中）
+  useEffect(() => {
+    let timer = null;
+
+    const check = () => {
+      if (cpStatus !== "Charging") {
+        setLiveStale(false);
+        return;
+      }
+
+      const last = Number(lastLiveOkAtRef.current || 0);
+      if (!last) {
+        // 還沒拿到任何一次 live-status（剛進頁/剛切換 cp）
+        setLiveStale(false);
+        return;
+      }
+
+      const stale = Date.now() - last > LIVE_STALE_MS;
+      setLiveStale(stale);
+
+      // 逾時時，順手把即時量測歸零（避免畫面殘留）
+      if (stale) {
+        setLivePowerKw(0);
+        setLiveVoltageV(0);
+        setLiveCurrentA(0);
+      }
+    };
+
+    check();
+    timer = setInterval(check, 2000);
+
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [cpStatus, cpId]);
 
 
 
@@ -704,14 +752,14 @@ export default function LiveStatus() {
     fetchTxInfo();
     const t = setInterval(fetchTxInfo, 5_000);
     return () => clearInterval(t);
-  }, [cpId, cpStatus]);  // ⭐ 保持依賴 cpId / cpStatus
+  }, [cpId, cpStatus, liveStale]);  // ⭐ 保持依賴 cpId / cpStatus
 
   // ---------- ⭐ 補強版：本次充電累積時間 ----------
   useEffect(() => {
     let timer = null;
 
     // ✅ 僅在「確認充電中」時才計時
-    if (cpStatus === "Charging" && startTime) {
+    if (isChargingEffective && startTime) {
       timer = setInterval(() => {
         const start = Date.parse(startTime);
         if (!Number.isNaN(start)) {
@@ -732,7 +780,7 @@ export default function LiveStatus() {
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [cpStatus, startTime]);
+  }, [isChargingEffective, startTime]);
 
 
   // ⭐ 自動抓取分段電價明細（修正版）
@@ -866,6 +914,11 @@ export default function LiveStatus() {
   }, []);
 
 
+  // ✅ Step4：有效充電狀態（Charging 但 live 逾時 → 視為非充電）
+  const isChargingEffective = cpStatus === "Charging" && !liveStale;
+
+  // ✅ Step4：UI 顯示用狀態（避免「模擬器關閉後仍顯示 Charging」）
+  const uiStatus = isChargingEffective ? "Charging" : (liveStale ? "Unknown" : cpStatus);
 
 
   // ---------- 狀態顯示 ----------
@@ -1089,7 +1142,10 @@ export default function LiveStatus() {
 
       <p>💳 卡片餘額：{displayBalance.toFixed(3)} 元</p>
 
-      <p>🔌 狀態：{statusLabel(cpStatus)}</p>
+      <p>
+        🔌 狀態：{statusLabel(uiStatus)}
+        {liveStale ? "（即時資料逾時/可能已離線）" : ""}
+      </p>
       {stopMsg && (
             <p style={{ color: "orange", position: "relative", paddingRight: "24px" }}>
                   {stopMsg}
