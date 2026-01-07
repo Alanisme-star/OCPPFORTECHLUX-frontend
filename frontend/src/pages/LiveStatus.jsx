@@ -705,16 +705,17 @@ export default function LiveStatus() {
     const t = setInterval(fetchTxInfo, 5_000);
     return () => clearInterval(t);
   }, [cpId, cpStatus]);  // ⭐ 保持依賴 cpId / cpStatus
-  // ---------- ⭐ 最終改良版：計算本次充電累積時間（停止後歸零 + 新充電重新計算） ----------
-  useEffect(() => {
-    let timer;
 
-    if (startTime && cpStatus === "Charging") {
-      // 充電中 → 開始計時
+  // ---------- ⭐ 補強版：本次充電累積時間 ----------
+  useEffect(() => {
+    let timer = null;
+
+    // ✅ 僅在「確認充電中」時才計時
+    if (cpStatus === "Charging" && startTime) {
       timer = setInterval(() => {
         const start = Date.parse(startTime);
-        if (!isNaN(start)) {
-          const now = stopTime ? Date.parse(stopTime) : Date.now();
+        if (!Number.isNaN(start)) {
+          const now = Date.now();
           const diff = Math.max(0, now - start);
           const hh = String(Math.floor(diff / 3600000)).padStart(2, "0");
           const mm = String(Math.floor((diff % 3600000) / 60000)).padStart(2, "0");
@@ -723,17 +724,15 @@ export default function LiveStatus() {
         }
       }, 1000);
     } else {
-      // 非充電中 → 停止計時並歸零
-      clearInterval(timer);
+      // 🔴 非 Charging（Available / Faulted / Suspended / Finishing）
+      // → 一律停表
       setElapsedTime("—");
-
-      // ⭐ 同步重置起止時間，避免下次重啟用到舊資料
-      setStartTime("");
-      setStopTime("");
     }
 
-    return () => clearInterval(timer);
-  }, [startTime, stopTime, cpStatus]);
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [cpStatus, startTime]);
 
 
   // ⭐ 自動抓取分段電價明細（修正版）
@@ -781,27 +780,23 @@ export default function LiveStatus() {
   }, [cpId, cpStatus]);
 
 
-
-
-  // ⭐ 修正版：樁狀態變成 Available → 保留金額，不清扣款
   useEffect(() => {
-    if (cpStatus === "Available") {
-      console.log("🔄 樁已回到 Available → 保留本次扣款結果");
+    if (cpStatus === "Available" || cpStatus === "Faulted") {
+      console.log("🔄 交易已結束（狀態回到非 Charging）");
 
-      // ✅ 只清顯示用資料（不影響金額）
-      setPriceBreakdown([]);
-
+      // ✅ 僅清「交易生命週期相關狀態」
       setStartTime("");
       setStopTime("");
       setElapsedTime("—");
 
-      // ❌ 不要清 liveCost / liveEnergyKWh
-      // ❌ 不要清 frozen 狀態（避免餘額回跳）
+      // 顯示層資料（保留金額邏輯）
+      setPriceBreakdown([]);
 
       setSentAutoStop(false);
       setStopMsg("");
     }
   }, [cpStatus]);
+
 
 
   // ⭐ 新增：送出電流上限到後端（Step1：先送到後端，後端先只收+存+log）
