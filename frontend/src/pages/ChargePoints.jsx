@@ -524,6 +524,7 @@ const ChargePoints = () => {
               className="ml-2 p-1 rounded text-black"
               value={form.max_current} // ✅ 一定是字串，例如 "16"
               onChange={handleChange}
+              disabled={communityCfg.enabled}   // ⭐ Smart Charging 啟用時鎖定
             >
               {CURRENT_OPTIONS.map((opt) => (
                 <option value={opt.value} key={opt.value}>
@@ -533,18 +534,31 @@ const ChargePoints = () => {
             </select>
           </label>
 
-          {/* 這段說明與 LiveStatus 的提示一致（管理頁設定上限） */}
-          <div className="text-xs text-gray-400 mt-1" style={{ lineHeight: 1.5 }}>
-            設定為「充電上限」，實際電流仍由車輛決定。
-            <br />
-            ※ 若充電中且樁支援 SmartCharging，將立即生效；否則於下一次充電生效。
-          </div>
+          {/* 說明文字依社區 Smart Charging 狀態切換 */}
+          {!communityCfg.enabled ? (
+            <div className="text-xs text-gray-400 mt-1" style={{ lineHeight: 1.5 }}>
+              設定為「充電上限」，實際電流仍由車輛決定。
+              <br />
+              ※ 若充電中且樁支援 SmartCharging，將立即生效；否則於下一次充電生效。
+            </div>
+          ) : (
+            <div
+              className="text-xs text-yellow-400 mt-1"
+              style={{ lineHeight: 1.5 }}
+            >
+             ⚠️ 社區智慧充電已啟用
+              <br />
+              此欄位不參與實際電流分配（由社區統一管理）
+            </div>
+          )}
+        </div>
+
 
           {/* 額外提示：常用檔位 */}
           <div className="text-xs text-gray-500 mt-1" style={{ lineHeight: 1.5 }}>
             建議常用檔位：6A / 10A / 16A / 32A（你也可以用即時狀態的 slider 微調）。
           </div>
-        </div>
+
 
         {/* 送出按鈕 */}
         <button
@@ -616,11 +630,20 @@ const ChargePoints = () => {
                       </span>
                     </td>
 
-                    {/* 最大電流：顯示 label，並保留 A */}
                     <td className="p-2">
-                      {maxCurrentLabel}{" "}
-                      <span className="text-gray-400">（上限）</span>
+                      {!communityCfg.enabled ? (
+                        <>
+                          {maxCurrentLabel}{" "}
+                          <span className="text-gray-400">（上限）</span>
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-yellow-400">由社區智慧充電管理</span>
+                          <span className="text-gray-400 ml-1">（單樁上限暫不生效）</span>
+                        </>
+                      )}
                     </td>
+
 
                     <td className="p-2 space-x-2">
                       <button
