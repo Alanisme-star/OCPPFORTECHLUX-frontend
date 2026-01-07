@@ -33,7 +33,7 @@ export default function LiveStatus() {
 
   // ⭐ 新增：電流上限（A）— 先做前端 UI，可先不接後端
   const CURRENT_LIMIT_OPTIONS = [6, 10, 16, 32];
-  const [currentLimitA, setCurrentLimitA] = useState(null);
+  const [currentLimitA, setCurrentLimitA] = useState(6);
   const [currentLimitDirty, setCurrentLimitDirty] = useState(false); // 使用者是否動過 slider
 
   // =====================================================
@@ -130,6 +130,16 @@ export default function LiveStatus() {
   const lastLiveOkAtRef = useRef(0);          // 最後一次成功拿到 live-status 的時間（ms）
   const [liveStale, setLiveStale] = useState(false);
   const LIVE_STALE_MS = 15_000;              // 15 秒沒更新就視為逾時（可自行調整）
+
+  // =====================================================
+  // ✅ Step4：有效充電狀態（state 後、useEffect 前）
+  // =====================================================
+  const isChargingEffective = cpStatus === "Charging" && !liveStale;
+
+  // ✅ UI 顯示用狀態
+  const uiStatus = isChargingEffective
+    ? "Charging"
+    : (liveStale ? "Unknown" : cpStatus);
 
 
   // 自動停樁
@@ -491,7 +501,7 @@ export default function LiveStatus() {
       cancelled = true;
       clearInterval(t);
     };
-  }, [cpId, cpStatus, liveStale]);
+  }, [cpId, isChargingEffective]);
 
 
   // ✅ 新增：stale 偵測（Charging 但太久沒 live 更新 → 視為非充電中）
@@ -780,7 +790,7 @@ export default function LiveStatus() {
     return () => {
       if (timer) clearInterval(timer);
     };
-  }, [isChargingEffective, startTime]);
+  }, [cpStatus, liveStale, startTime]);
 
 
   // ⭐ 自動抓取分段電價明細（修正版）
@@ -914,11 +924,6 @@ export default function LiveStatus() {
   }, []);
 
 
-  // ✅ Step4：有效充電狀態（Charging 但 live 逾時 → 視為非充電）
-  const isChargingEffective = cpStatus === "Charging" && !liveStale;
-
-  // ✅ Step4：UI 顯示用狀態（避免「模擬器關閉後仍顯示 Charging」）
-  const uiStatus = isChargingEffective ? "Charging" : (liveStale ? "Unknown" : cpStatus);
 
 
   // ---------- 狀態顯示 ----------
