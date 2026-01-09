@@ -60,6 +60,110 @@ export default function LiveStatus() {
   const [liveStale, setLiveStale] = useState(false);
   const LIVE_STALE_MS = 15_000;              // 15 秒沒更新就視為逾時（可自行調整）
 
+  // =======================
+  // 🔧 Step3：模擬樁控制
+  // =======================
+  const [simCount, setSimCount] = useState(0);
+  const [simMsg, setSimMsg] = useState("");
+
+  // =======================
+  // 🔧 Step4-2：模擬充電控制（獨立於模擬樁數量）
+  // =======================
+  const [simChargeMode, setSimChargeMode] = useState("none"); // none | all | count
+  const [simChargeCount, setSimChargeCount] = useState(1);    // mode=count 時才使用
+  const [simChargeMsg, setSimChargeMsg] = useState("");
+
+
+
+  // ✅ Step3 補強：simCount 與目前啟用模擬樁數量同步
+  useEffect(() => {
+    const count = cpList.filter(
+      (cp) => (cp.is_simulated ?? false) && (cp.enabled ?? true)
+    ).length;
+    setSimCount(count);
+  }, [cpList]);
+
+  // 🔄 進頁面先讀取後端目前的「模擬充電模式」
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await axios.get("/api/simulators/charging");
+        const mode = res?.data?.mode ?? "none";
+        const count = res?.data?.count ?? 0;
+
+        setSimChargeMode(mode);
+        if (mode === "count") setSimChargeCount(Number(count) || 1);
+      } catch (e) {
+        // 讀不到不致命：可能後端尚未佈署到最新
+        console.warn("讀取模擬充電狀態失敗：", e);
+      }
+    })();
+  }, []);
+
+
+  const applySimulators = async () => {
+    try {
+      setSimMsg("設定中…");
+      await axios.post("/api/simulators/set", {
+        count: Number(simCount),
+      });
+      setSimMsg("✅ 已更新模擬樁數量");
+
+      // 🔄 重新抓取 charge points，讓畫面即時反映
+      const cps = await axios.get("/api/charge-points");
+      const cpsData = Array.isArray(cps.data) ? cps.data : [];
+      const visibleCps = cpsData.filter((cp) => {
+        const isSim = cp.is_simulated ?? cp.isSimulated ?? false;
+        const enabled = cp.enabled ?? true;
+        return !isSim || enabled;
+      });
+      setCpList(visibleCps);
+    } catch (err) {
+      console.error("設定模擬樁失敗", err);
+      setSimMsg("❌ 設定失敗");
+    }
+  };
+
+
+  const applySimCharging = async () => {
+    try {
+      setSimChargeMsg("設定中…");
+
+      const payload = {
+        mode: simChargeMode,
+        count: simChargeMode === "count" ? Number(simChargeCount) : 0,
+      };
+
+      const resp = await axios.post("/api/simulators/charging", payload);
+
+      // 後端回傳 { ok: true, state: {...} }
+      const st = resp?.data?.state ?? null;
+      if (st?.mode) setSimChargeMode(st.mode);
+      if (st?.mode === "count") setSimChargeCount(Number(st.count) || 1);
+
+      setSimChargeMsg("✅ 已更新模擬充電模式");
+    } catch (err) {
+      console.error("設定模擬充電失敗", err);
+      setSimChargeMsg("❌ 設定失敗");
+    }
+  };
+
+
+
+
+  // ✅ Step3 補強：cpId 防呆（避免指到已隱藏的模擬樁）
+  useEffect(() => {
+    if (!cpList || cpList.length === 0) return;
+
+    const exists = cpList.some((cp) => getCpId(cp) === cpId);
+    if (!exists) {
+      setCpId(getCpId(cpList[0]));
+    }
+  }, [cpList, cpId]);
+
+
+
+
   // =====================================================
   // ✅ Step4：有效充電狀態（state 後、useEffect 前）
   // =====================================================
@@ -124,17 +228,35 @@ export default function LiveStatus() {
           axios.get("/api/cards"),
           axios.get("/api/charge-points"),
         ]);
+
         const cardsData = Array.isArray(cards.data) ? cards.data : [];
         const cpsData = Array.isArray(cps.data) ? cps.data : [];
+
         setCardList(cardsData);
-        setCpList(cpsData);
+
+        // ✅ Step3-1：只顯示「有效樁」
+        // 規則：
+        // - 實體樁（is_simulated = false）→ 永遠顯示
+        // - 模擬樁（is_simulated = true）→ 只有 enabled = true 才顯示
+        const visibleCps = cpsData.filter((cp) => {
+          const isSim = cp.is_simulated ?? cp.isSimulated ?? false;
+          const enabled = cp.enabled ?? true;
+          return !isSim || enabled;
+        });
+
+        setCpList(visibleCps);
 
         if (cardsData.length) {
           const firstId = cardsData[0].card_id ?? cardsData[0].cardId ?? "";
           setCardId(firstId);
         }
-        if (cpsData.length) {
-          const firstCp = cpsData[0].chargePointId ?? cpsData[0].id ?? "";
+
+        if (visibleCps.length) {
+          const firstCp =
+            visibleCps[0].chargePointId ??
+            visibleCps[0].id ??
+            visibleCps[0].charge_point_id ??
+            "";
           setCpId(firstCp);
         }
       } catch (err) {
@@ -855,6 +977,122 @@ export default function LiveStatus() {
   return (
     <div style={wrap}>
       <h2>📡 即時狀態</h2>
+
+      {/* ======================= */}
+      {/* 🔧 測試 / 模擬控制區 */}
+      {/* ======================= */}
+      <div
+        style={{
+          marginBottom: 20,
+          padding: 12,
+          borderRadius: 10,
+          background: "#2a1f1f",
+          border: "1px solid #ff9800",
+        }}
+      >
+        <div style={{ fontWeight: "bold", marginBottom: 8 }}>
+          🔧 測試 / 模擬控制區
+        </div>
+
+        <div
+          style={{
+            display: "flex",
+            gap: 8,
+            alignItems: "center",
+            flexWrap: "wrap",
+          }}
+        >
+          <label>模擬樁數量：</label>
+          <input
+            type="number"
+            min={0}
+            step={1}
+            value={simCount}
+            onChange={(e) => setSimCount(e.target.value)}
+            style={{ width: 80, padding: 6 }}
+          />
+          <button
+            onClick={applySimulators}
+            style={{
+              padding: "6px 12px",
+              borderRadius: 6,
+              border: "1px solid #ff9800",
+              background: "#3a2a1a",
+              color: "#fff",
+              cursor: "pointer",
+            }}
+          >
+            套用
+          </button>
+
+          {simMsg && (
+            <span style={{ marginLeft: 10, color: "#ffcc80" }}>
+              {simMsg}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* 🧪 模擬充電控制（獨立於模擬樁數量） */}
+      <div className="mt-4 p-3 rounded border border-gray-600">
+        <div className="font-semibold mb-2">🧪 模擬充電控制</div>
+
+        <div className="flex items-center gap-3 flex-wrap">
+          <label className="text-sm">
+            模式：
+            <select
+              className="ml-2 p-1 rounded text-black"
+              value={simChargeMode}
+              onChange={(e) => setSimChargeMode(e.target.value)}
+            >
+              <option value="none">不模擬充電</option>
+              <option value="all">所有啟用模擬樁都模擬充電</option>
+              <option value="count">指定數量模擬充電</option>
+            </select>
+          </label>
+
+          {simChargeMode === "count" && (
+            <label className="text-sm">
+              數量：
+              <input
+                type="number"
+                min="0"
+                className="ml-2 w-24 p-1 rounded text-black"
+                value={simChargeCount}
+                onChange={(e) => setSimChargeCount(e.target.value)}
+              />
+            </label>
+          )}
+
+          <button
+            className="px-3 py-1 rounded bg-blue-600 hover:bg-blue-700"
+            onClick={applySimCharging}
+          >
+            套用
+          </button>
+
+          {simChargeMsg && (
+            <span className="text-sm text-gray-200">
+              {simChargeMsg}
+            </span>
+          )}
+        </div>
+
+        <div
+          className="text-xs text-gray-400 mt-2"
+          style={{ lineHeight: 1.5 }}
+        >
+          說明：此功能僅影響「模擬樁」的前端呈現/測試狀態，不影響實體樁（TW*MSI*E000100）。
+        </div>
+      </div>
+    </div>
+  );
+
+
+
+
+
+
 
       {/* ====== View Mode Switch ====== */}
       <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", margin: "12px 0 16px" }}>
