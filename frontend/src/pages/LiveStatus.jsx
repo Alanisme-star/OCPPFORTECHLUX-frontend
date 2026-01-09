@@ -1085,12 +1085,6 @@ export default function LiveStatus() {
           說明：此功能僅影響「模擬樁」的前端呈現/測試狀態，不影響實體樁（TW*MSI*E000100）。
         </div>
       </div>
-    </div>
-  );
-
-
-
-
 
 
 
