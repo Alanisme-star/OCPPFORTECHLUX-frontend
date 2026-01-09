@@ -1009,7 +1009,14 @@ export default function LiveStatus() {
             step={1}
             value={simCount}
             onChange={(e) => setSimCount(e.target.value)}
-            style={{ width: 80, padding: 6 }}
+            style={{
+              width: 80,
+              padding: 6,
+              color: "#000",          // ✅ 黑色文字
+              background: "#fff",     // ✅ 淺色底（白）
+              border: "1px solid #ccc",
+              borderRadius: 4,
+            }}
           />
           <button
             onClick={applySimulators}
@@ -1022,6 +1029,7 @@ export default function LiveStatus() {
               cursor: "pointer",
             }}
           >
+
             套用
           </button>
 
