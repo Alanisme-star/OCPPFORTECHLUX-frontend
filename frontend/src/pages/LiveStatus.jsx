@@ -65,6 +65,7 @@ export default function LiveStatus() {
   // =======================
   const [simCount, setSimCount] = useState(0);
   const [simMsg, setSimMsg] = useState("");
+  const [enabledSimCount, setEnabledSimCount] = useState(0);
 
   // =======================
   // 🔧 Step4-2：模擬充電控制（獨立於模擬樁數量）
@@ -80,8 +81,9 @@ export default function LiveStatus() {
     const count = cpList.filter(
       (cp) => (cp.is_simulated ?? false) && (cp.enabled ?? true)
     ).length;
-    setSimCount(count);
+    setEnabledSimCount(count);
   }, [cpList]);
+
 
   // 🔄 進頁面先讀取後端目前的「模擬充電模式」
   useEffect(() => {
@@ -197,7 +199,21 @@ export default function LiveStatus() {
   const [overviewLoading, setOverviewLoading] = useState(false);
   const [overviewError, setOverviewError] = useState("");
 
-  const getCpId = (cp) => cp?.chargePointId ?? cp?.id ?? cp?.charge_point_id ?? "";
+  const getCpId = (cp) =>
+    cp?.chargePointId ?? cp?.id ?? cp?.charge_point_id ?? "";
+
+  // ✅【關鍵修正】
+  // cpList 變動（尤其是「變少」）時，立刻同步修剪 overviewRows
+  useEffect(() => {
+    const validIds = new Set(cpList.map(getCpId));
+
+    setOverviewRows((prev) =>
+      Array.isArray(prev)
+        ? prev.filter((row) => validIds.has(row.cpId))
+        : []
+    );
+  }, [cpList]);
+
 
 
 
@@ -245,6 +261,13 @@ export default function LiveStatus() {
         });
 
         setCpList(visibleCps);
+
+
+        // ✅【補這一段】初始化 simCount（只做一次）
+        const initSimCount = visibleCps.filter(
+          (cp) => (cp.is_simulated ?? false) && (cp.enabled ?? true)
+        ).length;
+        setSimCount(initSimCount);
 
         if (cardsData.length) {
           const firstId = cardsData[0].card_id ?? cardsData[0].cardId ?? "";
