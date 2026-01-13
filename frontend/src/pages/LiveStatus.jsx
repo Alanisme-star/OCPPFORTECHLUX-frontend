@@ -31,6 +31,14 @@ export default function LiveStatus() {
   const [smartReason, setSmartReason] = useState("");
 
 
+  // =======================
+  // ⭐ Smart-Charging Queue（排隊暫停）
+  // =======================
+  const [smartPaused, setSmartPaused] = useState(false);
+  const [smartPauseReason, setSmartPauseReason] = useState("");
+
+
+
   // 電費
   const [liveCost, setLiveCost] = useState(0);
 
@@ -166,15 +174,15 @@ export default function LiveStatus() {
 
 
 
-  // =====================================================
-  // ✅ Step4：有效充電狀態（state 後、useEffect 前）
-  // =====================================================
-  const isChargingEffective = cpStatus === "Charging" && !liveStale;
+  // ✅ Step4：有效充電狀態（加入 smartPaused）
+  const isChargingEffective =
+    cpStatus === "Charging" && !liveStale && !smartPaused;
 
-  // ✅ UI 顯示用狀態
-  const uiStatus = isChargingEffective
-    ? "Charging"
-    : (liveStale ? "Unknown" : cpStatus);
+  // ✅ UI 顯示用狀態（加入排隊暫停）
+  const uiStatus = smartPaused
+    ? "Queued"
+    : (isChargingEffective ? "Charging" : (liveStale ? "Unknown" : cpStatus));
+
 
 
   // 自動停樁
@@ -791,52 +799,91 @@ export default function LiveStatus() {
 
 
 
-  // ---------- 抓取交易時間 ----------
-  useEffect(() => {
-    if (!cpId) return;
+// ---------- 抓取交易時間 ----------
+useEffect(() => {
+  if (!cpId) return;
 
-    const fetchTxInfo = async () => {
-      try {
-        // ⭐ 改成只打 /current-transaction/summary
-        const res = await axios.get(
-          `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction/summary`
-        );
+  const fetchTxInfo = async () => {
+    try {
+      // ⭐ 改成只打 /current-transaction/summary
+      const res = await axios.get(
+        `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction/summary`
+      );
 
-        if (res.data?.found && res.data.start_timestamp) {
+      if (res.data?.found && res.data.start_timestamp) {
 
-          // ✅ 新增：只在尚未設定時，記住本筆交易 ID
-          if (res.data.transaction_id && !currentTxIdRef.current) {
-            currentTxIdRef.current = res.data.transaction_id;
-          }
-
-          setStartTime((prev) => {
-            if (prev && cpStatus === "Charging") {
-              return prev;
-            }
-            return res.data.start_timestamp;
-          });
-          setStopTime("");
-        
-        } else {
-          // ✅ 僅在狀態真的是 Available 或 Finishing 時才清空
-          if (["Available", "Finishing", "Faulted"].includes(cpStatus)) {
-            setStartTime("");
-            setStopTime("");
-            setElapsedTime("—");
-          } else {
-            console.debug("⚠️ 保留 startTime 與 elapsedTime（避免跨日誤清）");
-          }
+        // ✅ 新增：只在尚未設定時，記住本筆交易 ID
+        if (res.data.transaction_id && !currentTxIdRef.current) {
+          currentTxIdRef.current = res.data.transaction_id;
         }
 
-      } catch (err) {
-        console.error("讀取交易資訊失敗:", err);
-      }
-    };
+        setStartTime((prev) => {
+          if (prev && cpStatus === "Charging") {
+            return prev;
+          }
+          return res.data.start_timestamp;
+        });
+        setStopTime("");
 
-    fetchTxInfo();
-    const t = setInterval(fetchTxInfo, 5_000);
-    return () => clearInterval(t);
-  }, [cpId, cpStatus, liveStale]);  // ⭐ 保持依賴 cpId / cpStatus
+        // =======================
+        // ⭐ Smart-Charging Queue（排隊暫停）判定
+        // - 優先用後端欄位 smart_paused / smartPaused
+        // - 若後端沒回欄位，則用「Charging 但功率=0」推定為排隊暫停
+        // =======================
+        const pausedFromBackend =
+          !!(res.data?.smart_paused ?? res.data?.smartPaused);
+
+        const reasonFromBackend =
+          res.data?.smart_pause_reason ??
+          res.data?.smartPauseReason ??
+          res.data?.pause_reason ??
+          res.data?.pauseReason ??
+          "";
+
+        const inferredQueued =
+          !pausedFromBackend &&
+          smartEnabled &&
+          cpStatus === "Charging" &&
+          Number(livePowerKw || 0) <= 0.01;
+
+        const paused = pausedFromBackend || inferredQueued;
+
+        setSmartPaused(paused);
+        setSmartPauseReason(
+          paused ? String(reasonFromBackend || "community_queue") : ""
+        );
+
+      } else {
+        // ✅ 僅在狀態真的是 Available / Finishing / Faulted 時才清空
+        if (["Available", "Finishing", "Faulted"].includes(cpStatus)) {
+          setStartTime("");
+          setStopTime("");
+          setElapsedTime("—");
+        } else {
+          console.debug("⚠️ 保留 startTime 與 elapsedTime（避免跨日誤清）");
+        }
+
+        // ✅ 沒有交易時：清除排隊暫停顯示
+        setSmartPaused(false);
+        setSmartPauseReason("");
+      }
+
+    } catch (e) {
+      console.warn("fetchTxInfo failed", e);
+    }
+  };
+
+  // 立即抓一次
+  fetchTxInfo();
+
+  // 每 2 秒刷新
+  const t = setInterval(fetchTxInfo, 2000);
+  return () => clearInterval(t);
+
+}, [cpId, cpStatus, smartEnabled, livePowerKw]);
+
+        
+
 
   // ---------- ⭐ 補強版：本次充電累積時間 ----------
   useEffect(() => {
@@ -974,6 +1021,7 @@ export default function LiveStatus() {
   // ---------- 狀態顯示 ----------
   const statusLabel = (s) => {
     const map = {
+      Queued: "排隊暫停（智慧充電）",
       Available: "可用",
       Preparing: "準備中",
       Charging: "充電中",
@@ -1180,7 +1228,15 @@ export default function LiveStatus() {
               >
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <div style={{ fontWeight: "bold" }}>🔌 {r.cpId}</div>
-                  <div style={{ fontSize: 12, opacity: 0.9 }}>{statusLabel(r.status)}</div>
+                  <div style={{ fontSize: 12, opacity: 0.9 }}>
+                    {
+                        statusLabel(
+                            r.status === "Charging" && Number(r.powerKw || 0) <= 0.01
+                                ? "Queued"
+                                : r.status
+                        )
+                    }
+                  </div>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", rowGap: 6, columnGap: 10, fontSize: 14 }}>
@@ -1314,6 +1370,13 @@ export default function LiveStatus() {
         🔌 狀態：{statusLabel(uiStatus)}
         {liveStale ? "（即時資料逾時/可能已離線）" : ""}
       </p>
+      {smartPaused && (
+        <p style={{ color: "#ffcc80" }}>
+          ⏳ 目前為排隊暫停（Smart-Charging）：等待名額釋出後會自動解除暫停並開始充電
+          {smartPauseReason ? `（原因：${smartPauseReason}）` : ""}
+        </p>
+      )}
+
       {stopMsg && (
             <p style={{ color: "orange", position: "relative", paddingRight: "24px" }}>
                   {stopMsg}
