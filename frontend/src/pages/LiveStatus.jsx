@@ -3,6 +3,9 @@ import axios from "../axiosInstance"; // ← 依你的專案實際路徑調整
 
 
 export default function LiveStatus() {
+  // ✅ Step 3：統一 cardId 來源（保險但強烈建議）
+  const getCardId = (c) =>
+    c?.idTag ?? c?.card_id ?? c?.cardId ?? "";
   // 卡片 / 充電樁
   const [cardId, setCardId] = useState("");
   const [cardList, setCardList] = useState([]);
@@ -278,9 +281,13 @@ export default function LiveStatus() {
         setSimCount(initSimCount);
 
         if (cardsData.length) {
-          const firstId = cardsData[0].card_id ?? cardsData[0].cardId ?? "";
-          setCardId(firstId);
+            const firstValid = cardsData.find(c => getCardId(c));
+            if (firstValid) {
+              setCardId(getCardId(firstValid));
+            }
         }
+
+
 
         if (visibleCps.length) {
           const firstCp =
@@ -1324,16 +1331,26 @@ useEffect(() => {
           </div>
         )}
 
-
-
       <label>卡片 ID：</label>
       <select
         value={cardId}
         onChange={(e) => setCardId(e.target.value)}
         style={inputStyle}
       >
+        {cardList.length === 0 ? (
+          <option value="" disabled>
+            （尚無卡片）
+          </option>
+        ) : (
+          <option value="" disabled>
+            請選擇卡片
+          </option>
+        )}
+
         {cardList.map((c) => {
-          const id = c.card_id ?? c.cardId ?? "";
+          const id = getCardId(c);
+          if (!id) return null;
+
           return (
             <option key={id} value={id}>
               {id}
@@ -1341,6 +1358,8 @@ useEffect(() => {
           );
         })}
       </select>
+
+
 
       <label>充電樁 ID：</label>
       <select
