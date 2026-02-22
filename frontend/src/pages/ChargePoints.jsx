@@ -86,7 +86,7 @@ const ChargePoints = () => {
   // 🏘️ 社區 Smart Charging 設定（契約容量）
   // =======================
   const [communityCfg, setCommunityCfg] = useState({
-    enabled: false,
+    enabled: true,
     contractKw: "",
     voltageV: 220,
     minCurrentA: 16,
@@ -166,7 +166,7 @@ const ChargePoints = () => {
 
       // 表單用（給使用者可編輯的欄位）
       setCommunityCfg({
-        enabled: !!d.enabled,
+        enabled: true,
         contractKw: d.contract_kw ?? d.contractKw ?? "",
         voltageV: Number(d.voltage_v ?? d.voltageV ?? 220),
         minCurrentA: Number(d.min_current_a ?? d.minCurrentA ?? 16),
@@ -195,10 +195,10 @@ const ChargePoints = () => {
   }, []);
 
   const handleCommunityChange = (e) => {
-    const { name, value, type, checked } = e.target;
+    const { name, value } = e.target;
     setCommunityCfg((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [name]: value,
     }));
   };
 
@@ -207,7 +207,7 @@ const ChargePoints = () => {
     setCommunityMsg("");
     try {
       await axios.post("/api/community-settings", {
-        enabled: !!communityCfg.enabled,
+        enabled: true,
         contractKw: Number(communityCfg.contractKw || 0),
         voltageV: Number(communityCfg.voltageV || 220),
         phases: 1,
@@ -215,7 +215,7 @@ const ChargePoints = () => {
         maxCurrentA: Number(communityCfg.maxCurrentA || 32),
       });
 
-      setCommunityMsg("✅ 已儲存社區 Smart Charging 設定");
+      setCommunityMsg("✅ 設定已儲存，並已立即生效");
       // 儲存後重新拉一次，更新預覽數值
       await fetchCommunitySettings();
 
@@ -340,15 +340,10 @@ const ChargePoints = () => {
         <div className="flex items-center justify-between">
           <div className="text-lg font-bold">🏘️ 社區 Smart Charging（契約容量）</div>
 
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="enabled"
-              checked={!!communityCfg.enabled}
-              onChange={handleCommunityChange}
-            />
-            啟用
-          </label>
+          <div className="text-sm">
+            目前狀態：<span className="text-green-300 font-semibold">啟用中</span>
+            <span className="text-gray-400 ml-2">（儲存後立即生效）</span>
+          </div>
         </div>
 
         <div className="mt-3 flex flex-wrap gap-4 items-end">
