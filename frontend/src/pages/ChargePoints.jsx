@@ -450,7 +450,7 @@ const ChargePoints = () => {
 
 
 
-      </div>
+
     </div>
   );
 };
