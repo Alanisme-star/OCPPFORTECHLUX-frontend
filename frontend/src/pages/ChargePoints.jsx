@@ -132,7 +132,7 @@ const ChargePoints = () => {
    * 畫面標題（可留作後續 UI 調整）
    */
   const pageTitle = useMemo(() => {
-    return "充電樁管理（含電流限制）";
+    return "社區充電管理（含單機保護上限）";
   }, []);
 
   /**
@@ -515,10 +515,10 @@ const ChargePoints = () => {
           </label>
         </div>
 
-        {/* 最大電流設定（Dropdown） */}
+        {/* 單機保護上限（Dropdown） */}
         <div>
           <label>
-            最大電流
+            單機保護上限
             <select
               name="max_current"
               className="ml-2 p-1 rounded text-black"
@@ -532,17 +532,19 @@ const ChargePoints = () => {
               ))}
             </select>
           </label>
+        </div>
 
           {/* 這段說明與 LiveStatus 的提示一致（管理頁設定上限） */}
           <div className="text-xs text-gray-400 mt-1" style={{ lineHeight: 1.5 }}>
-            設定為「充電上限」，實際電流仍由車輛決定。
+            此欄位為「單機保護上限」，用於避免單一充電樁超過安全設定。
             <br />
-            ※ 若充電中且樁支援 SmartCharging，將立即生效；否則於下一次充電生效。
+            實際充電分配以「社區 Smart Charging（契約容量）」為優先。
+            <br />
+            ※ 若充電中且樁支援 SmartCharging，後端重分配後可立即生效；否則於下一次充電生效。
           </div>
 
-          {/* 額外提示：常用檔位 */}
           <div className="text-xs text-gray-500 mt-1" style={{ lineHeight: 1.5 }}>
-            建議常用檔位：6A / 10A / 16A / 32A（你也可以用即時狀態的 slider 微調）。
+            建議常用保護檔位：6A / 10A / 16A / 32A（通常作為單機上限，不代表實際分配值）。
           </div>
         </div>
 
@@ -576,7 +578,7 @@ const ChargePoints = () => {
               <th className="p-2">充電樁ID</th>
               <th className="p-2">名稱</th>
               <th className="p-2">狀態</th>
-              <th className="p-2">最大電流</th>
+              <th className="p-2">單機保護上限</th>
               <th className="p-2">操作</th>
             </tr>
           </thead>
@@ -616,10 +618,10 @@ const ChargePoints = () => {
                       </span>
                     </td>
 
-                    {/* 最大電流：顯示 label，並保留 A */}
+                    {/* 單機保護上限：顯示 label，避免與社區分流混淆 */}
                     <td className="p-2">
                       {maxCurrentLabel}{" "}
-                      <span className="text-gray-400">（上限）</span>
+                      <span className="text-gray-400">（保護上限）</span>
                     </td>
 
                     <td className="p-2 space-x-2">
@@ -662,13 +664,16 @@ const ChargePoints = () => {
       <div className="mt-6 text-xs text-gray-500" style={{ lineHeight: 1.6 }}>
         <div>說明：</div>
         <div>
-          1) 「充電樁管理」用於設定每一台樁的電流上限（上限值會寫入後端）。
+          1) 上方「社區 Smart Charging」為主要控制邏輯：依契約容量進行全場分配。
         </div>
         <div>
-          2) 「即時狀態」若充電中且樁支援 SmartCharging，可立即下發限流。
+          2) 下方每台樁的設定為「單機保護上限」，避免單機超過你設定的安全值。
         </div>
         <div>
-          3) 若樁不支援 SmartCharging，通常會於下一次充電流程套用設定。
+          3) 實際充電電流會受到車輛、樁支援能力、以及社區分流結果共同影響。
+        </div>
+        <div>
+          4) 若樁支援 SmartCharging，後端重分配可在充電中生效；否則多於下一次充電套用。
         </div>
       </div>
     </div>
