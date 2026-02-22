@@ -532,7 +532,7 @@ const ChargePoints = () => {
               ))}
             </select>
           </label>
-        </div>
+
 
           {/* 這段說明與 LiveStatus 的提示一致（管理頁設定上限） */}
           <div className="text-xs text-gray-400 mt-1" style={{ lineHeight: 1.5 }}>
