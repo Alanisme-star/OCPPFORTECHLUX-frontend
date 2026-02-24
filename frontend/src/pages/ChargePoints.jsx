@@ -457,9 +457,9 @@ const ChargePoints = () => {
 
         {/* 新增 / 編輯表單 */}
         <form onSubmit={handleSubmit} className="mb-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-12 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-8 gap-3">
             {/* 充電樁 ID */}
-            <div className="xl:col-span-3">
+            <div className="xl:col-span-2">
               <label className="text-sm block mb-1">充電樁 ID</label>
               <input
                 type="text"
@@ -476,7 +476,7 @@ const ChargePoints = () => {
             </div>
 
             {/* 名稱 */}
-            <div className="xl:col-span-3">
+            <div className="xl:col-span-2">
               <label className="text-sm block mb-1">名稱</label>
               <input
                 type="text"
@@ -491,7 +491,7 @@ const ChargePoints = () => {
             </div>
 
             {/* 狀態 */}
-            <div className="xl:col-span-2">
+            <div className="xl:col-span-1">
               <label className="text-sm block mb-1">狀態</label>
               <select
                 name="status"
@@ -510,7 +510,7 @@ const ChargePoints = () => {
             </div>
 
             {/* 單機保護上限 */}
-            <div className="xl:col-span-3">
+            <div className="xl:col-span-2">
               <label className="text-sm block mb-1">單機保護上限</label>
               <select
                 name="max_current"
