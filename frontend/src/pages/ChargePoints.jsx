@@ -457,40 +457,45 @@ const ChargePoints = () => {
 
         {/* 新增 / 編輯表單 */}
         <form onSubmit={handleSubmit} className="mb-4">
-          <div className="flex flex-wrap gap-3 items-end">
-            <div>
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-8 gap-3">
+            {/* 充電樁 ID */}
+            <div className="xl:col-span-2">
               <label className="text-sm block mb-1">充電樁 ID</label>
               <input
                 type="text"
                 name="charge_point_id"
-                className="p-2 rounded text-black min-w-[180px]"
+                className="h-12 w-full rounded text-black px-3"
                 value={form.charge_point_id}
                 onChange={handleChange}
                 placeholder="例如：CP_001"
                 disabled={!!editingId}
               />
-              <div className="text-xs text-gray-400 mt-1">
+              <div className="text-xs text-gray-400 mt-1 min-h-[20px]">
                 {editingId ? "編輯模式不可修改 ID" : "新增後作為 OCPP cp_id 使用"}
               </div>
             </div>
 
-            <div>
+            {/* 名稱 */}
+            <div className="xl:col-span-2">
               <label className="text-sm block mb-1">名稱</label>
               <input
                 type="text"
                 name="name"
-                className="p-2 rounded text-black min-w-[180px]"
+                className="h-12 w-full rounded text-black px-3"
                 value={form.name}
                 onChange={handleChange}
                 placeholder="例如：模擬樁1"
               />
+              {/* 保留 helper 高度，讓整體對齊 */}
+              <div className="text-xs text-gray-400 mt-1 min-h-[20px]">&nbsp;</div>
             </div>
 
-            <div>
+            {/* 狀態 */}
+            <div className="xl:col-span-1">
               <label className="text-sm block mb-1">狀態</label>
               <select
                 name="status"
-                className="p-2 rounded text-black"
+                className="h-12 w-full rounded text-black px-3 min-w-[110px]"
                 value={form.status}
                 onChange={handleChange}
               >
@@ -500,13 +505,16 @@ const ChargePoints = () => {
                   </option>
                 ))}
               </select>
+              {/* 保留 helper 高度，讓整體對齊 */}
+              <div className="text-xs text-gray-400 mt-1 min-h-[20px]">&nbsp;</div>
             </div>
 
-            <div>
+            {/* 單機保護上限 */}
+            <div className="xl:col-span-2">
               <label className="text-sm block mb-1">單機保護上限</label>
               <select
                 name="max_current"
-                className="p-2 rounded text-black min-w-[220px]"
+                className="h-12 w-full rounded text-black px-3"
                 value={form.max_current}
                 onChange={handleChange}
               >
@@ -516,29 +524,37 @@ const ChargePoints = () => {
                   </option>
                 ))}
               </select>
-              <div className="text-xs text-gray-400 mt-1">
+              <div className="text-xs text-gray-400 mt-1 min-h-[20px]">
                 實際充電仍受社區 Smart Charging 分配影響
               </div>
             </div>
 
-            <button
-              type="submit"
-              className="px-4 py-2 rounded bg-blue-700 text-white"
-            >
-              {editingId ? "儲存修改" : "＋ 新增充電樁"}
-            </button>
-
-            {editingId && (
+            {/* 主按鈕 */}
+            <div className="xl:col-span-1 flex items-end">
               <button
-                type="button"
-                className="px-4 py-2 rounded bg-gray-700 text-white"
-                onClick={cancelEdit}
+                type="submit"
+                className="h-12 w-full px-4 rounded bg-blue-700 text-white whitespace-nowrap"
               >
-                取消編輯
+                {editingId ? "儲存修改" : "＋ 新增充電樁"}
               </button>
+            </div>
+
+            {/* 編輯模式才顯示：取消按鈕（第二列） */}
+            {editingId && (
+              <div className="xl:col-span-8 flex justify-end">
+                <button
+                  type="button"
+                  className="h-12 px-4 rounded bg-gray-700 text-white"
+                  onClick={cancelEdit}
+                >
+                  取消編輯
+                </button>
+              </div>
             )}
           </div>
         </form>
+
+
 
         {/* 列表 */}
         <div className="overflow-x-auto">
