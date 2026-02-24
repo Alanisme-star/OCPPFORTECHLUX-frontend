@@ -442,7 +442,170 @@ const ChargePoints = () => {
         </div>
       </div>
 
+      {/* =========================
+          🔌 充電樁管理（新增 / 編輯 / 刪除）
+         ========================= */}
+      <div className="mb-6 p-4 rounded border border-blue-700 bg-gray-900">
+        <div className="flex items-center justify-between mb-3">
+          <div className="text-lg font-bold">
+            🔌 充電樁清單管理（可作為模擬樁白名單）
+          </div>
+          <div className="text-sm text-gray-400">
+            可新增 cp_id，供 OCPP 模擬器連線使用
+          </div>
+        </div>
 
+        {/* 新增 / 編輯表單 */}
+        <form onSubmit={handleSubmit} className="mb-4">
+          <div className="flex flex-wrap gap-3 items-end">
+            <div>
+              <label className="text-sm block mb-1">充電樁 ID</label>
+              <input
+                type="text"
+                name="charge_point_id"
+                className="p-2 rounded text-black min-w-[180px]"
+                value={form.charge_point_id}
+                onChange={handleChange}
+                placeholder="例如：CP_001"
+                disabled={!!editingId}
+              />
+              <div className="text-xs text-gray-400 mt-1">
+                {editingId ? "編輯模式不可修改 ID" : "新增後作為 OCPP cp_id 使用"}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-sm block mb-1">名稱</label>
+              <input
+                type="text"
+                name="name"
+                className="p-2 rounded text-black min-w-[180px]"
+                value={form.name}
+                onChange={handleChange}
+                placeholder="例如：模擬樁1"
+              />
+            </div>
+
+            <div>
+              <label className="text-sm block mb-1">狀態</label>
+              <select
+                name="status"
+                className="p-2 rounded text-black"
+                value={form.status}
+                onChange={handleChange}
+              >
+                {STATUS_OPTIONS.map((opt) => (
+                  <option value={opt.value} key={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm block mb-1">單機保護上限</label>
+              <select
+                name="max_current"
+                className="p-2 rounded text-black min-w-[220px]"
+                value={form.max_current}
+                onChange={handleChange}
+              >
+                {CURRENT_OPTIONS.map((opt) => (
+                  <option value={opt.value} key={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <div className="text-xs text-gray-400 mt-1">
+                實際充電仍受社區 Smart Charging 分配影響
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="px-4 py-2 rounded bg-blue-700 text-white"
+            >
+              {editingId ? "儲存修改" : "＋ 新增充電樁"}
+            </button>
+
+            {editingId && (
+              <button
+                type="button"
+                className="px-4 py-2 rounded bg-gray-700 text-white"
+                onClick={cancelEdit}
+              >
+                取消編輯
+              </button>
+            )}
+          </div>
+        </form>
+
+        {/* 列表 */}
+        <div className="overflow-x-auto">
+          {loading ? (
+            <div className="text-gray-300">載入中…</div>
+          ) : list.length === 0 ? (
+            <div className="text-gray-400">目前尚無充電樁資料</div>
+          ) : (
+            <table className="w-full text-sm border border-gray-700">
+              <thead className="bg-gray-800 text-gray-200">
+                <tr>
+                  <th className="text-left p-2 border-b border-gray-700">充電樁 ID</th>
+                  <th className="text-left p-2 border-b border-gray-700">名稱</th>
+                  <th className="text-left p-2 border-b border-gray-700">狀態</th>
+                  <th className="text-left p-2 border-b border-gray-700">單機保護上限</th>
+                  <th className="text-left p-2 border-b border-gray-700">操作</th>
+                </tr>
+              </thead>
+              <tbody>
+                {list.map((row, idx) => {
+                  const cpId = normalizeChargePointId(row);
+                  const maxCurrentStr = normalizeMaxCurrentToString(
+                    row?.maxCurrent ?? row?.max_current
+                  );
+
+                  return (
+                    <tr
+                      key={cpId || idx}
+                      className="border-t border-gray-800 hover:bg-gray-800/60"
+                    >
+                      <td className="p-2">{cpId || "-"}</td>
+                      <td className="p-2">{row?.name || "-"}</td>
+                      <td className="p-2">
+                        {row?.status === "enabled" ? (
+                          <span className="text-green-300 font-semibold">啟用</span>
+                        ) : (
+                          <span className="text-red-300 font-semibold">停用</span>
+                        )}
+                      </td>
+                      <td className="p-2">{getCurrentLabel(maxCurrentStr)}</td>
+                      <td className="p-2">
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            className="px-3 py-1 rounded bg-yellow-600 text-white"
+                            onClick={() => startEdit(row)}
+                          >
+                            編輯
+                          </button>
+                          <button
+                            type="button"
+                            className="px-3 py-1 rounded bg-red-700 text-white"
+                            onClick={() => handleDelete(cpId)}
+                            disabled={!cpId}
+                          >
+                            刪除
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
 
 
 
