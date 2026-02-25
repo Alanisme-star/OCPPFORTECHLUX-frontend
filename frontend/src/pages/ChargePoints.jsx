@@ -346,69 +346,69 @@ const ChargePoints = () => {
           </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-4 items-end">
+        {/* 🔧 讓紅框區域排列整齊：改用 Grid，label 置頂、input 滿版、按鈕獨立一列 */}
+        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start">
+          {/* 契約容量 */}
           <div>
-            <label className="text-sm">
-              契約容量（kW）
-              <input
-                type="number"
-                name="contractKw"
-                className="input input-bordered ml-2 p-1 rounded text-black"
-                value={communityCfg.contractKw}
-                onChange={handleCommunityChange}
-                placeholder="例如 100"
-                min={0}
-              />
-            </label>
+            <label className="text-sm block mb-1">契約容量（kW）</label>
+            <input
+              type="number"
+              name="contractKw"
+              className="h-10 w-full rounded text-black px-3"
+              value={communityCfg.contractKw}
+              onChange={handleCommunityChange}
+              placeholder="例如 100"
+              min={0}
+            />
           </div>
 
+          {/* 電壓 */}
           <div>
-            <label className="text-sm">
-              電壓（V）
-              <input
-                type="number"
-                name="voltageV"
-                className="input input-bordered ml-2 p-1 rounded text-black"
-                value={communityCfg.voltageV}
-                onChange={handleCommunityChange}
-                min={1}
-              />
-            </label>
+            <label className="text-sm block mb-1">電壓（V）</label>
+            <input
+              type="number"
+              name="voltageV"
+              className="h-10 w-full rounded text-black px-3"
+              value={communityCfg.voltageV}
+              onChange={handleCommunityChange}
+              min={1}
+            />
           </div>
 
+          {/* 最低電流 */}
           <div>
-            <label className="text-sm">
-              最低電流（A）
-              <input
-                type="number"
-                name="minCurrentA"
-                className="input input-bordered ml-2 p-1 rounded text-black"
-                value={communityCfg.minCurrentA}
-                onChange={handleCommunityChange}
-                min={1}
-              />
-            </label>
+            <label className="text-sm block mb-1">最低電流（A）</label>
+            <input
+              type="number"
+              name="minCurrentA"
+              className="h-10 w-full rounded text-black px-3"
+              value={communityCfg.minCurrentA}
+              onChange={handleCommunityChange}
+              min={1}
+            />
             <div className="text-xs text-gray-400 mt-1">低於此值：最後一台將被拒絕</div>
           </div>
 
+          {/* 單樁上限 */}
           <div>
-            <label className="text-sm">
-              單樁上限（A）
-              <input
-                type="number"
-                name="maxCurrentA"
-                className="input input-bordered ml-2 p-1 rounded text-black"
-                value={communityCfg.maxCurrentA}
-                onChange={handleCommunityChange}
-                min={1}
-              />
-            </label>
+            <label className="text-sm block mb-1">單樁上限（A）</label>
+            <input
+              type="number"
+              name="maxCurrentA"
+              className="h-10 w-full rounded text-black px-3"
+              value={communityCfg.maxCurrentA}
+              onChange={handleCommunityChange}
+              min={1}
+            />
             <div className="text-xs text-gray-400 mt-1">高於此值：仍以此上限充電</div>
           </div>
+        </div>
 
+        {/* 按鈕獨立一列，避免把欄位擠歪 */}
+        <div className="mt-4 flex flex-wrap gap-3">
           <button
             type="button"
-            className="px-4 py-1 rounded bg-green-700 text-white"
+            className="h-10 px-4 rounded bg-green-700 text-white"
             onClick={saveCommunitySettings}
             disabled={communitySaving}
           >
@@ -417,14 +417,13 @@ const ChargePoints = () => {
 
           <button
             type="button"
-            className="px-4 py-1 rounded bg-gray-700 text-white"
+            className="h-10 px-4 rounded bg-gray-700 text-white"
             onClick={fetchCommunitySettings}
             disabled={communityLoading}
           >
             {communityLoading ? "更新中…" : "重新讀取"}
           </button>
         </div>
-
         <div className="mt-3 text-sm text-gray-200" style={{ lineHeight: 1.7 }}>
           <div>🔎 預覽：</div>
           <div>• 可用總電流：<b>{communityPreview.totalCurrentA}</b> A</div>
