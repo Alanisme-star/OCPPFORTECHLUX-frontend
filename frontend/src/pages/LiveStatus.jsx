@@ -30,6 +30,10 @@ export default function LiveStatus() {
   const [allowedCurrentA, setAllowedCurrentA] = useState(null);
   const [smartReason, setSmartReason] = useState("");
 
+  // ⭐ 新增：Debug - 實際下發限流狀態（current_limit_state）
+  // { cp_id, requested_limit_a, applied, last_error, ... }
+  const [limitDebug, setLimitDebug] = useState(null);
+
 
   // ⭐ 新增：電流上限（A）— 先做前端 UI，可先不接後端
   const CURRENT_LIMIT_OPTIONS = [6, 10, 16, 32];
@@ -896,6 +900,7 @@ export default function LiveStatus() {
 
     const fetchSmartStatus = async () => {
       try {
+        // 1) 契約/裁決狀態
         const { data } = await axios.get("/api/community-settings");
 
         if (cancelled) return;
@@ -908,8 +913,23 @@ export default function LiveStatus() {
             ? Number(data.allowed_current_a)
             : null
         );
-
         setSmartReason(data.blocked_reason || "");
+
+        // 2) Debug：實際下發狀態（依目前選到的 cpId）
+        if (cpId) {
+          try {
+            const dbg = await axios.get(
+              `/api/debug/current-limit-state?cp_id=${encodeURIComponent(cpId)}`
+            );
+            const items = Array.isArray(dbg.data?.items) ? dbg.data.items : [];
+            setLimitDebug(items[0] || null);
+          } catch (e) {
+            // Debug API 失敗不影響主畫面
+            setLimitDebug(null);
+          }
+        } else {
+          setLimitDebug(null);
+        }
       } catch (err) {
         console.warn("[SMART][UI] fetch failed", err?.message);
       }
@@ -921,7 +941,7 @@ export default function LiveStatus() {
       cancelled = true;
       clearInterval(t);
     };
-  }, []);
+  }, [cpId]);
 
 
 
@@ -1082,19 +1102,34 @@ export default function LiveStatus() {
               <div>📐 契約容量：{communityKw} kW</div>
               <div>🚗 目前充電車輛：{activeCars} 台</div>
 
-              {allowedCurrentA != null ? (
-                <div>
-                  🔌 每台實際限流：
-                  <b style={{ color: "#8cff9a" }}>
-                    {" "}
-                    {allowedCurrentA.toFixed(1)} A
-                  </b>
-                </div>
-              ) : (
-                <div style={{ color: "#ff8080" }}>
-                  ⛔ 條件不足，最後一台將被拒絕充電
-                </div>
-              )}
+          {allowedCurrentA != null ? (
+            <>
+              <div>
+                🧮 理論（契約試算）：
+                <b style={{ color: "#8cff9a" }}>
+                  {" "}
+                  {allowedCurrentA.toFixed(1)} A
+                </b>
+              </div>
+              <div>
+                ✅ 實際（已下發）：
+                <b style={{ color: "#8cff9a" }}>
+                  {" "}
+                  {limitDebug?.requested_limit_a != null
+                    ? Number(limitDebug.requested_limit_a).toFixed(1)
+                    : "—"}{" "}
+                  A
+                </b>
+                {" "}
+                | applied={String(limitDebug?.applied ?? "—")}
+                {limitDebug?.last_error ? ` | err=${limitDebug.last_error}` : ""}
+              </div>
+            </>
+          ) : (
+            <div style={{ color: "#ff8080" }}>
+              ⛔ 條件不足，最後一台將被拒絕充電
+            </div>
+          )}
 
               {smartReason && (
                 <div style={{ marginTop: 6, color: "#ffb74d" }}>
