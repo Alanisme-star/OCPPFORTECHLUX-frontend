@@ -19,91 +19,30 @@ export default function LiveStatus() {
   const [liveVoltageV, setLiveVoltageV] = useState(0);
   const [liveCurrentA, setLiveCurrentA] = useState(0);
   const [liveEnergyKWh, setLiveEnergyKWh] = useState(0);
+  const [liveSingleCpMaxPowerKw, setLiveSingleCpMaxPowerKw] = useState(7);
 
 
   // =======================
   // 🏘️ Smart Charging（後端裁決顯示）
+  // 第一階段：功率分配模式
   // =======================
   const [smartEnabled, setSmartEnabled] = useState(false);
   const [communityKw, setCommunityKw] = useState(0);
   const [activeCars, setActiveCars] = useState(0);
-  const [allowedCurrentA, setAllowedCurrentA] = useState(null);
+  const [allocatedPowerKw, setAllocatedPowerKw] = useState(null);
+  const [previewCurrentA, setPreviewCurrentA] = useState(null);
+  const [singleCpMaxPowerKw, setSingleCpMaxPowerKw] = useState(7);
+  const [smartManagedBy, setSmartManagedBy] = useState("power");
   const [smartReason, setSmartReason] = useState("");
 
-  // ⭐ 新增：Debug - 實際下發限流狀態（current_limit_state）
-  // { cp_id, requested_limit_a, applied, last_error, ... }
+  // Debug - 實際下發狀態（current_limit_state）
+  // { cp_id, requested_limit_a, requested_power_kw, applied, last_error, ... }
   const [limitDebug, setLimitDebug] = useState(null);
 
-
-  // ⭐ 新增：電流上限（A）— 先做前端 UI，可先不接後端
-  const CURRENT_LIMIT_OPTIONS = [6, 10, 16, 32];
-  const [currentLimitA, setCurrentLimitA] = useState(6);
-  const [currentLimitDirty, setCurrentLimitDirty] = useState(false); // 使用者是否動過 slider
-
-  // =====================================================
-  // ⭐ 進頁 / 切換充電樁時，讀取後端保存的電流上限
-  // =====================================================
-  useEffect(() => {
-    console.log("[DEBUG][CURRENT_LIMIT][EFFECT_ENTER]", "cpId=", cpId);
-
-    if (!cpId) return;
-
-    let cancelled = false;
-
-    // ✅ 關鍵修正 1：
-    // 換頁 / 切換充電樁時，允許後端值重新覆蓋
-    setCurrentLimitDirty(false);
-
-    const fetchCurrentLimit = async () => {
-      try {
-        console.log(
-          "[DEBUG][CURRENT_LIMIT][GET][ENTER]",
-          "cpId=", cpId
-        );
-
-        // ✅ 關鍵修正 2：改用 axios（確保打到後端）
-        const res = await axios.get(
-          `/api/charge-points/${encodeURIComponent(cpId)}/current-limit`
-        );
-
-        const data = res?.data;
-        const val = Number(data?.maxCurrentA);
-
-        console.log(
-          "[DEBUG][CURRENT_LIMIT][GET][OK]",
-          "cpId=", cpId,
-          "backendRaw=", data,
-          "backendVal=", val
-        );
-
-        // ✅ 關鍵修正 3：
-        // 後端有值就一定套用（跨頁回來最重要）
-        if (!cancelled && Number.isFinite(val)) {
-          console.log("[DEBUG][CURRENT_LIMIT][APPLY_BACKEND]", val);
-          setCurrentLimitA(val);
-        }
-
-      } catch (err) {
-        console.log(
-          "[DEBUG][CURRENT_LIMIT][GET][ERR]",
-          "cpId=", cpId,
-          "status=", err?.response?.status,
-          "msg=", err?.message
-        );
-      }
-    };
-
-    fetchCurrentLimit();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [cpId]);
-
-
-  // ⭐ 新增：套用狀態（避免滑一下就打 API）
-  const [applyLoading, setApplyLoading] = useState(false);
-  const [applyMsg, setApplyMsg] = useState("");
+  // live-status 補充欄位（由後端提供）
+  const [liveAllocatedPowerKw, setLiveAllocatedPowerKw] = useState(null);
+  const [livePreviewCurrentA, setLivePreviewCurrentA] = useState(null);
+  const [liveManagedBy, setLiveManagedBy] = useState("power");
 
 
   // 電費
@@ -451,6 +390,22 @@ export default function LiveStatus() {
         setLiveStale(false);
 
         const live = liveRes.data || {};
+        setLiveAllocatedPowerKw(
+          Number.isFinite(Number(live?.allocated_power_kw))
+            ? Number(live.allocated_power_kw)
+            : null
+        );
+        setLivePreviewCurrentA(
+          Number.isFinite(Number(live?.preview_current_a))
+            ? Number(live.preview_current_a)
+            : null
+        );
+        setLiveManagedBy(live?.managed_by ?? "power");
+        setLiveSingleCpMaxPowerKw(
+          Number.isFinite(Number(live?.single_cp_max_power_kw))
+            ? Number(live.single_cp_max_power_kw)
+            : 7
+        );
 
         // 🔒 Step4 Gate：非「有效充電」時，直接歸零並中斷
         if (!isChargingEffective) {
@@ -861,36 +816,6 @@ export default function LiveStatus() {
 
 
 
-  // ⭐ 新增：送出電流上限到後端（Step1：先送到後端，後端先只收+存+log）
-  const applyCurrentLimitToBackend = async () => {
-    if (!cpId) return;
-
-    setApplyLoading(true);
-    setApplyMsg("");
-
-    try {
-        console.log(
-            "[DEBUG][CURRENT_LIMIT][POST]",
-            "cpId=", cpId,
-            "send=", Number(currentLimitA)
-        );
-
-        await axios.post(
-            `/api/charge-points/${encodeURIComponent(cpId)}/current-limit`,
-            { limit_amps: Number(currentLimitA) }
-        );
-
-        console.log("[DEBUG][CURRENT_LIMIT][POST_OK]");
-        setApplyMsg(`✅ 已送出上限：${Number(currentLimitA)}A`);
-
-    } catch (err) {
-      setApplyMsg(`❌ 送出失敗：${err?.message || "unknown"}`);
-    } finally {
-      setApplyLoading(false);
-      setCurrentLimitDirty(false);
-    }
-  };
-
 
   // =======================
   // 🏘️ Smart Charging 狀態輪詢（後端裁決）
@@ -900,7 +825,7 @@ export default function LiveStatus() {
 
     const fetchSmartStatus = async () => {
       try {
-        // 1) 契約/裁決狀態
+        // 1) 契約 / 分配狀態
         const { data } = await axios.get("/api/community-settings");
 
         if (cancelled) return;
@@ -908,11 +833,22 @@ export default function LiveStatus() {
         setSmartEnabled(!!data.enabled);
         setCommunityKw(Number(data.contract_kw || 0));
         setActiveCars(Number(data.active_charging_count || 0));
-        setAllowedCurrentA(
-          Number.isFinite(data.allowed_current_a)
-            ? Number(data.allowed_current_a)
+        setAllocatedPowerKw(
+          Number.isFinite(Number(data.allocated_power_kw))
+            ? Number(data.allocated_power_kw)
             : null
         );
+        setPreviewCurrentA(
+          Number.isFinite(Number(data.preview_current_a))
+            ? Number(data.preview_current_a)
+            : null
+        );
+        setSingleCpMaxPowerKw(
+          Number.isFinite(Number(data.single_cp_max_power_kw))
+            ? Number(data.single_cp_max_power_kw)
+            : 7
+        );
+        setSmartManagedBy(data.managed_by ?? "power");
         setSmartReason(data.blocked_reason || "");
 
         // 2) Debug：實際下發狀態（依目前選到的 cpId）
@@ -924,7 +860,6 @@ export default function LiveStatus() {
             const items = Array.isArray(dbg.data?.items) ? dbg.data.items : [];
             setLimitDebug(items[0] || null);
           } catch (e) {
-            // Debug API 失敗不影響主畫面
             setLimitDebug(null);
           }
         } else {
@@ -1094,52 +1029,137 @@ export default function LiveStatus() {
               border: "1px solid #4caf50",
             }}
           >
-            <div style={{ fontWeight: "bold", marginBottom: 6 }}>
+            <div style={{ fontWeight: "bold", marginBottom: 10 }}>
               🏘️ 社區 Smart Charging
             </div>
 
-            <div style={{ fontSize: 14, lineHeight: 1.6 }}>
-              <div>📐 契約容量：{communityKw} kW</div>
-              <div>🚗 目前充電車輛：{activeCars} 台</div>
-
-          {allowedCurrentA != null ? (
-            <>
-              <div>
-                🧮 理論（契約試算）：
-                <b style={{ color: "#8cff9a" }}>
-                  {" "}
-                  {allowedCurrentA.toFixed(1)} A
-                </b>
-              </div>
-              <div>
-                ✅ 實際（已下發）：
-                <b style={{ color: "#8cff9a" }}>
-                  {" "}
-                  {limitDebug?.requested_limit_a != null
-                    ? Number(limitDebug.requested_limit_a).toFixed(1)
-                    : "—"}{" "}
-                  A
-                </b>
-                {" "}
-                | applied={String(limitDebug?.applied ?? "—")}
-                {limitDebug?.last_error ? ` | err=${limitDebug.last_error}` : ""}
-              </div>
-            </>
-          ) : (
-            <div style={{ color: "#ff8080" }}>
-              ⛔ 條件不足，最後一台將被拒絕充電
-            </div>
-          )}
-
-              {smartReason && (
-                <div style={{ marginTop: 6, color: "#ffb74d" }}>
-                  ⚠️ 原因：{smartReason}
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: 10,
+                fontSize: 14,
+              }}
+            >
+              <div style={{ background: "#1f2a23", border: "1px solid #3f5a49", borderRadius: 8, padding: 10 }}>
+                <div style={{ color: "#9fb7a7", marginBottom: 4 }}>管理模式</div>
+                <div style={{ color: "#7ec8ff", fontWeight: "bold" }}>
+                  {smartManagedBy === "power" ? "功率分配" : smartManagedBy || "-"}
                 </div>
-              )}
+              </div>
+
+              <div style={{ background: "#1f2a23", border: "1px solid #3f5a49", borderRadius: 8, padding: 10 }}>
+                <div style={{ color: "#9fb7a7", marginBottom: 4 }}>契約容量</div>
+                <div style={{ color: "#fff", fontWeight: "bold" }}>
+                  {communityKw} kW
+                </div>
+              </div>
+
+              <div style={{ background: "#1f2a23", border: "1px solid #3f5a49", borderRadius: 8, padding: 10 }}>
+                <div style={{ color: "#9fb7a7", marginBottom: 4 }}>目前充電台數</div>
+                <div style={{ color: "#fff", fontWeight: "bold" }}>
+                  {activeCars} 台
+                </div>
+              </div>
+
+              <div style={{ background: "#1f2a23", border: "1px solid #3f5a49", borderRadius: 8, padding: 10 }}>
+                <div style={{ color: "#9fb7a7", marginBottom: 4 }}>單樁固定上限</div>
+                <div style={{ color: "#8cff9a", fontWeight: "bold" }}>
+                  {singleCpMaxPowerKw ?? 7} kW
+                </div>
+              </div>
+
+              <div style={{ background: "#1f2a23", border: "1px solid #3f5a49", borderRadius: 8, padding: 10 }}>
+                <div style={{ color: "#9fb7a7", marginBottom: 4 }}>每樁分配功率</div>
+                <div style={{ fontWeight: "bold" }}>
+                  {allocatedPowerKw != null ? (
+                    <span style={{ color: "#8cff9a" }}>{allocatedPowerKw} kW</span>
+                  ) : (
+                    <span style={{ color: "#ff8080" }}>—</span>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ background: "#1f2a23", border: "1px solid #3f5a49", borderRadius: 8, padding: 10 }}>
+                <div style={{ color: "#9fb7a7", marginBottom: 4 }}>預估下發電流</div>
+                <div style={{ fontWeight: "bold" }}>
+                  {previewCurrentA != null ? (
+                    <span style={{ color: "#7ec8ff" }}>{previewCurrentA} A</span>
+                  ) : (
+                    <span style={{ color: "#ff8080" }}>—</span>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ background: "#1f2a23", border: "1px solid #3f5a49", borderRadius: 8, padding: 10 }}>
+                <div style={{ color: "#9fb7a7", marginBottom: 4 }}>本樁顯示分配功率</div>
+                <div style={{ fontWeight: "bold" }}>
+                  {liveAllocatedPowerKw != null ? (
+                    <span style={{ color: "#8cff9a" }}>{liveAllocatedPowerKw} kW</span>
+                  ) : (
+                    <span style={{ color: "#ff8080" }}>—</span>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ background: "#1f2a23", border: "1px solid #3f5a49", borderRadius: 8, padding: 10 }}>
+                <div style={{ color: "#9fb7a7", marginBottom: 4 }}>本樁預估下發電流</div>
+                <div style={{ fontWeight: "bold" }}>
+                  {livePreviewCurrentA != null ? (
+                    <span style={{ color: "#7ec8ff" }}>{livePreviewCurrentA} A</span>
+                  ) : (
+                    <span style={{ color: "#ff8080" }}>—</span>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ background: "#1f2a23", border: "1px solid #3f5a49", borderRadius: 8, padding: 10 }}>
+                <div style={{ color: "#9fb7a7", marginBottom: 4 }}>後端實際請求下發</div>
+                <div style={{ fontWeight: "bold", color: "#fff" }}>
+                  {limitDebug?.requested_limit_a != null
+                    ? `${Number(limitDebug.requested_limit_a).toFixed(1)} A`
+                    : "—"}
+                </div>
+                <div style={{ marginTop: 4, fontWeight: "bold" }}>
+                  {limitDebug?.requested_power_kw != null ? (
+                    <span style={{ color: "#8cff9a" }}>
+                      {Number(limitDebug.requested_power_kw).toFixed(3)} kW
+                    </span>
+                  ) : (
+                    <span style={{ color: "#ff8080" }}>—</span>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ background: "#1f2a23", border: "1px solid #3f5a49", borderRadius: 8, padding: 10 }}>
+                <div style={{ color: "#9fb7a7", marginBottom: 4 }}>是否已套用</div>
+                <div
+                  style={{
+                    fontWeight: "bold",
+                    color: limitDebug?.applied ? "#8cff9a" : "#ffd27f",
+                  }}
+                >
+                  {limitDebug?.applied ? "是" : "否"}
+                </div>
+                <div style={{ marginTop: 4, color: "#ff9f9f", fontSize: 12 }}>
+                  {limitDebug?.last_error || "—"}
+                </div>
+              </div>
             </div>
+
+            {allocatedPowerKw == null && (
+              <div style={{ marginTop: 10, color: "#ff8080", fontSize: 14 }}>
+                ⛔ 條件不足，最後一台將被拒絕充電
+              </div>
+            )}
+
+            {smartReason && (
+              <div style={{ marginTop: 10, color: "#ffb74d", fontSize: 14 }}>
+                ⚠️ 原因：{smartReason}
+              </div>
+            )}
           </div>
         )}
-
 
 
       <label>卡片 ID：</label>
@@ -1210,6 +1230,18 @@ export default function LiveStatus() {
       <p>⚡ 即時功率：{livePowerKw.toFixed(2)} kW</p>
       <p>🔋 本次充電累積電量：{liveEnergyKWh.toFixed(3)} kWh</p>
       <p>💰 預估電費（多時段）：{liveCost.toFixed(3)} 元</p>
+      <div style={{ marginTop: 8, marginBottom: 8, fontSize: 13, color: "#bbb", lineHeight: 1.7 }}>
+        <div>🏘️ 管理模式：{liveManagedBy === "power" ? "功率分配" : liveManagedBy || "-"}</div>
+        <div>🔒 本樁固定上限：{liveSingleCpMaxPowerKw ?? 7} kW</div>
+        <div>
+          ⚖️ 本樁顯示分配功率：
+          {liveAllocatedPowerKw != null ? ` ${liveAllocatedPowerKw} kW` : " —"}
+        </div>
+        <div>
+          🔽 本樁預估下發電流：
+          {livePreviewCurrentA != null ? ` ${livePreviewCurrentA} A` : " —"}
+        </div>
+      </div>
 
 
 
