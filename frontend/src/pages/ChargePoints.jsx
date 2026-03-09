@@ -4,19 +4,22 @@ import axios from "../axiosInstance";
 /**
  * ============================================================
  * ChargePoints.jsx
- * 充電樁管理（含電流限制）
+ * 第一階段：充電樁管理（功率分配模式）
  *
- * ✅ 本次修正重點：
- * 1) 修正「按下編輯時，最大電流下拉仍固定 16A」的問題
- *    - React <select> 的 value 會以字串比對
- *    - 因此我們統一在 form state 使用字串（"6"/"10"/"16"/"32"）
- *    - 只有在送到後端時才 Number(form.max_current)
+ * ✅ 本次調整重點：
+ * 1) 管理邏輯改為「功率思維」
+ *    - 社區由契約容量（kW）統一管理
+ *    - 每樁固定上限為 7kW
+ *    - 不再提供每支樁上下限電流設定
  *
- * 2) 顯示與行為邏輯對齊 LiveStatus：
- *    - 管理頁：設定「上限」
- *    - 即時狀態：充電中可立即下發（樁支援 SmartCharging 才會立即生效）
+ * 2) 前端畫面改為顯示：
+ *    - 系統自動分配功率
+ *    - 單機固定上限 7kW
+ *    - 社區預覽分配功率 / 預估電流
  *
- * 3) 保持原本 API payload key 命名方式（chargePointId / maxCurrent）
+ * 3) CRUD 先保留基本相容
+ *    - 充電樁仍可新增 / 編輯名稱 / 啟停
+ *    - 第一階段不再讓使用者設定單樁 maxCurrent
  *
  * ============================================================
  */
@@ -29,32 +32,6 @@ const STATUS_OPTIONS = [
   { value: "disabled", label: "停用" },
 ];
 
-/**
- * 常用電流選項（業界實務）
- *
- * ⚠️ 注意：
- * - <select> 的 value 比對是「字串」為主
- * - 所以 value 統一用字串 "6" "10" "16" "32"
- * - 送出 API 時再 Number() 轉成數字
- */
-const CURRENT_OPTIONS = [
-  { value: "6", label: "6A（低負載 / 夜間）" },
-  { value: "10", label: "10A（家用安全）" },
-  { value: "16", label: "16A（標準）" },
-  { value: "32", label: "32A（最大）" },
-];
-
-/**
- * 小工具：把後端回來的 maxCurrent / max_current 安全轉成字串
- * - 若後端沒給值，回 "16"
- * - 若後端給 16（number），回 "16"
- * - 若後端給 "16"（string），也回 "16"
- */
-const normalizeMaxCurrentToString = (v) => {
-  const n = Number(v);
-  if (!Number.isFinite(n) || n <= 0) return "16";
-  return String(n);
-};
 
 /**
  * 小工具：把 chargePointId 轉成可比較的 id 字串
@@ -63,13 +40,6 @@ const normalizeChargePointId = (row) => {
   return row?.chargePointId || row?.charge_point_id || "";
 };
 
-/**
- * 小工具：從 CURRENT_OPTIONS 取得顯示 label（用於列表顯示更清楚）
- */
-const getCurrentLabel = (valueStr) => {
-  const opt = CURRENT_OPTIONS.find((x) => String(x.value) === String(valueStr));
-  return opt?.label || `${valueStr}A`;
-};
 
 const ChargePoints = () => {
   /**
@@ -90,14 +60,16 @@ const ChargePoints = () => {
     contractKw: "",
     voltageV: 220,
     minCurrentA: 16,
-    maxCurrentA: 32,
   });
 
   const [communityPreview, setCommunityPreview] = useState({
     totalCurrentA: 0,
     maxCarsByMin: 0,
-    allowedCurrentA: null,
+    allocatedPowerKw: null,
+    previewCurrentA: null,
     activeChargingCount: 0,
+    managedBy: "power",
+    singleCpMaxPowerKw: 7,
   });
 
   const [communityLoading, setCommunityLoading] = useState(false);
@@ -118,7 +90,6 @@ const ChargePoints = () => {
     charge_point_id: "",
     name: "",
     status: "enabled",
-    max_current: "16",
   });
 
   /**
@@ -132,7 +103,7 @@ const ChargePoints = () => {
    * 畫面標題（可留作後續 UI 調整）
    */
   const pageTitle = useMemo(() => {
-    return "社區充電管理（含單機保護上限）";
+    return "社區充電管理（功率分配模式）";
   }, []);
 
   /**
@@ -164,32 +135,35 @@ const ChargePoints = () => {
       const res = await axios.get("/api/community-settings");
       const d = res?.data || {};
 
-      // 表單用（給使用者可編輯的欄位）
+      // 表單用（第一階段僅保留社區層可編輯欄位）
       setCommunityCfg({
-        enabled: true,
+        enabled: d.enabled ?? true,
         contractKw: d.contract_kw ?? d.contractKw ?? "",
         voltageV: Number(d.voltage_v ?? d.voltageV ?? 220),
         minCurrentA: Number(d.min_current_a ?? d.minCurrentA ?? 16),
-        maxCurrentA: Number(d.max_current_a ?? d.maxCurrentA ?? 32),
       });
 
-      // 預覽用（純顯示）
+      // 預覽用（功率分配模式）
       setCommunityPreview({
         totalCurrentA: Number(d.total_current_a ?? 0),
         maxCarsByMin: Number(d.max_cars_by_min ?? 0),
-        allowedCurrentA:
-          Number.isFinite(Number(d.allowed_current_a))
-            ? Number(d.allowed_current_a)
+        allocatedPowerKw:
+          Number.isFinite(Number(d.allocated_power_kw))
+            ? Number(d.allocated_power_kw)
+            : null,
+        previewCurrentA:
+          Number.isFinite(Number(d.preview_current_a))
+            ? Number(d.preview_current_a)
             : null,
         activeChargingCount: Number(d.active_charging_count ?? 0),
+        managedBy: d.managed_by ?? "power",
+        singleCpMaxPowerKw: Number(d.single_cp_max_power_kw ?? 7),
       });
-
     } catch (err) {
       setCommunityMsg("❌ 讀取社區設定失敗：" + (err?.message || "unknown"));
     }
     setCommunityLoading(false);
   };
-
   useEffect(() => {
     fetchCommunitySettings();
   }, []);
@@ -207,18 +181,15 @@ const ChargePoints = () => {
     setCommunityMsg("");
     try {
       await axios.post("/api/community-settings", {
-        enabled: true,
+        enabled: Boolean(communityCfg.enabled),
         contractKw: Number(communityCfg.contractKw || 0),
         voltageV: Number(communityCfg.voltageV || 220),
         phases: 1,
         minCurrentA: Number(communityCfg.minCurrentA || 16),
-        maxCurrentA: Number(communityCfg.maxCurrentA || 32),
       });
 
       setCommunityMsg("✅ 設定已儲存，並已立即生效");
-      // 儲存後重新拉一次，更新預覽數值
       await fetchCommunitySettings();
-
     } catch (err) {
       setCommunityMsg("❌ 儲存失敗：" + (err?.message || "unknown"));
     }
@@ -230,13 +201,16 @@ const ChargePoints = () => {
   /**
    * 表單欄位變動
    *
-   * 注意：
-   * - 這裡一律以 e.target.value 進來（字串）
-   * - status / max_current 都會是字串
+   * 第一階段：
+   * - 只處理 charge_point_id / name / status
+   * - 不再處理單樁 max_current
    */
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
   };
 
   /**
@@ -247,8 +221,8 @@ const ChargePoints = () => {
       charge_point_id: "",
       name: "",
       status: "enabled",
-      max_current: "16",
     });
+    setEditingId(null);
   };
 
   /**
@@ -257,31 +231,26 @@ const ChargePoints = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    /**
-     * payload：維持你原本設計
-     * - chargePointId: string
-     * - maxCurrent: number
-     */
+    const cpId = String(form.charge_point_id || "").trim();
     const payload = {
-      chargePointId: form.charge_point_id,
-      name: form.name,
+      chargePointId: cpId,
+      name: String(form.name || "").trim(),
       status: form.status,
-      maxCurrent: Number(form.max_current), // ✅ 送出時轉數字（與 LiveStatus 一致）
     };
 
     try {
       if (editingId) {
         await axios.put(`/api/charge-points/${editingId}`, payload);
-        setEditingId(null);
+        alert("更新成功");
       } else {
         await axios.post("/api/charge-points", payload);
+        alert("新增成功");
       }
 
-      // 成功後重置 & 刷新
       resetFormToDefault();
-      fetchList();
+      await fetchList();
     } catch (err) {
-      alert("儲存失敗：" + err.message);
+      alert("儲存失敗：" + (err?.response?.data?.detail || err.message));
     }
   };
 
@@ -293,20 +262,15 @@ const ChargePoints = () => {
    * - 否則 select 無法匹配 option，會看起來像「永遠停在預設 16」
    */
   const startEdit = (row) => {
-    const id = normalizeChargePointId(row);
+    const cpId = normalizeChargePointId(row);
 
     setForm({
-      charge_point_id: id,
-      name: row?.name || "",
-      status: row?.status || "enabled",
-
-      // ✅ 修正：一律轉字串（"16" / "32"）
-      max_current: normalizeMaxCurrentToString(row?.maxCurrent ?? row?.max_current),
+      charge_point_id: cpId,
+      name: row?.name ?? "",
+      status: row?.status ?? "enabled",
     });
-
-    setEditingId(id);
+    setEditingId(cpId);
   };
-
   /**
    * 取消編輯
    */
@@ -389,18 +353,15 @@ const ChargePoints = () => {
             <div className="text-xs text-gray-400 mt-1">低於此值：最後一台將被拒絕</div>
           </div>
 
-          {/* 單樁上限 */}
+          {/* 單樁固定上限（第一階段） */}
           <div>
-            <label className="text-sm block mb-1">單樁上限（A）</label>
-            <input
-              type="number"
-              name="maxCurrentA"
-              className="h-10 w-full rounded text-black px-3"
-              value={communityCfg.maxCurrentA}
-              onChange={handleCommunityChange}
-              min={1}
-            />
-            <div className="text-xs text-gray-400 mt-1">高於此值：仍以此上限充電</div>
+            <label className="text-sm block mb-1">單樁固定上限</label>
+            <div className="h-10 w-full rounded bg-gray-800 border border-gray-700 px-3 flex items-center text-green-300 font-semibold">
+              {communityPreview.singleCpMaxPowerKw ?? 7} kW
+            </div>
+            <div className="text-xs text-gray-400 mt-1">
+              第一階段固定值，由系統自動分配，不提供手動修改
+            </div>
           </div>
         </div>
 
@@ -426,15 +387,25 @@ const ChargePoints = () => {
         </div>
         <div className="mt-3 text-sm text-gray-200" style={{ lineHeight: 1.7 }}>
           <div>🔎 預覽：</div>
-          <div>• 可用總電流：<b>{communityPreview.totalCurrentA}</b> A</div>
+          <div>• 管理模式：<b>{communityPreview.managedBy === "power" ? "功率分配" : communityPreview.managedBy || "-"}</b></div>
+          <div>• 可用總電流（參考）：<b>{communityPreview.totalCurrentA}</b> A</div>
           <div>• 目前充電台數：<b>{communityPreview.activeChargingCount}</b> 台</div>
           <div>• 依最低電流推算「最多同時可充」：<b>{communityPreview.maxCarsByMin}</b> 台</div>
+          <div>• 單樁固定上限：<b className="text-green-300">{communityPreview.singleCpMaxPowerKw ?? 7} kW</b></div>
           <div>
-            • 後端目前分配（每台）：{" "}
-            {communityPreview.allowedCurrentA != null ? (
-              <b className="text-green-300">{communityPreview.allowedCurrentA} A</b>
+            • 後端目前分配（每台功率）：{" "}
+            {communityPreview.allocatedPowerKw != null ? (
+              <b className="text-green-300">{communityPreview.allocatedPowerKw} kW</b>
             ) : (
               <b className="text-red-300">（將拒絕最後一台）</b>
+            )}
+          </div>
+          <div>
+            • 預估下發電流：{" "}
+            {communityPreview.previewCurrentA != null ? (
+              <b className="text-blue-300">{communityPreview.previewCurrentA} A</b>
+            ) : (
+              <b className="text-red-300">-</b>
             )}
           </div>
           {communityMsg && <div className="mt-2">{communityMsg}</div>}
@@ -456,7 +427,7 @@ const ChargePoints = () => {
 
         {/* 新增 / 編輯表單 */}
         <form onSubmit={handleSubmit} className="mb-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-8 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-7 gap-3">
             {/* 充電樁 ID */}
             <div className="xl:col-span-2">
               <label className="text-sm block mb-1">充電樁 ID</label>
@@ -508,23 +479,14 @@ const ChargePoints = () => {
               <div className="text-xs text-gray-400 mt-1 min-h-[20px]">&nbsp;</div>
             </div>
 
-            {/* 單機保護上限 */}
+            {/* 單樁固定上限（第一階段） */}
             <div className="xl:col-span-2">
-              <label className="text-sm block mb-1">單機保護上限</label>
-              <select
-                name="max_current"
-                className="h-12 w-full rounded text-black px-3"
-                value={form.max_current}
-                onChange={handleChange}
-              >
-                {CURRENT_OPTIONS.map((opt) => (
-                  <option value={opt.value} key={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+              <label className="text-sm block mb-1">單樁固定上限</label>
+              <div className="h-12 w-full rounded bg-gray-800 border border-gray-700 px-3 flex items-center text-green-300 font-semibold">
+                {communityPreview.singleCpMaxPowerKw ?? 7} kW
+              </div>
               <div className="text-xs text-gray-400 mt-1 min-h-[20px]">
-                實際充電仍受社區 Smart Charging 分配影響
+                由系統自動分配功率，實際下發時會換算為電流
               </div>
             </div>
 
@@ -540,7 +502,7 @@ const ChargePoints = () => {
 
             {/* 編輯模式才顯示：取消按鈕（第二列） */}
             {editingId && (
-              <div className="xl:col-span-8 flex justify-end">
+              <div className="xl:col-span-7 flex justify-end">
                 <button
                   type="button"
                   className="h-12 px-4 rounded bg-gray-700 text-white"
@@ -568,16 +530,19 @@ const ChargePoints = () => {
                   <th className="text-left p-2 border-b border-gray-700">充電樁 ID</th>
                   <th className="text-left p-2 border-b border-gray-700">名稱</th>
                   <th className="text-left p-2 border-b border-gray-700">狀態</th>
-                  <th className="text-left p-2 border-b border-gray-700">單機保護上限</th>
+                  <th className="text-left p-2 border-b border-gray-700">管理模式</th>
+                  <th className="text-left p-2 border-b border-gray-700">單樁固定上限</th>
                   <th className="text-left p-2 border-b border-gray-700">操作</th>
                 </tr>
               </thead>
               <tbody>
                 {list.map((row, idx) => {
                   const cpId = normalizeChargePointId(row);
-                  const maxCurrentStr = normalizeMaxCurrentToString(
-                    row?.maxCurrent ?? row?.max_current
-                  );
+                  const singleCpMaxPowerKw =
+                    row?.singleCpMaxPowerKw ??
+                    row?.single_cp_max_power_kw ??
+                    communityPreview.singleCpMaxPowerKw ??
+                    7;
 
                   return (
                     <tr
@@ -593,7 +558,12 @@ const ChargePoints = () => {
                           <span className="text-red-300 font-semibold">停用</span>
                         )}
                       </td>
-                      <td className="p-2">{getCurrentLabel(maxCurrentStr)}</td>
+                      <td className="p-2">
+                        <span className="text-blue-300 font-semibold">功率分配</span>
+                      </td>
+                      <td className="p-2">
+                        <span className="text-green-300 font-semibold">{singleCpMaxPowerKw} kW</span>
+                      </td>
                       <td className="p-2">
                         <div className="flex flex-wrap gap-2">
                           <button
