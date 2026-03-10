@@ -24,7 +24,7 @@ export default function LiveStatus() {
 
   // =======================
   // 🏘️ Smart Charging（後端裁決顯示）
-  // 第一階段：功率分配模式
+  // 目前規則：依契約容量與同時充電台數，動態平均分配功率
   // =======================
   const [smartEnabled, setSmartEnabled] = useState(false);
   const [communityKw, setCommunityKw] = useState(0);
@@ -35,7 +35,7 @@ export default function LiveStatus() {
   const [smartManagedBy, setSmartManagedBy] = useState("power");
   const [smartReason, setSmartReason] = useState("");
 
-  // Debug - 實際下發狀態（current_limit_state）
+  // Debug - 後端實際下發狀態（current_limit_state）
   // { cp_id, requested_limit_a, requested_power_kw, applied, last_error, ... }
   const [limitDebug, setLimitDebug] = useState(null);
 
@@ -1063,14 +1063,14 @@ export default function LiveStatus() {
               </div>
 
               <div style={{ background: "#1f2a23", border: "1px solid #3f5a49", borderRadius: 8, padding: 10 }}>
-                <div style={{ color: "#9fb7a7", marginBottom: 4 }}>單樁固定上限</div>
+                <div style={{ color: "#9fb7a7", marginBottom: 4 }}>單樁理論上限</div>
                 <div style={{ color: "#8cff9a", fontWeight: "bold" }}>
                   {singleCpMaxPowerKw ?? 7} kW
                 </div>
               </div>
 
               <div style={{ background: "#1f2a23", border: "1px solid #3f5a49", borderRadius: 8, padding: 10 }}>
-                <div style={{ color: "#9fb7a7", marginBottom: 4 }}>每樁分配功率</div>
+                <div style={{ color: "#9fb7a7", marginBottom: 4 }}>目前平均分配功率</div>
                 <div style={{ fontWeight: "bold" }}>
                   {allocatedPowerKw != null ? (
                     <span style={{ color: "#8cff9a" }}>{allocatedPowerKw} kW</span>
@@ -1092,7 +1092,7 @@ export default function LiveStatus() {
               </div>
 
               <div style={{ background: "#1f2a23", border: "1px solid #3f5a49", borderRadius: 8, padding: 10 }}>
-                <div style={{ color: "#9fb7a7", marginBottom: 4 }}>本樁顯示分配功率</div>
+                <div style={{ color: "#9fb7a7", marginBottom: 4 }}>本樁分配功率</div>
                 <div style={{ fontWeight: "bold" }}>
                   {liveAllocatedPowerKw != null ? (
                     <span style={{ color: "#8cff9a" }}>{liveAllocatedPowerKw} kW</span>
@@ -1114,7 +1114,7 @@ export default function LiveStatus() {
               </div>
 
               <div style={{ background: "#1f2a23", border: "1px solid #3f5a49", borderRadius: 8, padding: 10 }}>
-                <div style={{ color: "#9fb7a7", marginBottom: 4 }}>後端實際請求下發</div>
+                <div style={{ color: "#9fb7a7", marginBottom: 4 }}>後端實際下發請求</div>
                 <div style={{ fontWeight: "bold", color: "#fff" }}>
                   {limitDebug?.requested_limit_a != null
                     ? `${Number(limitDebug.requested_limit_a).toFixed(1)} A`
@@ -1149,7 +1149,7 @@ export default function LiveStatus() {
 
             {allocatedPowerKw == null && (
               <div style={{ marginTop: 10, color: "#ff8080", fontSize: 14 }}>
-                ⛔ 條件不足，最後一台將被拒絕充電
+                ⛔ 無法取得有效的社區分配功率，請檢查契約容量或後端設定
               </div>
             )}
 
@@ -1232,9 +1232,9 @@ export default function LiveStatus() {
       <p>💰 預估電費（多時段）：{liveCost.toFixed(3)} 元</p>
       <div style={{ marginTop: 8, marginBottom: 8, fontSize: 13, color: "#bbb", lineHeight: 1.7 }}>
         <div>🏘️ 管理模式：{liveManagedBy === "power" ? "功率分配" : liveManagedBy || "-"}</div>
-        <div>🔒 本樁固定上限：{liveSingleCpMaxPowerKw ?? 7} kW</div>
+        <div>🔒 本樁理論上限：{liveSingleCpMaxPowerKw ?? 7} kW</div>
         <div>
-          ⚖️ 本樁顯示分配功率：
+          ⚖️ 本樁分配功率：
           {liveAllocatedPowerKw != null ? ` ${liveAllocatedPowerKw} kW` : " —"}
         </div>
         <div>
