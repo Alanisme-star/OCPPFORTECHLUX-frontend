@@ -13,9 +13,10 @@ import axios from "../axiosInstance";
  *    - 不再提供每支樁上下限電流設定
  *
  * 2) 前端畫面改為顯示：
- *    - 系統自動分配功率
- *    - 單機固定上限 7kW
- *    - 社區預覽分配功率 / 預估電流
+ *    - 系統依契約容量平均分配功率
+ *    - 單機理論上限 7kW
+ *    - 社區目前平均分配功率 / 預估下發電流
+ *    - 不再顯示最低電流限制推算可充台數
  *
  * 3) CRUD 先保留基本相容
  *    - 充電樁仍可新增 / 編輯名稱 / 啟停
@@ -59,12 +60,10 @@ const ChargePoints = () => {
     enabled: true,
     contractKw: "",
     voltageV: 220,
-    minCurrentA: 16,
   });
 
   const [communityPreview, setCommunityPreview] = useState({
     totalCurrentA: 0,
-    maxCarsByMin: 0,
     allocatedPowerKw: null,
     previewCurrentA: null,
     activeChargingCount: 0,
@@ -82,9 +81,10 @@ const ChargePoints = () => {
   /**
    * 表單 state
    *
-   * ✅ max_current 全程使用「字串」
-   *   - 例如 "16"
-   *   - 可確保 <select value={form.max_current}> 能正確匹配 option
+   * 第一階段僅保留：
+   * - charge_point_id
+   * - name
+   * - status
    */
   const [form, setForm] = useState({
     charge_point_id: "",
@@ -140,13 +140,11 @@ const ChargePoints = () => {
         enabled: d.enabled ?? true,
         contractKw: d.contract_kw ?? d.contractKw ?? "",
         voltageV: Number(d.voltage_v ?? d.voltageV ?? 220),
-        minCurrentA: Number(d.min_current_a ?? d.minCurrentA ?? 16),
       });
 
       // 預覽用（功率分配模式）
       setCommunityPreview({
         totalCurrentA: Number(d.total_current_a ?? 0),
-        maxCarsByMin: Number(d.max_cars_by_min ?? 0),
         allocatedPowerKw:
           Number.isFinite(Number(d.allocated_power_kw))
             ? Number(d.allocated_power_kw)
@@ -185,7 +183,6 @@ const ChargePoints = () => {
         contractKw: Number(communityCfg.contractKw || 0),
         voltageV: Number(communityCfg.voltageV || 220),
         phases: 1,
-        minCurrentA: Number(communityCfg.minCurrentA || 16),
       });
 
       setCommunityMsg("✅ 設定已儲存，並已立即生效");
@@ -339,18 +336,15 @@ const ChargePoints = () => {
             />
           </div>
 
-          {/* 最低電流 */}
+          {/* 控制說明 */}
           <div>
-            <label className="text-sm block mb-1">最低電流（A）</label>
-            <input
-              type="number"
-              name="minCurrentA"
-              className="h-10 w-full rounded text-black px-3"
-              value={communityCfg.minCurrentA}
-              onChange={handleCommunityChange}
-              min={1}
-            />
-            <div className="text-xs text-gray-400 mt-1">低於此值：最後一台將被拒絕</div>
+            <label className="text-sm block mb-1">控制說明</label>
+            <div className="h-10 w-full rounded bg-gray-800 border border-gray-700 px-3 flex items-center text-blue-300 font-semibold">
+              依契約容量平均分配
+            </div>
+            <div className="text-xs text-gray-400 mt-1">
+              不再因最低電流門檻而拒絕最後一台
+            </div>
           </div>
 
           {/* 單樁固定上限（第一階段） */}
@@ -390,14 +384,13 @@ const ChargePoints = () => {
           <div>• 管理模式：<b>{communityPreview.managedBy === "power" ? "功率分配" : communityPreview.managedBy || "-"}</b></div>
           <div>• 可用總電流（參考）：<b>{communityPreview.totalCurrentA}</b> A</div>
           <div>• 目前充電台數：<b>{communityPreview.activeChargingCount}</b> 台</div>
-          <div>• 依最低電流推算「最多同時可充」：<b>{communityPreview.maxCarsByMin}</b> 台</div>
-          <div>• 單樁固定上限：<b className="text-green-300">{communityPreview.singleCpMaxPowerKw ?? 7} kW</b></div>
+          <div>• 單樁理論上限：<b className="text-green-300">{communityPreview.singleCpMaxPowerKw ?? 7} kW</b></div>
           <div>
-            • 後端目前分配（每台功率）：{" "}
+            • 後端目前平均分配（每台功率）：{" "}
             {communityPreview.allocatedPowerKw != null ? (
               <b className="text-green-300">{communityPreview.allocatedPowerKw} kW</b>
             ) : (
-              <b className="text-red-300">（將拒絕最後一台）</b>
+              <b className="text-red-300">-</b>
             )}
           </div>
           <div>
