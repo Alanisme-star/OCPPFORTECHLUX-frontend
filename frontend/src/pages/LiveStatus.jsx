@@ -184,46 +184,25 @@ export default function LiveStatus() {
       };
 
       try {
-        const [dbRes, cacheRes, liveRes, energyRes] = await Promise.allSettled([
-          axios.get(`/api/charge-points/${encodeURIComponent(oneCpId)}/latest-status`),
+        const [statusRes, liveRes, energyRes] = await Promise.allSettled([
           axios.get(`/api/charge-points/${encodeURIComponent(oneCpId)}/status`),
           axios.get(`/api/charge-points/${encodeURIComponent(oneCpId)}/live-status`),
           axios.get(`/api/charge-points/${encodeURIComponent(oneCpId)}/latest-energy`),
         ]);
 
-        // ---- status（沿用你原本的「DB vs cache」取用規則） ----
-        let dbStatus = "Unknown", dbTs = 0;
-        if (dbRes.status === "fulfilled") {
-          const d = dbRes.value?.data;
-          dbStatus = (d?.status ?? d ?? "Unknown") || "Unknown";
-          dbTs = safeParseTime(d?.timestamp);
-        }
-        let cacheStatus = "Unknown", cacheTs = 0;
-        if (cacheRes.status === "fulfilled") {
-          const c = cacheRes.value?.data;
-          if (typeof c === "string") {
-            cacheStatus = c || "Unknown";
+        if (statusRes.status === "fulfilled") {
+          const s = statusRes.value?.data;
+          let status = "Unknown";
+
+          if (typeof s === "string") {
+            status = s || "Unknown";
           } else {
-            cacheStatus = c?.status || "Unknown";
-            cacheTs = safeParseTime(c?.timestamp);
+            status = s?.status || "Unknown";
           }
+
+          if (status === "未知") status = "Unknown";
+          row.status = status;
         }
-        let chosen = "Unknown";
-        if (dbStatus === "Unknown" && cacheStatus !== "Unknown") {
-          chosen = cacheStatus;
-        } else if (cacheStatus === "Unknown" && dbStatus !== "Unknown") {
-          chosen = dbStatus;
-        } else if (dbStatus !== "Unknown" && cacheStatus !== "Unknown") {
-          if (cacheTs && dbTs) {
-            chosen = cacheTs >= dbTs ? cacheStatus : dbStatus;
-          } else if (dbStatus === "Available" && cacheStatus === "Charging") {
-            chosen = cacheStatus;
-          } else {
-            chosen = dbStatus;
-          }
-        }
-        if (chosen === "未知") chosen = "Unknown";
-        row.status = chosen;
 
         // ---- live ----
         if (liveRes.status === "fulfilled") {
@@ -312,57 +291,27 @@ export default function LiveStatus() {
 
     const fetchStatus = async () => {
       try {
-        const [dbRes, cacheRes] = await Promise.allSettled([
-          axios.get(
-            `/api/charge-points/${encodeURIComponent(cpId)}/latest-status`
-          ),
-          axios.get(`/api/charge-points/${encodeURIComponent(cpId)}/status`),
-        ]);
+        const res = await axios.get(
+          `/api/charge-points/${encodeURIComponent(cpId)}/status`
+        );
 
-        let dbStatus = "Unknown",
-          dbTs = 0;
-        if (dbRes.status === "fulfilled") {
-          const d = dbRes.value?.data;
-          dbStatus = (d?.status ?? d ?? "Unknown") || "Unknown";
-          dbTs = safeParseTime(d?.timestamp);
+        if (cancelled) return;
+
+        const data = res?.data;
+        let status = "Unknown";
+
+        if (typeof data === "string") {
+          status = data || "Unknown";
+        } else {
+          status = data?.status || "Unknown";
         }
 
-        let cacheStatus = "Unknown",
-          cacheTs = 0;
-        if (cacheRes.status === "fulfilled") {
-          const c = cacheRes.value?.data;
-          if (typeof c === "string") {
-            cacheStatus = c || "Unknown";
-          } else {
-            cacheStatus = c?.status || "Unknown";
-            cacheTs = safeParseTime(c?.timestamp);
-          }
-        }
-
-        let chosen = "Unknown";
-        if (dbStatus === "Unknown" && cacheStatus !== "Unknown") {
-          chosen = cacheStatus;
-        } else if (cacheStatus === "Unknown" && dbStatus !== "Unknown") {
-          chosen = dbStatus;
-        } else if (dbStatus !== "Unknown" && cacheStatus !== "Unknown") {
-          if (cacheTs && dbTs) {
-            chosen = cacheTs >= dbTs ? cacheStatus : dbStatus;
-          } else if (dbStatus === "Available" && cacheStatus === "Charging") {
-            chosen = cacheStatus;
-          } else {
-            chosen = dbStatus;
-          }
-        }
-
-        if (!cancelled) {
-          if (chosen === "未知") chosen = "Unknown";
-          setCpStatus(chosen);
-        }
+        if (status === "未知") status = "Unknown";
+        setCpStatus(status);
       } catch {
         if (!cancelled) setCpStatus("Unknown");
       }
     };
-
     fetchStatus();
     const t = setInterval(fetchStatus, 2_000);
     return () => {
