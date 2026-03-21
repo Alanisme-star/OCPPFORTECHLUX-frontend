@@ -356,13 +356,10 @@ export default function LiveStatus() {
             : 7
         );
 
-        // 🔒 Step4 Gate：非「有效充電」時，直接歸零並中斷
+
         if (!isChargingEffective) {
-          setLivePowerKw(0);
-          setLiveVoltageV(0);
-          setLiveCurrentA(0);
-          setLiveEnergyKWh(0);
-          setLiveCost(0);
+          // ✅ 不要因為短暫 stale / 狀態抖動，就立刻把畫面洗成 0
+          //    先保留上一筆有效值，避免出現 0 ↔ 舊值 反覆跳動
           return;
         }
 
@@ -432,11 +429,10 @@ export default function LiveStatus() {
       const stale = Date.now() - last > LIVE_STALE_MS;
       setLiveStale(stale);
 
-      // 逾時時，順手把即時量測歸零（避免畫面殘留）
+      // ✅ stale 時先只標記狀態，不立刻把即時量測洗成 0
+      //    避免短暫逾時時畫面出現 0 ↔ 舊值 跳動
       if (stale) {
-        setLivePowerKw(0);
-        setLiveVoltageV(0);
-        setLiveCurrentA(0);
+        return;
       }
     };
 
