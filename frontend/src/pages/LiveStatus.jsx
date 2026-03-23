@@ -174,7 +174,9 @@ export default function LiveStatus() {
     };
 
     const fetchOne = async (oneCpId) => {
-      // 這裡只拿「總覽需要的最小資料」：status + power + session kWh + estimated cost
+      // 這裡拿「總覽需要的最小資料」：status + power + session kWh + cost
+      // ✅ cost 優先使用 current-transaction/summary
+      // ✅ live-status.estimated_amount 僅作為備援
       // ✅ 完全不影響既有單樁詳情邏輯（單樁仍照原本 polling）。
       const row = {
         cpId: oneCpId,
@@ -186,10 +188,11 @@ export default function LiveStatus() {
       };
 
       try {
-        const [statusRes, liveRes, energyRes] = await Promise.allSettled([
+        const [statusRes, liveRes, energyRes, summaryRes] = await Promise.allSettled([
           axios.get(`/api/charge-points/${encodeURIComponent(oneCpId)}/status`),
           axios.get(`/api/charge-points/${encodeURIComponent(oneCpId)}/live-status`),
           axios.get(`/api/charge-points/${encodeURIComponent(oneCpId)}/latest-energy`),
+          axios.get(`/api/charge-points/${encodeURIComponent(oneCpId)}/current-transaction/summary`),
         ]);
 
         if (statusRes.status === "fulfilled") {
@@ -211,12 +214,41 @@ export default function LiveStatus() {
           const live = liveRes.value?.data || {};
           const kw = Number(live?.power ?? 0);
           row.powerKw = Number.isFinite(kw) ? kw : 0;
-          row.cost = typeof live?.estimated_amount === "number" ? live.estimated_amount : 0;
+
+          // 先放 live-status 備援值
+          row.cost =
+            Number.isFinite(Number(live?.estimated_amount))
+              ? Number(live.estimated_amount)
+              : 0;
         }
+
+        // ---- energy ----
         if (energyRes.status === "fulfilled") {
           const e = energyRes.value?.data || {};
           const session = Number(e?.sessionEnergyKWh ?? e?.totalEnergyKWh ?? 0);
           row.energyKWh = Number.isFinite(session) ? session : 0;
+        }
+
+        // ---- summary（優先）----
+        if (summaryRes.status === "fulfilled") {
+          const summary = summaryRes.value?.data || {};
+
+          if (summary?.found) {
+            const summaryTotal =
+              Number.isFinite(Number(summary?.total_amount))
+                ? Number(summary.total_amount)
+                : 0;
+
+            const summaryEstimated =
+              Number.isFinite(Number(summary?.estimated_amount))
+                ? Number(summary.estimated_amount)
+                : 0;
+
+            row.cost =
+              summaryTotal > 0
+                ? summaryTotal
+                : (summaryEstimated > 0 ? summaryEstimated : row.cost);
+          }
         }
 
         // 非 Charging：為了「總覽一眼看懂」，功率歸零
@@ -230,7 +262,6 @@ export default function LiveStatus() {
         return row;
       }
     };
-
     const tick = async () => {
       if (inFlight) return;
       inFlight = true;
