@@ -46,7 +46,9 @@ export default function LiveStatus() {
 
 
   // 電費
-  const [liveCost, setLiveCost] = useState(0);
+  const [liveCost, setLiveCost] = useState(0);              // 舊欄位，先保留相容
+  const [summaryTotalAmount, setSummaryTotalAmount] = useState(0);
+  const [summaryEstimatedAmount, setSummaryEstimatedAmount] = useState(0);
 
   // 樁態
   const [cpStatus, setCpStatus] = useState("Unknown");
@@ -389,8 +391,9 @@ export default function LiveStatus() {
         const kwh = Number.isFinite(session) ? session : 0;
 
         setLiveEnergyKWh(kwh);
+        // 先保留 live-status 的 estimated_amount 當備援值
         setLiveCost(
-          typeof live.estimated_amount === "number"
+          typeof live?.estimated_amount === "number"
             ? live.estimated_amount
             : 0
         );
@@ -480,6 +483,8 @@ export default function LiveStatus() {
     if (prev !== "Charging" && cpStatus === "Charging") {
       setLiveEnergyKWh(0);
       setLiveCost(0);
+      setSummaryTotalAmount(0);
+      setSummaryEstimatedAmount(0);
       setLivePowerKw(0);
       setLiveVoltageV(0);
       setLiveCurrentA(0);
@@ -627,14 +632,12 @@ export default function LiveStatus() {
 
     const fetchTxInfo = async () => {
       try {
-        // ⭐ 改成只打 /current-transaction/summary
         const res = await axios.get(
           `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction/summary`
         );
 
         if (res.data?.found && res.data.start_timestamp) {
 
-          // ✅ 新增：只在尚未設定時，記住本筆交易 ID
           if (res.data.transaction_id && !currentTxIdRef.current) {
             currentTxIdRef.current = res.data.transaction_id;
           }
@@ -646,8 +649,23 @@ export default function LiveStatus() {
             return res.data.start_timestamp;
           });
           setStopTime("");
-        
+
+          setSummaryTotalAmount(
+            Number.isFinite(Number(res.data?.total_amount))
+              ? Number(res.data.total_amount)
+              : 0
+          );
+
+          setSummaryEstimatedAmount(
+            Number.isFinite(Number(res.data?.estimated_amount))
+              ? Number(res.data.estimated_amount)
+              : 0
+          );
+
         } else {
+          setSummaryTotalAmount(0);
+          setSummaryEstimatedAmount(0);
+
           // ✅ 僅在狀態真的是 Available 或 Finishing 時才清空
           if (["Available", "Finishing", "Faulted"].includes(cpStatus)) {
             setStartTime("");
@@ -657,9 +675,10 @@ export default function LiveStatus() {
             console.debug("⚠️ 保留 startTime 與 elapsedTime（避免跨日誤清）");
           }
         }
-
       } catch (err) {
-        console.error("讀取交易資訊失敗:", err);
+        console.error("抓交易資訊失敗", err);
+        setSummaryTotalAmount(0);
+        setSummaryEstimatedAmount(0);
       }
     };
 
@@ -746,13 +765,12 @@ export default function LiveStatus() {
     if (cpStatus === "Available" || cpStatus === "Faulted") {
       console.log("🔄 交易已結束（狀態回到非 Charging）");
 
-      // ✅ 僅清「交易生命週期相關狀態」
       setStartTime("");
       setStopTime("");
       setElapsedTime("—");
-
-      // 顯示層資料（保留金額邏輯）
       setPriceBreakdown([]);
+      setSummaryTotalAmount(0);
+      setSummaryEstimatedAmount(0);
 
       setSentAutoStop(false);
       setStopMsg("");
@@ -1174,7 +1192,10 @@ export default function LiveStatus() {
 
       <p>⚡ 即時功率：{livePowerKw.toFixed(2)} kW</p>
       <p>🔋 本次充電累積電量：{liveEnergyKWh.toFixed(3)} kWh</p>
-      <p>💰 預估電費（多時段）：{liveCost.toFixed(3)} 元</p>
+      <p>
+        💰 預估電費（多時段）：
+        {(summaryEstimatedAmount > 0 ? summaryEstimatedAmount : liveCost).toFixed(3)} 元
+      </p>
       <div style={{ marginTop: 8, marginBottom: 8, fontSize: 13, color: "#bbb", lineHeight: 1.7 }}>
         <div>🏘️ 管理模式：{liveManagedBy === "power" ? "功率分配" : liveManagedBy || "-"}</div>
         <div>🔒 本樁理論上限：{liveSingleCpMaxPowerKw ?? 7} kW</div>
@@ -1246,7 +1267,8 @@ export default function LiveStatus() {
         )}
 
         <div style={{ marginTop: 10, fontWeight: "bold", fontSize: "1.2em", textAlign: "right" }}>
-          合計金額：{liveCost.toFixed(2)} 元
+          合計金額：
+          {(summaryTotalAmount > 0 ? summaryTotalAmount : (summaryEstimatedAmount > 0 ? summaryEstimatedAmount : liveCost)).toFixed(2)} 元
         </div>
       </div>
       <p>⚡ 電壓：{liveVoltageV.toFixed(1)} V</p>
