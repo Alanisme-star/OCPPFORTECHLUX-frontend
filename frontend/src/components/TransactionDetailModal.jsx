@@ -32,7 +32,7 @@ function TransactionDetailModal({ transactionId, onClose }) {
             </tr>
             <tr>
               <td className="font-medium py-1">卡號：</td>
-              <td>{txn.idTag}</td>
+              <td>{txn.cardNumber || txn.idTag || "--"}</td>
             </tr>
             <tr>
               <td className="font-medium py-1">開始時間：</td>
@@ -44,32 +44,40 @@ function TransactionDetailModal({ transactionId, onClose }) {
             </tr>
             <tr>
               <td className="font-medium py-1">起始電錶：</td>
-              <td>{txn.meterStart || "--"}</td>
+              <td>{txn.meterStart != null ? txn.meterStart : "--"}</td>
             </tr>
             <tr>
               <td className="font-medium py-1">結束電錶：</td>
-              <td>{txn.meterStop || "--"}</td>
+              <td>{txn.meterStop != null ? txn.meterStop : "--"}</td>
             </tr>
             <tr>
               <td className="font-medium py-1">耗電量：</td>
               <td>
-                {txn.meterStop && txn.meterStart
-                  ? ((txn.meterStop - txn.meterStart) / 1000).toFixed(2) + " kWh"
+                {txn.energyKwh != null
+                  ? `${Number(txn.energyKwh).toFixed(2)} kWh`
+                  : txn.meterStop != null && txn.meterStart != null
+                  ? `${((txn.meterStop - txn.meterStart) / 1000).toFixed(2)} kWh`
                   : "--"}
               </td>
             </tr>
             <tr>
-              <td className="font-medium py-1">累計金額：</td>
-              <td>${cost.cost}</td>
+              <td className="font-medium py-1">總金額：</td>
+              <td>${cost.cost ?? 0}</td>
             </tr>
             <tr>
-              <td className="font-medium py-1 align-top">計費明細：</td>
+              <td className="font-medium py-1">剩餘儲值金額：</td>
               <td>
+                {cost.remainingBalance != null ? `$${cost.remainingBalance}` : "--"}
+              </td>
+           </tr>
+           <tr>
+             <td className="font-medium py-1 align-top">計費明細：</td>
+             <td>
                 <ul className="max-h-40 overflow-y-auto text-sm">
-                  {Array.isArray(cost.details) ? (
+                  {Array.isArray(cost.details) && cost.details.length > 0 ? (
                     cost.details.map((d, idx) => (
                       <li key={idx}>
-                        ▸ {d.from} ~ {d.to} | {d.kWh} kWh × {d.price} = ${d.cost}
+                        ▸ {d.from || "--"} ~ {d.to || "--"} | {d.kWh ?? d.kwh ?? "--"} kWh × {d.price ?? "--"} = ${d.cost ?? 0}
                       </li>
                     ))
                   ) : (
