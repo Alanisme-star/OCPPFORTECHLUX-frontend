@@ -51,17 +51,21 @@ function Transactions() {
                   transactionId,
                   chargePointId,
                   idTag,
+                  cardNumber,
                   startTimestamp,
                   stopTimestamp,
                   meterStart,
                   meterStop,
+                  energyKwh,
                 } = txn;
 
                 const energyUsed =
-                  meterStart != null &&
-                  meterStop != null &&
-                  !isNaN(meterStop - meterStart)
-                    ? ((meterStop - meterStart) / 1000).toFixed(2)
+                  energyKwh != null && !isNaN(Number(energyKwh))
+                    ? Number(energyKwh).toFixed(2)
+                    : meterStart != null &&
+                      meterStop != null &&
+                      !isNaN(Number(meterStop) - Number(meterStart))
+                    ? ((Number(meterStop) - Number(meterStart)) / 1000).toFixed(2)
                     : "--";
 
                 return (
@@ -74,7 +78,7 @@ function Transactions() {
                   >
                     <td className="p-2">{transactionId ?? "--"}</td>
                     <td className="p-2">{chargePointId ?? "--"}</td>
-                    <td className="p-2">{idTag ?? "--"}</td>
+                    <td className="p-2">{cardNumber ?? idTag ?? "--"}</td>
                     <td className="p-2">{startTimestamp ?? "--"}</td>
                     <td className="p-2">{stopTimestamp ?? "--"}</td>
                     <td className="p-2">{energyUsed}</td>
