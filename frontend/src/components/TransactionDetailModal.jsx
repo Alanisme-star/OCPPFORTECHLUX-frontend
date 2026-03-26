@@ -6,12 +6,17 @@ function TransactionDetailModal({ transactionId, onClose }) {
   const [cost, setCost] = useState({ cost: 0, details: [] });
 
   useEffect(() => {
-    axios.get(`/api/transactions/${transactionId}`).then((res) => {
-      setTxn(res.data);
-    });
-    axios.get(`/api/transactions/${transactionId}/cost`).then((res) => {
-      setCost(res.data);
-    });
+    const API_BASE = import.meta.env.VITE_API_BASE_URL;
+
+    axios
+      .get(`${API_BASE}/api/transactions/${transactionId}`)
+      .then((res) => setTxn(res.data))
+      .catch((err) => console.error("❌ 取得交易明細失敗:", err));
+
+    axios
+      .get(`${API_BASE}/api/transactions/${transactionId}/cost`)
+      .then((res) => setCost(res.data))
+      .catch((err) => console.error("❌ 取得交易費用失敗:", err));
   }, [transactionId]);
 
   if (!txn) return null;
