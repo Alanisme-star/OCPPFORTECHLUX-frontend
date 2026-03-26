@@ -7,14 +7,15 @@ function Transactions() {
   const [selected, setSelected] = useState(null);
 
   useEffect(() => {
+    const API_BASE = import.meta.env.VITE_API_BASE_URL;
+
     axios
-      .get("/api/transactions")
+      .get(`${API_BASE}/api/transactions`)
       .then((res) => {
         const data = res.data;
         if (Array.isArray(data)) {
           setTransactions(data);
         } else if (typeof data === "object" && data !== null) {
-          // 若是物件就轉為陣列
           setTransactions(Object.values(data));
         } else {
           console.warn("⚠️ API 回傳格式非預期:", data);
