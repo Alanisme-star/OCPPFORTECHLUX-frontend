@@ -34,22 +34,17 @@ function Transactions() {
     const formatDateTime = (value) => {
       if (!value) return "--";
 
-      const str = String(value).trim();
-      if (!str) return "--";
+      const date = new Date(value);
+      if (isNaN(date.getTime())) return "--";
 
-      const normalized = str.replace("T", " ").replace("Z", "");
-      const parts = normalized.split(/\s+/);
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
 
-      if (parts.length < 2) return normalized.slice(0, 16);
-
-      const datePart = parts[0];
-      const timePart = parts[1].slice(0, 5);
-
-      if (!datePart || !timePart) return "--";
-
-      return `${datePart} ${timePart}`;
+      return `${year}-${month}-${day} ${hours}:${minutes}`;
     };
-
 
   return (
     <div className="bg-white dark:bg-gray-900 text-black dark:text-white rounded-lg p-4 shadow-md">
