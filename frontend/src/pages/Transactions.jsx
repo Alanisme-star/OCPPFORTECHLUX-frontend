@@ -8,10 +8,12 @@ function Transactions() {
 
   useEffect(() => {
     const API_BASE = import.meta.env.VITE_API_BASE_URL;
+    console.log("VITE_API_BASE_URL =", API_BASE);
 
     axios
       .get(`${API_BASE}/api/transactions`)
       .then((res) => {
+        console.log("transactions api response =", res.data);
         const data = res.data;
         if (Array.isArray(data)) {
           setTransactions(data);
