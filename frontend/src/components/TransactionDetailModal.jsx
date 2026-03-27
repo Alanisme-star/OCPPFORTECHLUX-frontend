@@ -19,6 +19,23 @@ function TransactionDetailModal({ transactionId, onClose }) {
       .catch((err) => console.error("❌ 取得交易費用失敗:", err));
   }, [transactionId]);
 
+
+  const formatDateTime = (value) => {
+    if (!value) return "--";
+
+    const date = new Date(value);
+    if (isNaN(date.getTime())) return "--";
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    const hours = String(date.getHours()).padStart(2, "0");
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+
+    return `${year}-${month}-${day} ${hours}:${minutes}`;
+  };
+
+
   if (!txn) return null;
 
   return (
@@ -41,11 +58,11 @@ function TransactionDetailModal({ transactionId, onClose }) {
             </tr>
             <tr>
               <td className="font-medium py-1">開始時間：</td>
-              <td>{txn.startTimestamp}</td>
+              <td>{formatDateTime(txn.startTimestamp)}</td>
             </tr>
             <tr>
               <td className="font-medium py-1">結束時間：</td>
-              <td>{txn.stopTimestamp || "--"}</td>
+              <td>{formatDateTime(txn.stopTimestamp)}</td>
             </tr>
             <tr>
               <td className="font-medium py-1">起始電錶：</td>
