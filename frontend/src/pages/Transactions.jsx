@@ -28,6 +28,23 @@ function Transactions() {
       });
   }, []);
 
+
+    const formatDateTime = (value) => {
+      if (!value) return "--";
+
+      const date = new Date(value);
+      if (isNaN(date.getTime())) return "--";
+
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      const hours = String(date.getHours()).padStart(2, "0");
+      const minutes = String(date.getMinutes()).padStart(2, "0");
+
+      return `${year}-${month}-${day} ${hours}:${minutes}`;
+    };
+
+
   return (
     <div className="bg-white dark:bg-gray-900 text-black dark:text-white rounded-lg p-4 shadow-md">
       <h2 className="text-xl font-bold mb-4">所有交易紀錄</h2>
@@ -80,8 +97,8 @@ function Transactions() {
                     <td className="p-2">{transactionId ?? "--"}</td>
                     <td className="p-2">{chargePointId ?? "--"}</td>
                     <td className="p-2">{cardNumber ?? idTag ?? "--"}</td>
-                    <td className="p-2">{startTimestamp ?? "--"}</td>
-                    <td className="p-2">{stopTimestamp ?? "--"}</td>
+                    <td className="p-2">{formatDateTime(startTimestamp)}</td>
+                    <td className="p-2">{formatDateTime(stopTimestamp)}</td>
                     <td className="p-2">{energyUsed}</td>
                   </tr>
                 );
