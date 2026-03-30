@@ -86,6 +86,16 @@ export default function LiveStatus() {
     ? "Charging"
     : (liveStale ? "Unknown" : cpStatus);
 
+  // ✅ 方案 1：即時預估費用優先採用 summaryEstimatedAmount
+  // 若 summary 尚未更新，再 fallback 到 liveCost
+  const effectiveEstimatedCost =
+    Number.isFinite(Number(summaryEstimatedAmount)) && Number(summaryEstimatedAmount) > 0
+      ? Number(summaryEstimatedAmount)
+      : (
+          Number.isFinite(Number(liveCost))
+            ? Number(liveCost)
+            : 0
+        );
 
   // 自動停樁
   const [sentAutoStop, setSentAutoStop] = useState(false);
@@ -551,10 +561,10 @@ export default function LiveStatus() {
     const isSuspended =
       cpStatus === "SuspendedEV" || cpStatus === "SuspendedEVSE";
 
-    // 進入 Suspended：如果尚未凍結，立刻凍結（用 rawBalance - liveCost）
+    // 進入 Suspended：如果尚未凍結，立刻凍結（用 rawBalance - effectiveEstimatedCost）
     if (isSuspended && !frozenAfterStop) {
       const base = Number.isFinite(rawBalance) ? rawBalance : 0;
-      const cost = Number.isFinite(liveCost) ? liveCost : 0;
+      const cost = Number.isFinite(effectiveEstimatedCost) ? effectiveEstimatedCost : 0;
 
       setFrozenAfterStop(true);
       setFrozenCost(cost);
@@ -564,7 +574,7 @@ export default function LiveStatus() {
         "[FREEZE][BALANCE]",
         "cpStatus=", cpStatus,
         "rawBalance=", base,
-        "liveCost=", cost,
+        "effectiveEstimatedCost=", cost,
         "frozenDisplay=", Math.max(0, base - cost)
       );
       return;
@@ -578,14 +588,13 @@ export default function LiveStatus() {
 
       console.log("[FREEZE][RELEASE] resume charging");
     }
-  }, [cpStatus, rawBalance, liveCost, frozenAfterStop]);
+  }, [cpStatus, rawBalance, effectiveEstimatedCost, frozenAfterStop]);
 
-
-  // ---------- 顯示餘額（方案 B：Suspended 凍結顯示） ----------
+  // ---------- 顯示餘額（方案 1：正式餘額 + 即時預估剩餘餘額） ----------
   useEffect(() => {
     let nb = 0;
 
-    // ✅ 如果目前處於凍結狀態（Suspended 時會被 Step1 設為 true）
+    // ✅ 如果目前處於凍結狀態（Suspended 時會被設為 true）
     if (frozenAfterStop && rawAtFreeze != null) {
       nb = Math.max(
         0,
@@ -595,10 +604,11 @@ export default function LiveStatus() {
       return;
     }
 
-    // 充電中：顯示即時預估扣款
+    // ✅ 充電中：顯示「即時預估剩餘餘額」
+    // 優先使用 summaryEstimatedAmount，否則 fallback 到 liveCost
     if (cpStatus === "Charging") {
       const base = Number.isFinite(rawBalance) ? rawBalance : 0;
-      const cost = Number.isFinite(liveCost) ? liveCost : 0;
+      const cost = Number.isFinite(effectiveEstimatedCost) ? effectiveEstimatedCost : 0;
       nb = base - cost;
 
       // ⭐ 記錄：本交易中曾經看過餘額 > 0
@@ -606,21 +616,19 @@ export default function LiveStatus() {
         seenPositiveBalanceRef.current = true;
       }
     } else {
-      // 其它狀態：顯示後端餘額（例如 Available / Finishing）
+      // ✅ 其它狀態：顯示正式餘額
       nb = Number.isFinite(rawBalance) ? rawBalance : 0;
     }
 
     setDisplayBalance(nb > 0 ? nb : 0);
   }, [
     rawBalance,
-    liveCost,
+    effectiveEstimatedCost,
     cpStatus,
     frozenAfterStop,
     rawAtFreeze,
     frozenCost,
   ]);
-
-
 
 
   // ---------- 🧩 自動停充判斷（交易級保護 + 換頁安全） ----------
@@ -1194,7 +1202,8 @@ export default function LiveStatus() {
       </p>
 
 
-      <p>💳 卡片餘額：{displayBalance.toFixed(3)} 元</p>
+      <p>💳 正式卡片餘額：{rawBalance.toFixed(3)} 元</p>
+      <p>📉 即時預估剩餘餘額：{displayBalance.toFixed(3)} 元</p>
 
       <p>
         🔌 狀態：{statusLabel(uiStatus)}
@@ -1225,7 +1234,7 @@ export default function LiveStatus() {
       <p>🔋 本次充電累積電量：{liveEnergyKWh.toFixed(3)} kWh</p>
       <p>
         💰 預估電費（多時段）：
-        {(summaryEstimatedAmount > 0 ? summaryEstimatedAmount : liveCost).toFixed(3)} 元
+        {effectiveEstimatedCost.toFixed(3)} 元
       </p>
       <div style={{ marginTop: 8, marginBottom: 8, fontSize: 13, color: "#bbb", lineHeight: 1.7 }}>
         <div>🏘️ 管理模式：{liveManagedBy === "power" ? "功率分配" : liveManagedBy || "-"}</div>
@@ -1299,7 +1308,7 @@ export default function LiveStatus() {
 
         <div style={{ marginTop: 10, fontWeight: "bold", fontSize: "1.2em", textAlign: "right" }}>
           合計金額：
-          {(summaryTotalAmount > 0 ? summaryTotalAmount : (summaryEstimatedAmount > 0 ? summaryEstimatedAmount : liveCost)).toFixed(2)} 元
+          {(summaryTotalAmount > 0 ? summaryTotalAmount : effectiveEstimatedCost).toFixed(2)} 元
         </div>
       </div>
       <p>⚡ 電壓：{liveVoltageV.toFixed(1)} V</p>
