@@ -50,6 +50,9 @@ export default function LiveStatus() {
   const [summaryTotalAmount, setSummaryTotalAmount] = useState(0);
   const [summaryEstimatedAmount, setSummaryEstimatedAmount] = useState(0);
 
+  // ✅ UI 顯示用預估金額：保留最後一筆有效值，避免充電初期短暫顯示 0
+  const [displayEstimatedCost, setDisplayEstimatedCost] = useState(0);
+
   // 樁態
   const [cpStatus, setCpStatus] = useState("Unknown");
 
@@ -86,16 +89,36 @@ export default function LiveStatus() {
     ? "Charging"
     : (liveStale ? "Unknown" : cpStatus);
 
-  // ✅ 方案 1：即時預估費用優先採用 summaryEstimatedAmount
-  // 若 summary 尚未更新，再 fallback 到 liveCost
-  const effectiveEstimatedCost =
-    Number.isFinite(Number(summaryEstimatedAmount)) && Number(summaryEstimatedAmount) > 0
-      ? Number(summaryEstimatedAmount)
-      : (
-          Number.isFinite(Number(liveCost))
-            ? Number(liveCost)
-            : 0
-        );
+  // ✅ UI 顯示用預估金額：
+  // 優先用 summaryEstimatedAmount，其次 liveCost
+  // 若充電中暫時還沒拿到有效值，保留上一筆，不要立刻顯示 0
+  useEffect(() => {
+    const summaryVal = Number(summaryEstimatedAmount);
+    const liveVal = Number(liveCost);
+
+    let nextCost = null;
+
+    if (Number.isFinite(summaryVal) && summaryVal > 0) {
+      nextCost = summaryVal;
+    } else if (Number.isFinite(liveVal) && liveVal > 0) {
+      nextCost = liveVal;
+    }
+
+    // ✅ 有有效值才更新顯示金額
+    if (nextCost != null) {
+      setDisplayEstimatedCost(nextCost);
+      return;
+    }
+
+    // ✅ 只有在非 Charging 時才允許歸零
+    if (cpStatus !== "Charging") {
+      setDisplayEstimatedCost(0);
+    }
+  }, [summaryEstimatedAmount, liveCost, cpStatus]);
+
+  const effectiveEstimatedCost = Number.isFinite(Number(displayEstimatedCost))
+    ? Number(displayEstimatedCost)
+    : 0;
 
   // 自動停樁
   const [sentAutoStop, setSentAutoStop] = useState(false);
@@ -120,6 +143,14 @@ export default function LiveStatus() {
   const [overviewError, setOverviewError] = useState("");
 
   const getCpId = (cp) => cp?.chargePointId ?? cp?.id ?? cp?.charge_point_id ?? "";
+
+  // ✅ 分段電價表格用合計：直接加總各時段 subtotal，避免與表格內容不同步
+  const breakdownTotalAmount = Array.isArray(priceBreakdown)
+    ? priceBreakdown.reduce((sum, seg) => {
+        const v = Number(seg?.subtotal);
+        return sum + (Number.isFinite(v) ? v : 0);
+      }, 0)
+    : 0;
 
 
 
@@ -522,23 +553,25 @@ export default function LiveStatus() {
     const prev = prevStatusRef.current;
 
     if (prev !== "Charging" && cpStatus === "Charging") {
-      setLiveEnergyKWh(0);
-      setLiveCost(0);
-      setSummaryTotalAmount(0);
-      setSummaryEstimatedAmount(0);
-      setLivePowerKw(0);
-      setLiveVoltageV(0);
-      setLiveCurrentA(0);
+        setLiveEnergyKWh(0);
+        setSummaryTotalAmount(0);
+        setLivePowerKw(0);
+        setLiveVoltageV(0);
+        setLiveCurrentA(0);
 
-      // ✅ 新交易開始 → 重置所有自動停充狀態
-      seenPositiveBalanceRef.current = false;
-      autoStopUsedRef.current = false;
-      currentTxIdRef.current = null;
-      warmupRef.current = true;
+        // ✅ 不主動把預估金額清成 0，避免畫面先閃 0
+        // setLiveCost(0);
+        // setSummaryEstimatedAmount(0);
 
-      setStopMsg("");
-      setStartTime("");
-      setStopTime("");
+        // ✅ 新交易開始 → 重置所有自動停充狀態
+        seenPositiveBalanceRef.current = false;
+        autoStopUsedRef.current = false;
+        currentTxIdRef.current = null;
+        warmupRef.current = true;
+
+        setStopMsg("");
+        setStartTime("");
+        setStopTime("");
     }
 
     prevStatusRef.current = cpStatus;
@@ -722,7 +755,7 @@ export default function LiveStatus() {
     };
 
     fetchTxInfo();
-    const t = setInterval(fetchTxInfo, 5_000);
+    const t = setInterval(fetchTxInfo, 2_000);
     return () => clearInterval(t);
   }, [cpId, cpStatus, liveStale]);  // ⭐ 保持依賴 cpId / cpStatus
 
@@ -1307,8 +1340,7 @@ export default function LiveStatus() {
         )}
 
         <div style={{ marginTop: 10, fontWeight: "bold", fontSize: "1.2em", textAlign: "right" }}>
-          合計金額：
-          {(summaryTotalAmount > 0 ? summaryTotalAmount : effectiveEstimatedCost).toFixed(2)} 元
+          合計金額：{breakdownTotalAmount.toFixed(2)} 元
         </div>
       </div>
       <p>⚡ 電壓：{liveVoltageV.toFixed(1)} V</p>
