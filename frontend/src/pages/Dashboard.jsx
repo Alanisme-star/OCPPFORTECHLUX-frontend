@@ -44,7 +44,7 @@ const Dashboard = () => {
       console.log("📡 發出 dashboard 請求...", { start, end });
 
       try {
-        const [trendResult, statusResult, summaryResult] = await Promise.all([
+        const results = await Promise.allSettled([
           axios.get(`/api/dashboard/trend?group_by=day&start=${start}&end=${end}`, {
             timeout: 30000,
           }),
@@ -56,13 +56,40 @@ const Dashboard = () => {
           }),
         ]);
 
-        console.log("✅ /dashboard/trend 結果:", trendResult.data);
-        console.log("✅ /status 結果:", statusResult.data);
-        console.log("✅ /summary/daily-by-chargepoint-range 結果:", summaryResult.data);
+        const [trendResult, statusResult, summaryResult] = results;
 
-        setTrend(Array.isArray(trendResult.data) ? trendResult.data : []);
-        setStatus(statusResult.data || {});
-        setSummary(Array.isArray(summaryResult.data) ? summaryResult.data : []);
+        const failedApis = [];
+
+        if (trendResult.status === "fulfilled") {
+          console.log("✅ /api/dashboard/trend 結果:", trendResult.value.data);
+          setTrend(Array.isArray(trendResult.value.data) ? trendResult.value.data : []);
+        } else {
+          console.error("❌ /api/dashboard/trend 失敗：", trendResult.reason);
+          setTrend([]);
+          failedApis.push("/api/dashboard/trend");
+        }
+
+        if (statusResult.status === "fulfilled") {
+          console.log("✅ /api/status 結果:", statusResult.value.data);
+          setStatus(statusResult.value.data || {});
+        } else {
+          console.error("❌ /api/status 失敗：", statusResult.reason);
+          setStatus({});
+          failedApis.push("/api/status");
+        }
+
+        if (summaryResult.status === "fulfilled") {
+          console.log("✅ /api/summary/daily-by-chargepoint-range 結果:", summaryResult.value.data);
+          setSummary(Array.isArray(summaryResult.value.data) ? summaryResult.value.data : []);
+        } else {
+          console.error("❌ /api/summary/daily-by-chargepoint-range 失敗：", summaryResult.reason);
+          setSummary([]);
+          failedApis.push("/api/summary/daily-by-chargepoint-range");
+        }
+
+        if (failedApis.length > 0) {
+          setErrorMessage(`部分 Dashboard API 讀取失敗：${failedApis.join("、")}`);
+        }
       } catch (err) {
         console.error("❌ 儀表板資料讀取失敗：", err);
         setErrorMessage(
@@ -74,6 +101,7 @@ const Dashboard = () => {
       } finally {
         setLoading(false);
       }
+
     };
 
     fetchAll();
