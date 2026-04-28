@@ -45,9 +45,6 @@ const Dashboard = () => {
 
       try {
         const results = await Promise.allSettled([
-          axios.get(`/api/dashboard/trend?group_by=day&start=${start}&end=${end}`, {
-            timeout: 30000,
-          }),
           axios.get("/api/status", {
             timeout: 30000,
           }),
@@ -56,18 +53,9 @@ const Dashboard = () => {
           }),
         ]);
 
-        const [trendResult, statusResult, summaryResult] = results;
+        const [statusResult, summaryResult] = results;
 
         const failedApis = [];
-
-        if (trendResult.status === "fulfilled") {
-          console.log("✅ /api/dashboard/trend 結果:", trendResult.value.data);
-          setTrend(Array.isArray(trendResult.value.data) ? trendResult.value.data : []);
-        } else {
-          console.error("❌ /api/dashboard/trend 失敗：", trendResult.reason);
-          setTrend([]);
-          failedApis.push("/api/dashboard/trend");
-        }
 
         if (statusResult.status === "fulfilled") {
           console.log("✅ /api/status 結果:", statusResult.value.data);
@@ -80,10 +68,17 @@ const Dashboard = () => {
 
         if (summaryResult.status === "fulfilled") {
           console.log("✅ /api/summary/daily-by-chargepoint-range 結果:", summaryResult.value.data);
-          setSummary(Array.isArray(summaryResult.value.data) ? summaryResult.value.data : []);
+
+          const summaryData = Array.isArray(summaryResult.value.data)
+            ? summaryResult.value.data
+            : [];
+
+          setSummary(summaryData);
+          setTrend(buildTrendFromSummary(summaryData));
         } else {
           console.error("❌ /api/summary/daily-by-chargepoint-range 失敗：", summaryResult.reason);
           setSummary([]);
+          setTrend([]);
           failedApis.push("/api/summary/daily-by-chargepoint-range");
         }
 
@@ -215,6 +210,51 @@ const Dashboard = () => {
     }
 
     return number.toFixed(digits);
+  };
+
+  const buildTrendFromSummary = (rows) => {
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return [];
+    }
+
+    const trendMap = new Map();
+
+    rows.forEach((row) => {
+      const period =
+        row?.period ||
+        row?.date ||
+        row?.day ||
+        row?.startDate ||
+        row?.start_date ||
+        "";
+
+      if (!period) {
+        return;
+      }
+
+      const chargePointId =
+        row?.chargePointId ||
+        row?.charge_point_id ||
+        row?.cpId ||
+        row?.cp_id ||
+        row?.chargePoint ||
+        "總用電";
+
+      const energyKwh = Number(row?.totalEnergy || row?.energyKwh || row?.energy_kwh || 0) / 1000;
+
+      if (!trendMap.has(period)) {
+        trendMap.set(period, {
+          period,
+        });
+      }
+
+      const currentRow = trendMap.get(period);
+      currentRow[chargePointId] = Number(currentRow[chargePointId] || 0) + energyKwh;
+    });
+
+    return Array.from(trendMap.values()).sort((a, b) =>
+      String(a.period).localeCompare(String(b.period))
+    );
   };
 
   const formatDateTime = (value) => {
