@@ -35,6 +35,15 @@ function TransactionDetailModal({ transactionId, onClose }) {
     return `${year}-${month}-${day} ${hours}:${minutes}`;
   };
 
+  const getHouseholdText = (txn) => {
+    return (
+      txn?.householdDisplay ||
+      txn?.floorNo ||
+      txn?.department ||
+      "--"
+    );
+  };
+
 
   if (!txn) return null;
 
@@ -51,6 +60,14 @@ function TransactionDetailModal({ transactionId, onClose }) {
             <tr>
               <td className="font-medium py-1">充電樁：</td>
               <td>{txn.chargePointId}</td>
+            </tr>
+            <tr>
+              <td className="font-medium py-1">住戶名稱：</td>
+              <td>{txn.residentName || "--"}</td>
+            </tr>
+            <tr>
+              <td className="font-medium py-1">樓號/戶別：</td>
+              <td>{getHouseholdText(txn)}</td>
             </tr>
             <tr>
               <td className="font-medium py-1">卡號：</td>
@@ -84,14 +101,20 @@ function TransactionDetailModal({ transactionId, onClose }) {
             </tr>
             <tr>
               <td className="font-medium py-1">總金額：</td>
-              <td>${cost.cost ?? 0}</td>
+              <td>
+                {cost.cost != null && !isNaN(Number(cost.cost))
+                  ? `${Number(cost.cost).toFixed(2)} 元`
+                  : "--"}
+              </td>
             </tr>
             <tr>
               <td className="font-medium py-1">剩餘儲值金額：</td>
               <td>
-                {cost.remainingBalance != null ? `$${cost.remainingBalance}` : "--"}
+                {cost.remainingBalance != null && !isNaN(Number(cost.remainingBalance))
+                  ? `${Number(cost.remainingBalance).toFixed(2)} 元`
+                  : "--"}
               </td>
-           </tr>
+            </tr>
            <tr>
              <td className="font-medium py-1 align-top">計費明細：</td>
              <td>
@@ -99,7 +122,7 @@ function TransactionDetailModal({ transactionId, onClose }) {
                   {Array.isArray(cost.details) && cost.details.length > 0 ? (
                     cost.details.map((d, idx) => (
                       <li key={idx}>
-                        ▸ {d.from || "--"} ~ {d.to || "--"} | {d.kWh ?? d.kwh ?? "--"} kWh × {d.price ?? "--"} = ${d.cost ?? 0}
+                        ▸ {d.from || "--"} ~ {d.to || "--"} | {d.kWh ?? d.kwh ?? "--"} kWh × {d.price ?? "--"} = {d.cost ?? 0} 元
                       </li>
                     ))
                   ) : (
