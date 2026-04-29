@@ -96,14 +96,7 @@ function Transactions() {
     return Number(value).toFixed(digits);
   };
 
-  const getHouseholdText = (txn) => {
-    return (
-      txn?.householdDisplay ||
-      txn?.floorNo ||
-      txn?.department ||
-      "--"
-    );
-  };
+
 
   return (
     <div className="bg-white dark:bg-gray-900 text-black dark:text-white rounded-lg p-4 shadow-md">
@@ -185,7 +178,6 @@ function Transactions() {
             <tr className="bg-gray-200 dark:bg-gray-800 text-left">
               <th className="p-2">充電樁ID</th>
               <th className="p-2">住戶名稱</th>
-              <th className="p-2">樓號/戶別</th>
               <th className="p-2">卡片ID</th>
               <th className="p-2">起始充電時間</th>
               <th className="p-2">結束充電時間</th>
@@ -226,7 +218,6 @@ function Transactions() {
                   >
                     <td className="p-2">{chargePointId ?? "--"}</td>
                     <td className="p-2">{residentName ?? "--"}</td>
-                    <td className="p-2">{getHouseholdText(txn)}</td>
                     <td className="p-2">{cardId ?? "--"}</td>
                     <td className="p-2">{formatDateTime(startTimestamp)}</td>
                     <td className="p-2">{formatDateTime(stopTimestamp)}</td>
@@ -240,7 +231,7 @@ function Transactions() {
               })
             ) : (
               <tr>
-                <td colSpan="11" className="text-center py-4 text-gray-400">
+                <td colSpan="10" className="text-center py-4 text-gray-400">
                   {loading ? "資料查詢中..." : "無交易資料"}
                 </td>
               </tr>
