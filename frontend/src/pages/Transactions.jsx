@@ -176,6 +176,7 @@ function Transactions() {
         <table className="min-w-full text-sm whitespace-nowrap">
           <thead>
             <tr className="bg-gray-200 dark:bg-gray-800 text-left">
+              <th className="p-2">交易編號</th>
               <th className="p-2">充電樁ID</th>
               <th className="p-2">住戶名稱</th>
               <th className="p-2">卡片ID</th>
@@ -216,6 +217,7 @@ function Transactions() {
                       transactionId ? setSelected(transactionId) : null
                     }
                   >
+                    <td className="p-2">{transactionId ?? "--"}</td>
                     <td className="p-2">{chargePointId ?? "--"}</td>
                     <td className="p-2">{residentName ?? "--"}</td>
                     <td className="p-2">{cardId ?? "--"}</td>
@@ -231,7 +233,7 @@ function Transactions() {
               })
             ) : (
               <tr>
-                <td colSpan="10" className="text-center py-4 text-gray-400">
+                <td colSpan="11" className="text-center py-4 text-gray-400">
                   {loading ? "資料查詢中..." : "無交易資料"}
                 </td>
               </tr>
