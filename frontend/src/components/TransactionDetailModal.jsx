@@ -35,16 +35,6 @@ function TransactionDetailModal({ transactionId, onClose }) {
     return `${year}-${month}-${day} ${hours}:${minutes}`;
   };
 
-  const getHouseholdText = (txn) => {
-    return (
-      txn?.householdDisplay ||
-      txn?.floorNo ||
-      txn?.department ||
-      "--"
-    );
-  };
-
-
   if (!txn) return null;
 
   return (
@@ -58,16 +48,12 @@ function TransactionDetailModal({ transactionId, onClose }) {
               <td>{txn.transactionId}</td>
             </tr>
             <tr>
-              <td className="font-medium py-1">充電樁：</td>
-              <td>{txn.chargePointId}</td>
-            </tr>
-            <tr>
               <td className="font-medium py-1">住戶名稱：</td>
               <td>{txn.residentName || "--"}</td>
             </tr>
             <tr>
-              <td className="font-medium py-1">樓號/戶別：</td>
-              <td>{getHouseholdText(txn)}</td>
+              <td className="font-medium py-1">卡號：</td>
+              <td>{txn.cardNumber || txn.idTag || "--"}</td>
             </tr>
             <tr>
               <td className="font-medium py-1">卡號：</td>
