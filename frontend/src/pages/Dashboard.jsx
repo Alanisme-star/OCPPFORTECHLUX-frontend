@@ -1,206 +1,71 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "../axiosInstance";
-import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  Legend,
-} from "recharts";
-
-const lineColors = [
-  "#4fd1c5",
-  "#63b3ed",
-  "#f6ad55",
-  "#fc8181",
-  "#9f7aea",
-  "#68d391",
-  "#f687b3",
-  "#a0aec0",
-];
 
 const Dashboard = () => {
-  const [summary, setSummary] = useState([]);
-  const [status, setStatus] = useState({});
-  const [trend, setTrend] = useState([]);
+  const [dashboardData, setDashboardData] = useState({
+    summary: {},
+    chargingNow: [],
+    alerts: [],
+    generatedAt: "",
+  });
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
   useEffect(() => {
-    const fetchAll = async () => {
-      const endDate = new Date();
-      const startDate = new Date();
-      startDate.setDate(startDate.getDate() - 30);
-
-      const end = endDate.toISOString().slice(0, 10);
-      const start = startDate.toISOString().slice(0, 10);
-
+    const fetchDashboard = async () => {
       setLoading(true);
       setErrorMessage("");
 
-      console.log("📡 發出 dashboard 請求...", { start, end });
+      console.log("📡 發出社區管委會 Dashboard 請求...");
 
       try {
-        const results = await Promise.allSettled([
-          axios.get("/api/status", {
-            timeout: 30000,
-          }),
-          axios.get(`/api/summary/daily-by-chargepoint-range?start=${start}&end=${end}`, {
-            timeout: 30000,
-          }),
-        ]);
+        const response = await axios.get("/api/dashboard/community", {
+          timeout: 30000,
+        });
 
-        const [statusResult, summaryResult] = results;
+        console.log("✅ /api/dashboard/community 結果:", response.data);
 
-        const failedApis = [];
-
-        if (statusResult.status === "fulfilled") {
-          console.log("✅ /api/status 結果:", statusResult.value.data);
-          setStatus(statusResult.value.data || {});
-        } else {
-          console.error("❌ /api/status 失敗：", statusResult.reason);
-          setStatus({});
-          failedApis.push("/api/status");
-        }
-
-        if (summaryResult.status === "fulfilled") {
-          console.log("✅ /api/summary/daily-by-chargepoint-range 結果:", summaryResult.value.data);
-
-          const summaryData = Array.isArray(summaryResult.value.data)
-            ? summaryResult.value.data
-            : [];
-
-          setSummary(summaryData);
-          setTrend(buildTrendFromSummary(summaryData));
-        } else {
-          console.error("❌ /api/summary/daily-by-chargepoint-range 失敗：", summaryResult.reason);
-          setSummary([]);
-          setTrend([]);
-          failedApis.push("/api/summary/daily-by-chargepoint-range");
-        }
-
-        if (failedApis.length > 0) {
-          setErrorMessage(`部分 Dashboard API 讀取失敗：${failedApis.join("、")}`);
-        }
+        setDashboardData({
+          summary: response.data?.summary || {},
+          chargingNow: Array.isArray(response.data?.chargingNow)
+            ? response.data.chargingNow
+            : [],
+          alerts: Array.isArray(response.data?.alerts)
+            ? response.data.alerts
+            : [],
+          generatedAt: response.data?.generatedAt || "",
+        });
       } catch (err) {
-        console.error("❌ 儀表板資料讀取失敗：", err);
+        console.error("❌ 社區管委會 Dashboard 資料讀取失敗：", err);
+
         setErrorMessage(
           err?.response?.data?.detail ||
             err?.response?.data?.message ||
             err?.message ||
-            "儀表板資料讀取失敗"
+            "社區管委會 Dashboard 資料讀取失敗"
         );
       } finally {
         setLoading(false);
       }
-
     };
 
-    fetchAll();
+    fetchDashboard();
   }, []);
 
-  const cpList = useMemo(() => {
-    if (!Array.isArray(trend) || trend.length === 0 || typeof trend[0] !== "object") {
-      return [];
+  const summary = dashboardData.summary || {};
+  const chargingNow = dashboardData.chargingNow || [];
+  const alerts = dashboardData.alerts || [];
+
+  const contractUsagePercent = useMemo(() => {
+    const currentPower = Number(summary.currentTotalPowerKw || 0);
+    const contractKw = Number(summary.contractKw || 0);
+
+    if (!contractKw || contractKw <= 0) {
+      return 0;
     }
 
-    return Object.keys(trend[0]).filter((key) => key !== "period" && typeof key === "string");
-  }, [trend]);
-
-  const statusEntries = useMemo(() => {
-    if (!status || typeof status !== "object") {
-      return [];
-    }
-
-    return Object.entries(status).map(([cpId, value]) => {
-      const normalizedStatus =
-        value?.status ||
-        value?.connectorStatus ||
-        value?.connector_status ||
-        value?.state ||
-        "Unknown";
-
-      const powerKw =
-        Number(value?.power_kw) ||
-        Number(value?.currentPowerKw) ||
-        Number(value?.current_power_kw) ||
-        Number(value?.measured_power_kw) ||
-        Number(value?.meterPowerKw) ||
-        Number(value?.power) ||
-        0;
-
-      const updatedAt =
-        value?.updated_at ||
-        value?.updatedAt ||
-        value?.last_seen ||
-        value?.lastSeen ||
-        value?.timestamp ||
-        "";
-
-      return {
-        cpId,
-        status: normalizedStatus,
-        powerKw,
-        updatedAt,
-      };
-    });
-  }, [status]);
-
-  const dashboardStats = useMemo(() => {
-    const totalEnergyKwh = summary.reduce((sum, row) => {
-      const value = Number(row?.totalEnergy || 0);
-      return sum + value / 1000;
-    }, 0);
-
-    const totalTransactions = summary.reduce((sum, row) => {
-      return sum + Number(row?.transactionCount || 0);
-    }, 0);
-
-    const totalChargePoints = statusEntries.length;
-
-    const chargingCount = statusEntries.filter((item) => {
-      return String(item.status).toLowerCase() === "charging";
-    }).length;
-
-    const availableCount = statusEntries.filter((item) => {
-      return String(item.status).toLowerCase() === "available";
-    }).length;
-
-    const preparingCount = statusEntries.filter((item) => {
-      return String(item.status).toLowerCase() === "preparing";
-    }).length;
-
-    const faultOrOfflineCount = statusEntries.filter((item) => {
-      const text = String(item.status).toLowerCase();
-      return text.includes("fault") || text.includes("offline") || text.includes("unavailable");
-    }).length;
-
-    const currentTotalPowerKw = statusEntries.reduce((sum, item) => {
-      return sum + Number(item.powerKw || 0);
-    }, 0);
-
-    return {
-      totalEnergyKwh,
-      totalTransactions,
-      totalChargePoints,
-      chargingCount,
-      availableCount,
-      preparingCount,
-      faultOrOfflineCount,
-      currentTotalPowerKw,
-    };
-  }, [summary, statusEntries]);
-
-  const recentSummary = useMemo(() => {
-    if (!Array.isArray(summary)) {
-      return [];
-    }
-
-    return [...summary].slice(-7).reverse();
-  }, [summary]);
+    return Math.min((currentPower / contractKw) * 100, 100);
+  }, [summary.currentTotalPowerKw, summary.contractKw]);
 
   const formatNumber = (value, digits = 2) => {
     const number = Number(value || 0);
@@ -212,49 +77,26 @@ const Dashboard = () => {
     return number.toFixed(digits);
   };
 
-  const buildTrendFromSummary = (rows) => {
-    if (!Array.isArray(rows) || rows.length === 0) {
-      return [];
+  const formatInteger = (value) => {
+    const number = Number(value || 0);
+
+    if (!Number.isFinite(number)) {
+      return "0";
     }
 
-    const trendMap = new Map();
+    return String(Math.round(number));
+  };
 
-    rows.forEach((row) => {
-      const period =
-        row?.period ||
-        row?.date ||
-        row?.day ||
-        row?.startDate ||
-        row?.start_date ||
-        "";
+  const formatCurrency = (value) => {
+    const number = Number(value || 0);
 
-      if (!period) {
-        return;
-      }
+    if (!Number.isFinite(number)) {
+      return "0";
+    }
 
-      const chargePointId =
-        row?.chargePointId ||
-        row?.charge_point_id ||
-        row?.cpId ||
-        row?.cp_id ||
-        row?.chargePoint ||
-        "總用電";
-
-      const energyKwh = Number(row?.totalEnergy || row?.energyKwh || row?.energy_kwh || 0) / 1000;
-
-      if (!trendMap.has(period)) {
-        trendMap.set(period, {
-          period,
-        });
-      }
-
-      const currentRow = trendMap.get(period);
-      currentRow[chargePointId] = Number(currentRow[chargePointId] || 0) + energyKwh;
+    return number.toLocaleString("zh-TW", {
+      maximumFractionDigits: 0,
     });
-
-    return Array.from(trendMap.values()).sort((a, b) =>
-      String(a.period).localeCompare(String(b.period))
-    );
   };
 
   const formatDateTime = (value) => {
@@ -269,6 +111,24 @@ const Dashboard = () => {
     }
 
     return text.slice(0, 19);
+  };
+
+  const getAlertClass = (level) => {
+    const text = String(level || "").toLowerCase();
+
+    if (text === "danger" || text === "error") {
+      return "border-red-700 bg-red-950 text-red-200";
+    }
+
+    if (text === "warning") {
+      return "border-yellow-700 bg-yellow-950 text-yellow-200";
+    }
+
+    if (text === "info") {
+      return "border-blue-700 bg-blue-950 text-blue-200";
+    }
+
+    return "border-gray-700 bg-gray-900 text-gray-200";
   };
 
   const getStatusBadgeClass = (value) => {
@@ -310,20 +170,20 @@ const Dashboard = () => {
     <div className="space-y-6">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
-          <h2 className="text-2xl font-bold">儀表板 Dashboard</h2>
+          <h2 className="text-2xl font-bold">管委會總覽 Dashboard</h2>
           <p className="mt-1 text-sm text-gray-400">
-            OCPP 能源管理總覽：用電量、交易筆數、充電樁狀態與近 30 日趨勢。
+            社區充電系統總覽：充電樁狀態、即時負載、本月用電、本月收入與提醒事項。
           </p>
         </div>
 
         <div className="text-sm text-gray-400">
-          資料區間：近 30 日
+          資料產生時間：{formatDateTime(dashboardData.generatedAt)}
         </div>
       </div>
 
       {loading ? (
         <div className="rounded-lg border border-gray-700 bg-gray-800 p-6 text-gray-200">
-          ⏳ 資料載入中，請稍候...
+          ⏳ 社區總覽資料載入中，請稍候...
         </div>
       ) : (
         <>
@@ -335,67 +195,116 @@ const Dashboard = () => {
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <StatCard
-              title="近 30 日總用電"
-              value={formatNumber(dashboardStats.totalEnergyKwh)}
-              unit="kWh"
-              description="依每日用電統計資料加總"
-            />
-
-            <StatCard
-              title="近 30 日交易筆數"
-              value={dashboardStats.totalTransactions}
-              unit="筆"
-              description="依每日交易筆數加總"
-            />
-
-            <StatCard
-              title="目前充電樁數"
-              value={dashboardStats.totalChargePoints}
+              title="社區充電樁總數"
+              value={formatInteger(summary.totalChargePoints)}
               unit="座"
-              description={`Available：${dashboardStats.availableCount}，Preparing：${dashboardStats.preparingCount}`}
+              description={`Available：${formatInteger(summary.availableCount)}，Preparing：${formatInteger(
+                summary.preparingCount
+              )}`}
             />
 
             <StatCard
               title="目前充電中"
-              value={dashboardStats.chargingCount}
+              value={formatInteger(summary.chargingCount)}
               unit="座"
-              description={`異常 / 離線：${dashboardStats.faultOrOfflineCount}，目前功率：${formatNumber(
-                dashboardStats.currentTotalPowerKw
-              )} kW`}
+              description={`離線 / 異常提醒：${formatInteger(summary.offlineCount)} 座`}
             />
+
+            <StatCard
+              title="目前總功率"
+              value={formatNumber(summary.currentTotalPowerKw)}
+              unit="kW"
+              description={`社區契約容量：${formatNumber(summary.contractKw)} kW`}
+            />
+
+            <StatCard
+              title="本月用電量"
+              value={formatNumber(summary.monthlyEnergyKwh)}
+              unit="kWh"
+              description={`本月交易：${formatInteger(summary.monthlyTransactions)} 筆`}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              title="本月收入"
+              value={formatCurrency(summary.monthlyRevenue)}
+              unit="元"
+              description="依本月已完成交易金額統計"
+            />
+
+            <StatCard
+              title="本月有使用住戶"
+              value={formatInteger(summary.activeResidentCount)}
+              unit="戶"
+              description="依本月交易紀錄統計"
+            />
+
+            <StatCard
+              title="本月有使用充電樁"
+              value={formatInteger(summary.activeChargePointCount)}
+              unit="座"
+              description="依本月交易紀錄統計"
+            />
+
+            <div className="rounded-xl border border-gray-700 bg-gray-800 p-4 shadow">
+              <div className="text-sm text-gray-400">契約容量使用率</div>
+              <div className="mt-2 flex items-end gap-2">
+                <span className="text-3xl font-bold text-white">
+                  {formatNumber(contractUsagePercent, 1)}
+                </span>
+                <span className="pb-1 text-sm text-gray-400">%</span>
+              </div>
+
+              <div className="mt-3 h-3 overflow-hidden rounded-full bg-gray-700">
+                <div
+                  className="h-full rounded-full bg-blue-500"
+                  style={{ width: `${contractUsagePercent}%` }}
+                />
+              </div>
+
+              <div className="mt-2 text-xs text-gray-500">
+                目前 {formatNumber(summary.currentTotalPowerKw)} kW / 契約{" "}
+                {formatNumber(summary.contractKw)} kW
+              </div>
+            </div>
           </div>
 
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
             <div className="rounded-xl border border-gray-700 bg-gray-800 p-4 xl:col-span-1">
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="font-semibold text-lg">📊 最近 7 日用電統計</h3>
-                <span className="text-xs text-gray-400">依日期倒序</span>
+                <h3 className="font-semibold text-lg">⚠️ 系統提醒</h3>
+                <span className="text-xs text-gray-400">提醒數：{alerts.length}</span>
               </div>
 
-              <div className="max-h-80 overflow-y-auto">
-                {recentSummary.length > 0 ? (
-                  <div className="space-y-2">
-                    {recentSummary.map((row) => (
+              <div className="max-h-96 overflow-y-auto">
+                {alerts.length > 0 ? (
+                  <div className="space-y-3">
+                    {alerts.map((alert, index) => (
                       <div
-                        key={row.period}
-                        className="rounded-lg border border-gray-700 bg-gray-900 px-3 py-2"
+                        key={`${alert.type || "alert"}-${alert.chargePointId || index}`}
+                        className={`rounded-lg border p-3 text-sm ${getAlertClass(alert.level)}`}
                       >
-                        <div className="flex items-center justify-between gap-3">
-                          <div className="font-semibold text-gray-100">{row.period}</div>
-                          <div className="text-right text-sm text-gray-300">
-                            {formatNumber(Number(row.totalEnergy || 0) / 1000)} kWh
-                          </div>
+                        <div className="font-semibold">
+                          {alert.message || "系統提醒"}
                         </div>
 
-                        <div className="mt-1 text-xs text-gray-500">
-                          交易筆數：{row.transactionCount ?? 0} 筆
-                        </div>
+                        {(alert.chargePointId || alert.residentName) && (
+                          <div className="mt-2 text-xs opacity-80">
+                            {alert.chargePointId && (
+                              <div>充電樁：{alert.chargePointId}</div>
+                            )}
+                            {alert.residentName && (
+                              <div>住戶：{alert.residentName}</div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-gray-700 bg-gray-900 p-4 text-sm text-yellow-300">
-                    目前沒有每日用電統計資料。
+                  <div className="rounded-lg border border-gray-700 bg-gray-900 p-4 text-sm text-green-300">
+                    目前沒有系統提醒。
                   </div>
                 )}
               </div>
@@ -403,94 +312,108 @@ const Dashboard = () => {
 
             <div className="rounded-xl border border-gray-700 bg-gray-800 p-4 xl:col-span-2">
               <div className="mb-3 flex items-center justify-between">
-                <h3 className="font-semibold text-lg">📈 多樁近 30 日用電趨勢圖</h3>
+                <h3 className="font-semibold text-lg">🔌 目前充電中</h3>
                 <span className="text-xs text-gray-400">
-                  充電樁數：{cpList.length}
+                  充電中筆數：{chargingNow.length}
                 </span>
               </div>
 
-              {trend.length > 0 && cpList.length > 0 ? (
-                <ResponsiveContainer width="100%" height={320}>
-                  <LineChart data={trend} margin={{ top: 10, right: 30, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="period" />
-                    <YAxis unit="kWh" />
-                    <Tooltip />
-                    <Legend />
-                    {cpList.map((cp, index) => (
-                      <Line
-                        key={`line-${cp}`}
-                        type="monotone"
-                        dataKey={cp}
-                        stroke={lineColors[index % lineColors.length]}
-                        name={cp}
-                        dot={false}
-                        strokeWidth={2}
-                      />
-                    ))}
-                  </LineChart>
-                </ResponsiveContainer>
-              ) : (
-                <div className="flex h-80 items-center justify-center rounded-lg border border-gray-700 bg-gray-900 text-sm text-yellow-300">
-                  目前沒有足夠資料可顯示趨勢圖。
-                </div>
-              )}
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-sm">
+                  <thead>
+                    <tr className="bg-gray-700 text-left text-gray-200">
+                      <th className="p-3">充電樁</th>
+                      <th className="p-3">住戶</th>
+                      <th className="p-3">狀態</th>
+                      <th className="p-3 text-right">目前功率</th>
+                      <th className="p-3 text-right">累積度數</th>
+                      <th className="p-3">開始時間</th>
+                    </tr>
+                  </thead>
+
+                  <tbody>
+                    {chargingNow.length > 0 ? (
+                      chargingNow.map((item, index) => (
+                        <tr
+                          key={`${item.chargePointId || "cp"}-${item.transactionId || index}`}
+                          className="border-b border-gray-700 hover:bg-gray-700/40"
+                        >
+                          <td className="p-3 font-semibold text-white">
+                            {item.chargePointId || "-"}
+                          </td>
+
+                          <td className="p-3 text-gray-200">
+                            {item.residentName || "-"}
+                          </td>
+
+                          <td className="p-3">
+                            <span
+                              className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${getStatusBadgeClass(
+                                item.status
+                              )}`}
+                            >
+                              {item.status || "-"}
+                            </span>
+                          </td>
+
+                          <td className="p-3 text-right text-gray-200">
+                            {formatNumber(item.currentPowerKw)} kW
+                          </td>
+
+                          <td className="p-3 text-right text-gray-200">
+                            {formatNumber(item.energyKwh)} kWh
+                          </td>
+
+                          <td className="p-3 text-gray-300">
+                            {formatDateTime(item.startTimestamp)}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td className="p-4 text-center text-yellow-300" colSpan="6">
+                          目前沒有正在充電的交易。
+                        </td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
 
           <div className="rounded-xl border border-gray-700 bg-gray-800 p-4">
             <div className="mb-3 flex items-center justify-between">
-              <h3 className="font-semibold text-lg">🔌 即時充電樁狀態</h3>
+              <h3 className="font-semibold text-lg">📌 社區充電摘要</h3>
               <span className="text-xs text-gray-400">
-                目前資料筆數：{statusEntries.length}
+                前端資料來源：/api/dashboard/community
               </span>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-700 text-left text-gray-200">
-                    <th className="p-3">充電樁</th>
-                    <th className="p-3">狀態</th>
-                    <th className="p-3 text-right">目前功率</th>
-                    <th className="p-3">最後更新</th>
-                  </tr>
-                </thead>
+            <div className="grid grid-cols-1 gap-3 text-sm md:grid-cols-3">
+              <div className="rounded-lg border border-gray-700 bg-gray-900 p-3">
+                <div className="text-gray-400">充電樁狀態</div>
+                <div className="mt-2 text-gray-200">
+                  可用 {formatInteger(summary.availableCount)} 座、準備中{" "}
+                  {formatInteger(summary.preparingCount)} 座、充電中{" "}
+                  {formatInteger(summary.chargingCount)} 座
+                </div>
+              </div>
 
-                <tbody>
-                  {statusEntries.length > 0 ? (
-                    statusEntries.map((item) => (
-                      <tr key={item.cpId} className="border-b border-gray-700 hover:bg-gray-700/40">
-                        <td className="p-3 font-semibold text-white">{item.cpId}</td>
+              <div className="rounded-lg border border-gray-700 bg-gray-900 p-3">
+                <div className="text-gray-400">本月營運</div>
+                <div className="mt-2 text-gray-200">
+                  {formatInteger(summary.monthlyTransactions)} 筆交易，
+                  收入 {formatCurrency(summary.monthlyRevenue)} 元
+                </div>
+              </div>
 
-                        <td className="p-3">
-                          <span
-                            className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${getStatusBadgeClass(
-                              item.status
-                            )}`}
-                          >
-                            {item.status}
-                          </span>
-                        </td>
-
-                        <td className="p-3 text-right text-gray-200">
-                          {formatNumber(item.powerKw)} kW
-                        </td>
-
-                        <td className="p-3 text-gray-300">
-                          {formatDateTime(item.updatedAt)}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td className="p-4 text-center text-yellow-300" colSpan="4">
-                        目前沒有即時充電樁狀態資料。
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
+              <div className="rounded-lg border border-gray-700 bg-gray-900 p-3">
+                <div className="text-gray-400">提醒說明</div>
+                <div className="mt-2 text-gray-200">
+                  alerts 只作為管委會提醒顯示，不直接混入異常數統計。
+                </div>
+              </div>
             </div>
           </div>
         </>
