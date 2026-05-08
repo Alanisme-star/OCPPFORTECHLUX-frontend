@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 
 const menu = [
-  { path: "/", label: "Dashboard", icon: <Home size={18} /> },
+  { path: "/", label: "管委會總覽", icon: <Home size={18} /> },
   { path: "/transactions", label: "交易紀錄", icon: <FileText size={18} /> },
   { path: "/cards", label: "卡片管理", icon: <CreditCard size={18} /> },
   { path: "/charge-points", label: "充電樁管理", icon: <ClipboardList size={18} /> },
