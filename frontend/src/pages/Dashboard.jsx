@@ -225,19 +225,12 @@ const Dashboard = () => {
             />
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <StatCard
               title="本月收入"
               value={formatCurrency(summary.monthlyRevenue)}
               unit="元"
               description="依本月已完成交易金額統計"
-            />
-
-            <StatCard
-              title="本月有使用住戶"
-              value={formatInteger(summary.activeResidentCount)}
-              unit="戶"
-              description="依本月交易紀錄統計"
             />
 
             <StatCard
@@ -269,7 +262,6 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
-
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
             <div className="rounded-xl border border-gray-700 bg-gray-800 p-4 xl:col-span-1">
               <div className="mb-3 flex items-center justify-between">
