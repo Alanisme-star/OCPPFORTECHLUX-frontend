@@ -106,7 +106,15 @@ function TransactionDetailModal({ transactionId, onClose }) {
 
             <tr>
               <td className="font-medium py-1 w-32 align-top">總金額：</td>
-              <td className="py-1">{formatAmount(cost.cost)}</td>
+              <td className="py-1 font-bold">{formatAmount(cost.cost)}</td>
+            </tr>
+
+            {/* ⭐ 新增：本次社區盈餘 */}
+            <tr>
+              <td className="font-medium py-1 w-32 align-top">本次社區盈餘：</td>
+              <td className="py-1 text-green-600 dark:text-green-400 font-bold">
+                {txn.surplusAmount != null ? formatAmount(txn.surplusAmount) : "--"}
+              </td>
             </tr>
 
             <tr>
@@ -117,13 +125,17 @@ function TransactionDetailModal({ transactionId, onClose }) {
             <tr>
               <td className="font-medium py-1 w-32 align-top">計費明細：</td>
               <td className="py-1">
-                <ul className="max-h-40 overflow-y-auto text-sm">
+                <ul className="max-h-40 overflow-y-auto text-sm bg-gray-50 dark:bg-gray-700/50 p-2 rounded">
                   {Array.isArray(cost.details) && cost.details.length > 0 ? (
                     cost.details.map((d, idx) => (
-                      <li key={idx}>
-                        ▸ {d.from || "--"} ~ {d.to || "--"} |{" "}
-                        {d.kWh ?? d.kwh ?? "--"} kWh × {d.price ?? "--"} ={" "}
-                        {d.cost ?? 0} 元
+                      <li key={idx} className="mb-1 border-b border-gray-200 dark:border-gray-600 pb-1 last:border-0 last:mb-0">
+                        <div className="text-gray-600 dark:text-gray-300">
+                          {d.from || "--"} ~ {d.to || "--"}
+                        </div>
+                        <div>
+                          {d.kWh ?? d.kwh ?? "--"} kWh × {d.price ?? "--"} 元 = {" "}
+                          <span className="font-semibold">{d.cost ?? 0} 元</span>
+                        </div>
                       </li>
                     ))
                   ) : (
@@ -135,10 +147,10 @@ function TransactionDetailModal({ transactionId, onClose }) {
           </tbody>
         </table>
 
-        <div className="flex justify-end">
+        <div className="flex justify-end mt-2">
           <button
             onClick={onClose}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded"
+            className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded transition-colors"
           >
             關閉
           </button>
