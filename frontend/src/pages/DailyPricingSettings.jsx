@@ -58,6 +58,44 @@ export default function DailyPricingSettings() {
 
   const [rulesLoaded, setRulesLoaded] = useState(false);
 
+  // ⭐ 新增：社區加價 (盈餘) 設定狀態
+  const [communitySettings, setCommunitySettings] = useState(null);
+  const [surcharge, setSurcharge] = useState(0);
+
+  // ---------------------- 載入與儲存社區加價設定 ----------------------
+  const loadCommunitySettings = async () => {
+    try {
+      const res = await axios.get("/api/community-settings");
+      setCommunitySettings(res.data);
+      setSurcharge(res.data.surcharge_per_kwh || 0);
+    } catch (err) {
+      console.error("無法載入社區設定", err);
+    }
+  };
+
+  const handleSaveSurcharge = async () => {
+    if (!communitySettings) return;
+    try {
+      const payload = {
+        enabled: communitySettings.enabled,
+        contractKw: communitySettings.contract_kw,
+        voltageV: communitySettings.voltage_v,
+        phases: communitySettings.phases,
+        minCurrentA: communitySettings.min_current_a,
+        maxCurrentA: communitySettings.max_current_a,
+        surchargePerKwh: parseFloat(surcharge) || 0
+      };
+      await axios.post("/api/community-settings", payload);
+      alert("✅ 社區每度電加價儲存成功！");
+    } catch (err) {
+      alert("❌ 社區加價儲存失敗");
+    }
+  };
+
+  useEffect(() => {
+    loadCommunitySettings();
+  }, []);
+
   // ---------------------- 載入預設規則 ----------------------
   const loadDefaultPricingRules = async () => {
     try {
@@ -141,7 +179,6 @@ export default function DailyPricingSettings() {
     <div className="space-y-2">
       {rules.map((r, i) => (
         <div key={i} className="flex gap-2 items-center">
-
           {/* 電價種類 */}
           <select
             value={r.label}
@@ -332,6 +369,32 @@ export default function DailyPricingSettings() {
     <div className="text-white max-w-6xl mx-auto">
       <h2 className="text-2xl font-bold mb-4">📅 每日電價設定</h2>
 
+      {/* ⭐ 新增：社區每度電加價 (盈餘) 設定區塊 */}
+      <div className="bg-gray-800 p-5 rounded-lg mb-6 flex flex-wrap items-center justify-between border border-gray-700">
+        <div>
+          <h3 className="text-lg font-bold text-green-400">💰 社區每度電加價 (盈餘) 設定</h3>
+          <p className="text-sm text-gray-400 mt-1">設定後，住戶的實際扣款電費將會是：「各時段台電基準單價 + 此加價金額」。</p>
+        </div>
+        <div className="flex items-center gap-3 mt-4 sm:mt-0">
+          <span className="text-xl font-bold">+</span>
+          <input
+            type="number"
+            step="0.1"
+            min="0"
+            value={surcharge}
+            onChange={(e) => setSurcharge(e.target.value)}
+            className="text-black px-3 py-2 w-24 rounded font-bold text-right text-lg"
+          />
+          <span className="text-lg">元 / kWh</span>
+          <button
+            onClick={handleSaveSurcharge}
+            className="bg-green-600 hover:bg-green-500 text-white px-4 py-2 rounded font-bold ml-2 transition-colors"
+          >
+            💾 儲存加價
+          </button>
+        </div>
+      </div>
+
       {/* 年月選擇 */}
       <div className="mb-4 flex gap-4">
         <select
@@ -371,12 +434,12 @@ export default function DailyPricingSettings() {
               onClick={() => loadDateSettings(d.date)}
               className={`rounded p-2 w-full ${
                 d.color === "yellow"
-                  ? "bg-yellow-400"
+                  ? "bg-yellow-400 text-black"
                   : d.color === "blue"
-                  ? "bg-blue-400"
+                  ? "bg-blue-400 text-black"
                   : d.color === "green"
-                  ? "bg-green-400"
-                  : "bg-gray-400"
+                  ? "bg-green-400 text-black"
+                  : "bg-gray-400 text-black"
               }`}
             >
               {dayjs(d.date).date()}
@@ -408,7 +471,7 @@ export default function DailyPricingSettings() {
         {selectedDate && (
           <button
             onClick={() => handleApplyHoliday(selectedDate)}
-            className="mt-4 bg-green-600 px-3 py-1 rounded"
+            className="mt-4 bg-green-600 hover:bg-green-500 px-3 py-1 rounded transition-colors"
           >
             🔁 套用例假日設定
           </button>
@@ -425,7 +488,7 @@ export default function DailyPricingSettings() {
           {renderRuleEditor(weekdayRules, setWeekdayRules)}
           <button
             onClick={() => handleApplyTemplate("weekday")}
-            className="mt-2 bg-blue-600 px-3 py-1 rounded"
+            className="mt-2 bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded transition-colors"
           >
             📤 套用至本月工作日
           </button>
@@ -437,7 +500,7 @@ export default function DailyPricingSettings() {
           {renderRuleEditor(saturdayRules, setSaturdayRules)}
           <button
             onClick={() => handleApplyTemplate("saturday")}
-            className="mt-2 bg-blue-600 px-3 py-1 rounded"
+            className="mt-2 bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded transition-colors"
           >
             📤 套用至本月六
           </button>
@@ -449,7 +512,7 @@ export default function DailyPricingSettings() {
           {renderRuleEditor(sundayRules, setSundayRules)}
           <button
             onClick={() => handleApplyTemplate("sunday")}
-            className="mt-2 bg-blue-600 px-3 py-1 rounded"
+            className="mt-2 bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded transition-colors"
           >
             📤 套用至本月日
           </button>
