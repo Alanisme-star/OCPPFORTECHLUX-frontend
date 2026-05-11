@@ -51,17 +51,30 @@ function Transactions() {
 
       const data = res.data;
 
+      // 新增排序邏輯：強制降冪排序 (優先以 transactionId 排序，確保 3 -> 2 -> 1)
+      const sortTransactionsDesc = (arr) => {
+        return [...arr].sort((a, b) => {
+          // 如果有 transactionId，直接以 ID 數字由大到小排
+          if (a.transactionId !== undefined && b.transactionId !== undefined) {
+            return b.transactionId - a.transactionId;
+          }
+          // 備案：若無 ID，則依照開始時間由新到舊排
+          return new Date(b.startTimestamp) - new Date(a.startTimestamp);
+        });
+      };
+
       if (data && typeof data === "object" && Array.isArray(data.items)) {
-        setTransactions(data.items);
+        setTransactions(sortTransactionsDesc(data.items));
         setSummary(data.summary || null);
       } else if (Array.isArray(data)) {
-        setTransactions(data);
+        setTransactions(sortTransactionsDesc(data));
         setSummary(null);
       } else {
         console.warn("⚠️ API 回傳格式非預期:", data);
         setTransactions([]);
         setSummary(null);
       }
+
     } catch (err) {
       console.error("❌ 取得交易資料失敗:", err);
       setTransactions([]);
@@ -95,8 +108,6 @@ function Transactions() {
     if (value == null || isNaN(Number(value))) return "--";
     return Number(value).toFixed(digits);
   };
-
-
 
   return (
     <div className="bg-white dark:bg-gray-900 text-black dark:text-white rounded-lg p-4 shadow-md">
@@ -135,10 +146,11 @@ function Transactions() {
         </div>
       </div>
 
-      <div className="mb-4 grid grid-cols-1 md:grid-cols-5 gap-3">
+      {/* ⭐ 修改：改為 6 個 grid 欄位，並加入社區總盈餘卡片 */}
+      <div className="mb-4 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
         <div className="p-3 rounded-lg bg-gray-100 dark:bg-gray-800">
           <div className="text-xs text-gray-500 dark:text-gray-400">查詢期間</div>
-          <div className="font-semibold">
+          <div className="font-semibold text-sm xl:text-base">
             {summary?.startDate || startDate || "--"} ~ {summary?.endDate || endDate || "--"}
           </div>
         </div>
@@ -170,6 +182,14 @@ function Transactions() {
             {formatNumber(summary?.totalCost)} 元
           </div>
         </div>
+
+        {/* 新增的總盈餘卡片 */}
+        <div className="p-3 rounded-lg bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800">
+          <div className="text-xs text-green-600 dark:text-green-400 font-bold">社區總盈餘</div>
+          <div className="font-semibold text-green-700 dark:text-green-300">
+            {formatNumber(summary?.totalSurplus)} 元
+          </div>
+        </div>
       </div>
 
       <div className="overflow-x-auto">
@@ -186,6 +206,8 @@ function Transactions() {
               <th className="p-2">本次充電度數 (kWh)</th>
               <th className="p-2">本次充電前餘額</th>
               <th className="p-2">本次充電費用</th>
+              {/* ⭐ 新增盈餘欄位 */}
+              <th className="p-2 text-green-600 dark:text-green-400">本次社區盈餘</th>
               <th className="p-2">本次充電後餘額</th>
             </tr>
           </thead>
@@ -206,6 +228,7 @@ function Transactions() {
                   energyKwh,
                   balanceBefore,
                   cost,
+                  surplusAmount, // ⭐ 取出盈餘
                   balanceAfter,
                 } = txn;
 
@@ -227,13 +250,18 @@ function Transactions() {
                     <td className="p-2">{formatNumber(energyKwh)}</td>
                     <td className="p-2">{formatNumber(balanceBefore)}</td>
                     <td className="p-2">{formatNumber(cost)}</td>
+                    {/* ⭐ 顯示該筆盈餘 */}
+                    <td className="p-2 text-green-600 dark:text-green-400 font-semibold">
+                      {formatNumber(surplusAmount)}
+                    </td>
                     <td className="p-2">{formatNumber(balanceAfter)}</td>
                   </tr>
                 );
               })
             ) : (
               <tr>
-                <td colSpan="11" className="text-center py-4 text-gray-400">
+                {/* ⭐ colSpan 從 11 改為 12 */}
+                <td colSpan="12" className="text-center py-4 text-gray-400">
                   {loading ? "資料查詢中..." : "無交易資料"}
                 </td>
               </tr>
