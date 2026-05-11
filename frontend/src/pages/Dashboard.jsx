@@ -193,7 +193,9 @@ const Dashboard = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+
+          {/* 第一排：即時狀態 */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <StatCard
               title="社區充電樁總數"
               value={formatInteger(summary.totalChargePoints)}
@@ -216,21 +218,41 @@ const Dashboard = () => {
               unit="kW"
               description={`社區契約容量：${formatNumber(summary.contractKw)} kW`}
             />
+          </div>
 
+          {/* 第二排：本月營運統計 */}
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             <StatCard
               title="本月用電量"
               value={formatNumber(summary.monthlyEnergyKwh)}
               unit="kWh"
               description={`本月交易：${formatInteger(summary.monthlyTransactions)} 筆`}
             />
-          </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             <StatCard
-              title="本月收入"
+              title="本月充電總收費"
               value={formatCurrency(summary.monthlyRevenue)}
               unit="元"
               description="依本月已完成交易金額統計"
+            />
+
+            {/* ⭐ 新增：本月社區盈餘卡片 */}
+            <div className="rounded-xl border border-green-700 bg-green-900/20 p-4 shadow">
+              <div className="text-sm text-green-400 font-bold">本月社區總盈餘</div>
+              <div className="mt-2 flex items-end gap-2">
+                <span className="text-3xl font-bold text-green-300">
+                  {formatCurrency(summary.monthlySurplus)}
+                </span>
+                <span className="pb-1 text-sm text-green-500">元</span>
+              </div>
+              <div className="mt-2 text-xs text-green-500">扣除基礎電價後的社區額外收入</div>
+            </div>
+
+            <StatCard
+              title="本月有使用充電樁"
+              value={formatInteger(summary.activeChargePointCount)}
+              unit="座"
+              description="依本月交易紀錄統計"
             />
 
             <StatCard
@@ -396,7 +418,10 @@ const Dashboard = () => {
                 <div className="text-gray-400">本月營運</div>
                 <div className="mt-2 text-gray-200">
                   {formatInteger(summary.monthlyTransactions)} 筆交易，
-                  收入 {formatCurrency(summary.monthlyRevenue)} 元
+                  總收費 {formatCurrency(summary.monthlyRevenue)} 元
+                  <span className="text-green-400 ml-1">
+                    (含盈餘 {formatCurrency(summary.monthlySurplus)} 元)
+                  </span>
                 </div>
               </div>
 
