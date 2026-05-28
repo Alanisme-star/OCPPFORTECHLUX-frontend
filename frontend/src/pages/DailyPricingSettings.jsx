@@ -45,7 +45,9 @@ const types = [
 const weekdayLabels = ["日", "一", "二", "三", "四", "五", "六"];
 
 export default function DailyPricingSettings() {
-  const [year, setYear] = useState(dayjs().year());
+  const currentYear = dayjs().year();
+
+  const [year, setYear] = useState(currentYear);
   const [month, setMonth] = useState(dayjs().month() + 1);
   const [calendar, setCalendar] = useState([]);
 
@@ -61,6 +63,13 @@ export default function DailyPricingSettings() {
   // ⭐ 新增：社區加價 (盈餘) 設定狀態
   const [communitySettings, setCommunitySettings] = useState(null);
   const [surcharge, setSurcharge] = useState(0);
+
+  // ⭐ 新增：萬年曆批次匯入狀態
+  const [calendarImportStartYear, setCalendarImportStartYear] = useState(currentYear);
+  const [calendarImportEndYear, setCalendarImportEndYear] = useState(currentYear + 9);
+  const [calendarImportMode, setCalendarImportMode] = useState("fill_missing");
+  const [calendarImportLoading, setCalendarImportLoading] = useState(false);
+  const [calendarImportResult, setCalendarImportResult] = useState(null);
 
   // ---------------------- 載入與儲存社區加價設定 ----------------------
   const loadCommunitySettings = async () => {
@@ -360,6 +369,67 @@ export default function DailyPricingSettings() {
     }
   };
 
+  // ---------------------- 萬年曆批次匯入 ----------------------
+  const handleImportCalendarPricing = async () => {
+    const startYear = Number(calendarImportStartYear);
+    const endYear = Number(calendarImportEndYear);
+
+    if (!startYear || !endYear) {
+      alert("⚠️ 請輸入起始年份與結束年份");
+      return;
+    }
+
+    if (startYear > endYear) {
+      alert("⚠️ 起始年份不可大於結束年份");
+      return;
+    }
+
+    if (calendarImportMode === "overwrite") {
+      const confirmed = window.confirm(
+        `⚠️ 你選擇的是「覆蓋模式」。\n\n系統會先刪除 ${startYear}～${endYear} 年範圍內既有的每日電價資料，再重新匯入。\n\n確定要繼續嗎？`
+      );
+
+      if (!confirmed) return;
+    }
+
+    setCalendarImportLoading(true);
+    setCalendarImportResult(null);
+
+    try {
+      const res = await axios.post("/api/daily-pricing/import-calendar", {
+        startYear,
+        endYear,
+        mode: calendarImportMode
+      });
+
+      setCalendarImportResult(res.data);
+      alert("✅ 萬年曆批次匯入完成！");
+
+      setYear(startYear);
+      setMonth(1);
+
+      if (selectedDate) {
+        loadDateSettings(selectedDate);
+      }
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+
+      let errorMessage = "萬年曆批次匯入失敗";
+
+      if (typeof detail === "string") {
+        errorMessage = detail;
+      } else if (Array.isArray(detail)) {
+        errorMessage = detail.map((item) => item.msg || JSON.stringify(item)).join("\n");
+      } else if (detail) {
+        errorMessage = JSON.stringify(detail);
+      }
+
+      alert(`❌ ${errorMessage}`);
+    } finally {
+      setCalendarImportLoading(false);
+    }
+  };
+
   // ---------------------- Loading 保護 ----------------------
   if (!rulesLoaded) {
     return <div className="text-white">載入中...</div>;
@@ -395,6 +465,105 @@ export default function DailyPricingSettings() {
         </div>
       </div>
 
+      {/* ⭐ 新增：萬年曆批次設定 */}
+      <div className="bg-gray-800 p-5 rounded-lg mb-6 border border-gray-700">
+        <div className="mb-4">
+          <h3 className="text-lg font-bold text-blue-300">📅 萬年曆批次設定</h3>
+          <p className="text-sm text-gray-400 mt-1">
+            依照預設的工作日、星期六、星期日規則，自動批次建立指定年份範圍的每日電價資料。
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-end gap-4">
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">起始年份</label>
+            <input
+              type="number"
+              min="2024"
+              max="2100"
+              value={calendarImportStartYear}
+              onChange={(e) => setCalendarImportStartYear(e.target.value)}
+              className="text-black px-3 py-2 w-28 rounded"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">結束年份</label>
+            <input
+              type="number"
+              min="2024"
+              max="2100"
+              value={calendarImportEndYear}
+              onChange={(e) => setCalendarImportEndYear(e.target.value)}
+              className="text-black px-3 py-2 w-28 rounded"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">匯入模式</label>
+            <select
+              value={calendarImportMode}
+              onChange={(e) => setCalendarImportMode(e.target.value)}
+              className="text-black px-3 py-2 rounded min-w-[220px]"
+            >
+              <option value="fill_missing">只補沒有資料的日期</option>
+              <option value="overwrite">覆蓋指定年份範圍</option>
+            </select>
+          </div>
+
+          <button
+            onClick={handleImportCalendarPricing}
+            disabled={calendarImportLoading}
+            className={`px-4 py-2 rounded font-bold transition-colors ${
+              calendarImportLoading
+                ? "bg-gray-500 cursor-not-allowed"
+                : "bg-blue-600 hover:bg-blue-500"
+            }`}
+          >
+            {calendarImportLoading ? "匯入中..." : "📥 開始匯入"}
+          </button>
+        </div>
+
+        <div className="mt-3 text-sm text-yellow-300">
+          ※ 安全預設為「只補沒有資料的日期」。若選擇「覆蓋指定年份範圍」，系統會再次跳出確認視窗。
+        </div>
+
+        {calendarImportResult && (
+          <div className="mt-4 bg-gray-900 border border-gray-700 rounded p-4">
+            <div className="text-green-400 font-bold mb-2">✅ 匯入完成</div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-sm">
+              <div className="bg-gray-800 rounded p-3">
+                <div className="text-gray-400">建立天數</div>
+                <div className="text-xl font-bold">{calendarImportResult.daysCreated ?? 0}</div>
+              </div>
+
+              <div className="bg-gray-800 rounded p-3">
+                <div className="text-gray-400">跳過天數</div>
+                <div className="text-xl font-bold">{calendarImportResult.daysSkipped ?? 0}</div>
+              </div>
+
+              <div className="bg-gray-800 rounded p-3">
+                <div className="text-gray-400">寫入規則筆數</div>
+                <div className="text-xl font-bold">{calendarImportResult.rulesInserted ?? 0}</div>
+              </div>
+
+              <div className="bg-gray-800 rounded p-3">
+                <div className="text-gray-400">刪除筆數</div>
+                <div className="text-xl font-bold">{calendarImportResult.deletedRows ?? 0}</div>
+              </div>
+
+              <div className="bg-gray-800 rounded p-3">
+                <div className="text-gray-400">模式</div>
+                <div className="text-base font-bold">
+                  {calendarImportResult.mode === "overwrite" ? "覆蓋" : "補缺"}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* 年月選擇 */}
       <div className="mb-4 flex gap-4">
         <select
@@ -402,7 +571,7 @@ export default function DailyPricingSettings() {
           onChange={(e) => setYear(Number(e.target.value))}
           className="text-black px-2 py-1 rounded"
         >
-          {[2024, 2025, 2026].map((y) => (
+          {Array.from({ length: 12 }, (_, i) => 2024 + i).map((y) => (
             <option key={y} value={y}>{y}</option>
           ))}
         </select>
