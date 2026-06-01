@@ -71,6 +71,12 @@ export default function DailyPricingSettings() {
   const [calendarImportLoading, setCalendarImportLoading] = useState(false);
   const [calendarImportResult, setCalendarImportResult] = useState(null);
 
+  // ⭐ 新增：Special Days 多年批次套用狀態
+  const [specialDaysStartYear, setSpecialDaysStartYear] = useState(currentYear);
+  const [specialDaysEndYear, setSpecialDaysEndYear] = useState(currentYear + 9);
+  const [specialDaysLoading, setSpecialDaysLoading] = useState(false);
+  const [specialDaysResult, setSpecialDaysResult] = useState(null);
+
   // ---------------------- 載入與儲存社區加價設定 ----------------------
   const loadCommunitySettings = async () => {
     try {
@@ -146,15 +152,15 @@ export default function DailyPricingSettings() {
     generateCalendar();
   }, [year, month]);
 
-  const generateCalendar = async () => {
-    const daysInMonth = dayjs(`${year}-${month}-01`).daysInMonth();
-    const firstDay = dayjs(`${year}-${month}-01`).day();
+  const generateCalendar = async (targetYear = year, targetMonth = month) => {
+    const daysInMonth = dayjs(`${targetYear}-${targetMonth}-01`).daysInMonth();
+    const firstDay = dayjs(`${targetYear}-${targetMonth}-01`).day();
 
     const newCalendar = [];
     for (let i = 0; i < firstDay; i++) newCalendar.push(null);
 
     for (let d = 1; d <= daysInMonth; d++) {
-      const dateStr = dayjs(`${year}-${month}-${d}`).format("YYYY-MM-DD");
+      const dateStr = dayjs(`${targetYear}-${targetMonth}-${d}`).format("YYYY-MM-DD");
 
       const res = await axios.get("/api/daily-pricing", {
         params: { date: dateStr }
@@ -386,7 +392,11 @@ export default function DailyPricingSettings() {
 
     if (calendarImportMode === "overwrite") {
       const confirmed = window.confirm(
-        `⚠️ 你選擇的是「覆蓋模式」。\n\n系統會先刪除 ${startYear}～${endYear} 年範圍內既有的每日電價資料，再重新匯入。\n\n確定要繼續嗎？`
+        `⚠️ 你選擇的是「覆蓋模式」。\n\n` +
+          `系統會先刪除 ${startYear}～${endYear} 年範圍內既有的每日電價資料，再重新匯入。\n\n` +
+          `重要提醒：如果你之前已經套用過 Special Days，重新執行萬年曆 overwrite 後，Special Days 會被一般星期規則覆蓋。\n\n` +
+          `因此萬年曆 overwrite 完成後，請務必再次執行「Special Days 多年批次套用」。\n\n` +
+          `確定要繼續嗎？`
       );
 
       if (!confirmed) return;
@@ -407,6 +417,7 @@ export default function DailyPricingSettings() {
 
       setYear(startYear);
       setMonth(1);
+      generateCalendar(startYear, 1);
 
       if (selectedDate) {
         loadDateSettings(selectedDate);
@@ -427,6 +438,85 @@ export default function DailyPricingSettings() {
       alert(`❌ ${errorMessage}`);
     } finally {
       setCalendarImportLoading(false);
+    }
+  };
+
+  // ---------------------- Special Days 多年批次套用 ----------------------
+  const handleApplySpecialDays = async () => {
+    const startYear = Number(specialDaysStartYear);
+    const endYear = Number(specialDaysEndYear);
+
+    if (!startYear || !endYear) {
+      alert("⚠️ 請輸入 Special Days 起始年份與結束年份");
+      return;
+    }
+
+    if (startYear > endYear) {
+      alert("⚠️ Special Days 起始年份不可大於結束年份");
+      return;
+    }
+
+    if (!sundayRules.length) {
+      alert("⚠️ 尚未設定星期日 / 例假日規則，無法套用 Special Days");
+      return;
+    }
+
+    if (!isFullDay(sundayRules)) {
+      alert("⚠️ 星期日 / 例假日規則尚未設定滿 24 小時，請先完成後再套用 Special Days");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `🎌 即將套用 ${startYear}～${endYear} 年的 Special Days。\n\n` +
+        `系統會讀取 holidays/YYYY.json，只套用 type = holiday 的日期。\n\n` +
+        `操作順序確認：\n` +
+        `① 已設定平日 / 星期六 / 星期日模板\n` +
+        `② 已執行萬年曆批次匯入\n` +
+        `③ 現在才執行 Special Days 批次套用\n\n` +
+        `系統會要求 Special Days 日期必須已經有既有每日電價資料。\n` +
+        `若尚未先執行萬年曆匯入，後端會拒絕套用。\n\n` +
+        `確定要繼續嗎？`
+    );
+
+    if (!confirmed) return;
+
+    setSpecialDaysLoading(true);
+    setSpecialDaysResult(null);
+
+    try {
+      const res = await axios.post("/api/daily-pricing/apply-special-days", {
+        startYear,
+        endYear,
+        mode: "overwrite",
+        requireExistingCalendar: true
+      });
+
+      setSpecialDaysResult(res.data);
+      alert("✅ Special Days 多年批次套用完成！");
+
+      setYear(startYear);
+      setMonth(1);
+      generateCalendar(startYear, 1);
+
+      if (selectedDate) {
+        loadDateSettings(selectedDate);
+      }
+    } catch (err) {
+      const detail = err?.response?.data?.detail;
+
+      let errorMessage = "Special Days 多年批次套用失敗";
+
+      if (typeof detail === "string") {
+        errorMessage = detail;
+      } else if (Array.isArray(detail)) {
+        errorMessage = detail.map((item) => item.msg || JSON.stringify(item)).join("\n");
+      } else if (detail) {
+        errorMessage = JSON.stringify(detail);
+      }
+
+      alert(`❌ ${errorMessage}`);
+    } finally {
+      setSpecialDaysLoading(false);
     }
   };
 
@@ -559,6 +649,136 @@ export default function DailyPricingSettings() {
                   {calendarImportResult.mode === "overwrite" ? "覆蓋" : "補缺"}
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ⭐ 新增：Special Days 多年批次套用 */}
+      <div className="bg-gray-800 p-5 rounded-lg mb-6 border border-yellow-700">
+        <div className="mb-4">
+          <h3 className="text-lg font-bold text-yellow-300">🎌 Special Days 多年批次套用</h3>
+          <p className="text-sm text-gray-400 mt-1">
+            讀取 holidays/YYYY.json，將 type = holiday 的日期套用為星期日 / 例假日電價規則。
+          </p>
+        </div>
+
+        <div className="bg-gray-900 border border-yellow-700 rounded p-4 mb-4 text-sm text-yellow-200 leading-6">
+          <div className="font-bold mb-1">⚠️ 操作順序提醒</div>
+          <div>① 先設定平日 / 星期六 / 星期日模板</div>
+          <div>② 再執行萬年曆批次匯入</div>
+          <div>③ 最後執行 Special Days 批次套用</div>
+          <div className="mt-2 text-red-300">
+            若重新執行萬年曆 overwrite，請務必再次執行 Special Days 批次套用。
+          </div>
+        </div>
+
+        <div className="flex flex-wrap items-end gap-4">
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">起始年份</label>
+            <input
+              type="number"
+              min="2024"
+              max="2100"
+              value={specialDaysStartYear}
+              onChange={(e) => setSpecialDaysStartYear(e.target.value)}
+              className="text-black px-3 py-2 w-28 rounded"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">結束年份</label>
+            <input
+              type="number"
+              min="2024"
+              max="2100"
+              value={specialDaysEndYear}
+              onChange={(e) => setSpecialDaysEndYear(e.target.value)}
+              className="text-black px-3 py-2 w-28 rounded"
+            />
+          </div>
+
+          <button
+            onClick={handleApplySpecialDays}
+            disabled={specialDaysLoading}
+            className={`px-4 py-2 rounded font-bold transition-colors ${
+              specialDaysLoading
+                ? "bg-gray-500 cursor-not-allowed"
+                : "bg-yellow-600 hover:bg-yellow-500"
+            }`}
+          >
+            {specialDaysLoading ? "套用中..." : "🎌 套用 Special Days"}
+          </button>
+        </div>
+
+        <div className="mt-3 text-sm text-gray-400">
+          ※ 此功能固定使用 overwrite 模式，會將 holidays 檔案中的例假日改寫為 label = holiday。
+        </div>
+
+        {specialDaysResult && (
+          <div className="mt-4 bg-gray-900 border border-gray-700 rounded p-4">
+            <div className="text-green-400 font-bold mb-2">✅ Special Days 套用完成</div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 text-sm">
+              <div className="bg-gray-800 rounded p-3">
+                <div className="text-gray-400">套用天數</div>
+                <div className="text-xl font-bold">
+                  {specialDaysResult.daysApplied ??
+                    specialDaysResult.appliedDays ??
+                    specialDaysResult.daysUpdated ??
+                    0}
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded p-3">
+                <div className="text-gray-400">寫入規則筆數</div>
+                <div className="text-xl font-bold">
+                  {specialDaysResult.rulesInserted ??
+                    specialDaysResult.insertedRows ??
+                    0}
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded p-3">
+                <div className="text-gray-400">刪除筆數</div>
+                <div className="text-xl font-bold">
+                  {specialDaysResult.deletedRows ?? 0}
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded p-3">
+                <div className="text-gray-400">處理年份</div>
+                <div className="text-xl font-bold">
+                  {specialDaysResult.yearsProcessed ??
+                    specialDaysResult.processedYears ??
+                    0}
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded p-3">
+                <div className="text-gray-400">模式</div>
+                <div className="text-base font-bold">
+                  {specialDaysResult.mode === "overwrite" ? "覆蓋" : specialDaysResult.mode || "overwrite"}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 text-sm">
+              <div className="text-gray-400 mb-1">缺少 holidays 檔案</div>
+
+              {Array.isArray(specialDaysResult.missingHolidayFiles) &&
+              specialDaysResult.missingHolidayFiles.length > 0 ? (
+                <div className="text-red-300">
+                  {specialDaysResult.missingHolidayFiles.join("、")}
+                </div>
+              ) : Array.isArray(specialDaysResult.missingYears) &&
+                specialDaysResult.missingYears.length > 0 ? (
+                <div className="text-red-300">
+                  {specialDaysResult.missingYears.join("、")}
+                </div>
+              ) : (
+                <div className="text-green-300">無</div>
+              )}
             </div>
           </div>
         )}
