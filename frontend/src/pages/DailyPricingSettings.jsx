@@ -43,7 +43,117 @@ const types = [
 ];
 
 const weekdayLabels = ["日", "一", "二", "三", "四", "五", "六"];
+const seasonOptions = [
+  { value: "summer", label: "夏月", description: "5/16 ～ 10/15" },
+  { value: "non_summer", label: "非夏月", description: "10/16 ～ 5/15" }
+];
 
+const ruleGroupLabels = {
+  "summer.weekday": "夏月・工作日",
+  "summer.saturday": "夏月・星期六",
+  "summer.sunday": "夏月・星期日 / 例假日",
+  "non_summer.weekday": "非夏月・工作日",
+  "non_summer.saturday": "非夏月・星期六",
+  "non_summer.sunday": "非夏月・星期日 / 例假日"
+};
+
+const createEmptyDefaultPricingRules = () => ({
+  summer: {
+    weekday: [],
+    saturday: [],
+    sunday: []
+  },
+  non_summer: {
+    weekday: [],
+    saturday: [],
+    sunday: []
+  }
+});
+
+const cloneRules = (rules) =>
+  Array.isArray(rules) ? rules.map((r) => ({ ...r })) : [];
+
+const normalizeDefaultPricingRules = (data) => {
+  const empty = createEmptyDefaultPricingRules();
+
+  // 新格式
+  if (data?.summer || data?.non_summer) {
+    return {
+      summer: {
+        weekday: cloneRules(data?.summer?.weekday),
+        saturday: cloneRules(data?.summer?.saturday),
+        sunday: cloneRules(data?.summer?.sunday)
+      },
+      non_summer: {
+        weekday: cloneRules(data?.non_summer?.weekday),
+        saturday: cloneRules(data?.non_summer?.saturday),
+        sunday: cloneRules(data?.non_summer?.sunday)
+      }
+    };
+  }
+
+  // 舊格式相容：舊的 weekday/saturday/sunday 同時帶入夏月與非夏月
+  if (data?.weekday || data?.saturday || data?.sunday) {
+    const legacyRules = {
+      weekday: cloneRules(data.weekday),
+      saturday: cloneRules(data.saturday),
+      sunday: cloneRules(data.sunday)
+    };
+
+    return {
+      summer: {
+        weekday: cloneRules(legacyRules.weekday),
+        saturday: cloneRules(legacyRules.saturday),
+        sunday: cloneRules(legacyRules.sunday)
+      },
+      non_summer: {
+        weekday: cloneRules(legacyRules.weekday),
+        saturday: cloneRules(legacyRules.saturday),
+        sunday: cloneRules(legacyRules.sunday)
+      }
+    };
+  }
+
+  return empty;
+};
+
+const isFullDayRequired = (rules) => {
+  return Array.isArray(rules) && rules.length > 0 && isFullDay(rules);
+};
+
+const getIncompleteDefaultRuleGroups = (pricingRules) => {
+  const normalized = normalizeDefaultPricingRules(pricingRules);
+  const missing = [];
+
+  ["summer", "non_summer"].forEach((season) => {
+    ["weekday", "saturday", "sunday"].forEach((dayType) => {
+      if (!isFullDayRequired(normalized[season][dayType])) {
+        missing.push(ruleGroupLabels[`${season}.${dayType}`]);
+      }
+    });
+  });
+
+  return missing;
+};
+
+const getSeasonByDate = (date) => {
+  const d = dayjs(date);
+  const month = d.month() + 1;
+  const day = d.date();
+
+  if (
+    (month === 5 && day >= 16) ||
+    month === 6 ||
+    month === 7 ||
+    month === 8 ||
+    month === 9 ||
+    (month === 10 && day <= 15)
+  ) {
+    return "summer";
+  }
+
+  return "non_summer";
+};
 export default function DailyPricingSettings() {
   const currentYear = dayjs().year();
 
@@ -54,9 +164,39 @@ export default function DailyPricingSettings() {
   const [selectedDate, setSelectedDate] = useState(null);
   const [dailySettings, setDailySettings] = useState([]);
 
-  const [weekdayRules, setWeekdayRules] = useState([]);
-  const [saturdayRules, setSaturdayRules] = useState([]);
-  const [sundayRules, setSundayRules] = useState([]);
+  const [selectedSeason, setSelectedSeason] = useState("summer");
+  const [pricingRules, setPricingRules] = useState(() => createEmptyDefaultPricingRules());
+
+  const currentSeasonRules = pricingRules[selectedSeason] || {
+    weekday: [],
+    saturday: [],
+    sunday: []
+  };
+
+  const weekdayRules = currentSeasonRules.weekday || [];
+  const saturdayRules = currentSeasonRules.saturday || [];
+  const sundayRules = currentSeasonRules.sunday || [];
+
+  const updateCurrentSeasonRules = (dayType, nextRules) => {
+    setPricingRules((prev) => {
+      const normalized = normalizeDefaultPricingRules(prev);
+
+      return {
+        ...normalized,
+        [selectedSeason]: {
+          ...normalized[selectedSeason],
+          [dayType]:
+            typeof nextRules === "function"
+              ? nextRules(normalized[selectedSeason][dayType])
+              : nextRules
+        }
+      };
+    });
+  };
+
+  const setWeekdayRules = (nextRules) => updateCurrentSeasonRules("weekday", nextRules);
+  const setSaturdayRules = (nextRules) => updateCurrentSeasonRules("saturday", nextRules);
+  const setSundayRules = (nextRules) => updateCurrentSeasonRules("sunday", nextRules);
 
   const [rulesLoaded, setRulesLoaded] = useState(false);
 
@@ -115,11 +255,10 @@ export default function DailyPricingSettings() {
   const loadDefaultPricingRules = async () => {
     try {
       const res = await axios.get("/api/default-pricing-rules");
-      setWeekdayRules(res.data.weekday || []);
-      setSaturdayRules(res.data.saturday || []);
-      setSundayRules(res.data.sunday || []);
+      setPricingRules(normalizeDefaultPricingRules(res.data));
     } catch (err) {
       console.error("無法載入預設電價規則", err);
+      setPricingRules(createEmptyDefaultPricingRules());
     } finally {
       setRulesLoaded(true);
     }
@@ -133,11 +272,10 @@ export default function DailyPricingSettings() {
   // ---------------------- 自動儲存預設規則（避免誤清空） ----------------------
   const saveDefaultPricingRules = async () => {
     try {
-      await axios.post("/api/default-pricing-rules", {
-        weekday: weekdayRules,
-        saturday: saturdayRules,
-        sunday: sundayRules
-      });
+      await axios.post(
+        "/api/default-pricing-rules",
+        normalizeDefaultPricingRules(pricingRules)
+      );
     } catch (err) {
       console.error("儲存預設電價規則失敗", err);
     }
@@ -145,7 +283,7 @@ export default function DailyPricingSettings() {
 
   useEffect(() => {
     if (rulesLoaded) saveDefaultPricingRules();
-  }, [weekdayRules, saturdayRules, sundayRules]);
+  }, [pricingRules]);
 
   // ---------------------- 月曆生成 ----------------------
   useEffect(() => {
@@ -311,22 +449,26 @@ export default function DailyPricingSettings() {
     }
   };
 
-  // ---------------------- 套用例假日（沿用星期日） ----------------------
+  // ---------------------- 套用例假日（依日期自動判斷夏月 / 非夏月，沿用該季節星期日） ----------------------
   const handleApplyHoliday = async (date) => {
-    if (!sundayRules.length) {
-      alert("⚠️ 尚未設定星期日規則");
+    const season = getSeasonByDate(date);
+    const holidayRules = pricingRules?.[season]?.sunday || [];
+    const seasonLabel = seasonOptions.find((s) => s.value === season)?.label || season;
+
+    if (!holidayRules.length) {
+      alert(`⚠️ 尚未設定${seasonLabel}星期日 / 例假日規則`);
       return;
     }
 
-    if (!isFullDay(sundayRules)) {
-      alert("⚠️ 星期日規則尚未設定滿 24 小時");
+    if (!isFullDayRequired(holidayRules)) {
+      alert(`⚠️ ${seasonLabel}星期日 / 例假日規則尚未設定滿 24 小時`);
       return;
     }
 
     try {
       await axios.delete("/api/daily-pricing", { params: { date } });
 
-      for (let rule of sundayRules) {
+      for (let rule of holidayRules) {
         await axios.post("/api/daily-pricing", {
           date,
           startTime: rule.startTime,
@@ -336,7 +478,7 @@ export default function DailyPricingSettings() {
         });
       }
 
-      alert("✅ 套用例假日設定！");
+      alert(`✅ 已套用${seasonLabel}例假日設定！`);
       generateCalendar();
       loadDateSettings(date);
     } catch {
@@ -387,6 +529,16 @@ export default function DailyPricingSettings() {
 
     if (startYear > endYear) {
       alert("⚠️ 起始年份不可大於結束年份");
+      return;
+    }
+
+    const incompleteGroups = getIncompleteDefaultRuleGroups(pricingRules);
+
+    if (incompleteGroups.length > 0) {
+      alert(
+        "⚠️ 萬年曆批次匯入前，請先完成以下六組模板，且每組都必須設定滿 24 小時：\n\n" +
+          incompleteGroups.join("\n")
+      );
       return;
     }
 
@@ -456,13 +608,21 @@ export default function DailyPricingSettings() {
       return;
     }
 
-    if (!sundayRules.length) {
-      alert("⚠️ 尚未設定星期日 / 例假日規則，無法套用 Special Days");
-      return;
+    const specialDayMissingGroups = [];
+
+    if (!isFullDayRequired(pricingRules?.summer?.sunday)) {
+      specialDayMissingGroups.push("夏月・星期日 / 例假日");
     }
 
-    if (!isFullDay(sundayRules)) {
-      alert("⚠️ 星期日 / 例假日規則尚未設定滿 24 小時，請先完成後再套用 Special Days");
+    if (!isFullDayRequired(pricingRules?.non_summer?.sunday)) {
+      specialDayMissingGroups.push("非夏月・星期日 / 例假日");
+    }
+
+    if (specialDayMissingGroups.length > 0) {
+      alert(
+        "⚠️ Special Days 套用前，請先完成以下規則，且每組都必須設定滿 24 小時：\n\n" +
+          specialDayMissingGroups.join("\n")
+      );
       return;
     }
 
@@ -519,6 +679,11 @@ export default function DailyPricingSettings() {
       setSpecialDaysLoading(false);
     }
   };
+
+  const selectedHolidaySeason = selectedDate ? getSeasonByDate(selectedDate) : selectedSeason;
+  const selectedHolidaySeasonLabel =
+    seasonOptions.find((s) => s.value === selectedHolidaySeason)?.label || selectedHolidaySeason;
+  const selectedHolidayRules = pricingRules?.[selectedHolidaySeason]?.sunday || [];
 
   // ---------------------- Loading 保護 ----------------------
   if (!rulesLoaded) {
@@ -665,7 +830,7 @@ export default function DailyPricingSettings() {
 
         <div className="bg-gray-900 border border-yellow-700 rounded p-4 mb-4 text-sm text-yellow-200 leading-6">
           <div className="font-bold mb-1">⚠️ 操作順序提醒</div>
-          <div>① 先設定平日 / 星期六 / 星期日模板</div>
+          <div>① 先設定夏月 / 非夏月的平日、星期六、星期日共六組模板</div>
           <div>② 再執行萬年曆批次匯入</div>
           <div>③ 最後執行 Special Days 批次套用</div>
           <div className="mt-2 text-red-300">
@@ -842,10 +1007,15 @@ export default function DailyPricingSettings() {
       {/* 例假日設定 */}
       <div className="bg-gray-700 p-4 rounded mb-10">
         <h3 className="font-semibold mb-4">🛠 選擇日期：{selectedDate || "未選擇"}</h3>
-        <p className="text-green-300 mb-2 font-bold">（例假日內容沿用星期日規則）</p>
+        <p className="text-green-300 mb-2 font-bold">
+          （例假日內容會依日期自動判斷夏月 / 非夏月，並沿用該季節星期日規則）
+        </p>
+        <p className="text-sm text-gray-300 mb-3">
+          目前預覽規則：{selectedHolidaySeasonLabel}・星期日 / 例假日
+        </p>
 
-        {sundayRules.length ? (
-          sundayRules.map((e, idx) => (
+        {selectedHolidayRules.length ? (
+          selectedHolidayRules.map((e, idx) => (
             <div key={idx} className="flex gap-3 mb-1">
               <span>{types.find((t) => t.value === e.label)?.label}</span>
               <span>{e.startTime}</span>
@@ -854,7 +1024,9 @@ export default function DailyPricingSettings() {
             </div>
           ))
         ) : (
-          <div className="text-red-400">⚠️ 尚未設定星期日規則</div>
+          <div className="text-red-400">
+            ⚠️ 尚未設定{selectedHolidaySeasonLabel}星期日 / 例假日規則
+          </div>
         )}
 
         {selectedDate && (
@@ -866,44 +1038,81 @@ export default function DailyPricingSettings() {
           </button>
         )}
       </div>
-
       {/* 預設規則區 */}
       <div className="bg-gray-800 p-4 rounded">
-        <h3 className="font-semibold text-lg mb-4">📋 預設電價規則</h3>
+        <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+          <div>
+            <h3 className="font-semibold text-lg">📋 預設電價規則</h3>
+            <p className="text-sm text-gray-400 mt-1">
+              請分別設定夏月與非夏月的工作日、星期六、星期日，共六組模板。
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm text-gray-300 mb-1">目前編輯季節</label>
+            <select
+              value={selectedSeason}
+              onChange={(e) => setSelectedSeason(e.target.value)}
+              className="text-black px-3 py-2 rounded min-w-[180px]"
+            >
+              {seasonOptions.map((season) => (
+                <option key={season.value} value={season.value}>
+                  {season.label}（{season.description}）
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        <div className="bg-gray-900 border border-gray-700 rounded p-3 mb-5 text-sm text-gray-300">
+          目前正在編輯：
+          <span className="text-yellow-300 font-bold ml-1">
+            {seasonOptions.find((s) => s.value === selectedSeason)?.label}
+          </span>
+          <span className="ml-2">
+            {seasonOptions.find((s) => s.value === selectedSeason)?.description}
+          </span>
+        </div>
 
         {/* 工作日 */}
         <div className="mb-6">
-          <h4 className="text-yellow-300 font-bold mb-2">◆ 工作日 (週一～週五)</h4>
+          <h4 className="text-yellow-300 font-bold mb-2">
+            ◆ {seasonOptions.find((s) => s.value === selectedSeason)?.label}・工作日 (週一～週五)
+          </h4>
           {renderRuleEditor(weekdayRules, setWeekdayRules)}
           <button
             onClick={() => handleApplyTemplate("weekday")}
             className="mt-2 bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded transition-colors"
           >
-            📤 套用至本月工作日
+            📤 套用目前季節規則至本月工作日
           </button>
         </div>
 
         {/* 星期六 */}
         <div className="mb-6">
-          <h4 className="text-blue-300 font-bold mb-2">◆ 星期六</h4>
+          <h4 className="text-blue-300 font-bold mb-2">
+            ◆ {seasonOptions.find((s) => s.value === selectedSeason)?.label}・星期六
+          </h4>
           {renderRuleEditor(saturdayRules, setSaturdayRules)}
           <button
             onClick={() => handleApplyTemplate("saturday")}
             className="mt-2 bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded transition-colors"
           >
-            📤 套用至本月六
+            📤 套用目前季節規則至本月六
           </button>
         </div>
 
         {/* 星期日 */}
         <div>
-          <h4 className="text-green-300 font-bold mb-2">◆ 星期日</h4>
+          <h4 className="text-green-300 font-bold mb-2">
+            ◆ {seasonOptions.find((s) => s.value === selectedSeason)?.label}・星期日 / 例假日
+          </h4>
           {renderRuleEditor(sundayRules, setSundayRules)}
           <button
             onClick={() => handleApplyTemplate("sunday")}
             className="mt-2 bg-blue-600 hover:bg-blue-500 px-3 py-1 rounded transition-colors"
           >
-            📤 套用至本月日
+            📤 套用目前季節規則至本月日
           </button>
         </div>
       </div>
