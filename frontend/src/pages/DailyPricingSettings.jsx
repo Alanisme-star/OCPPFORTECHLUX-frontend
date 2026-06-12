@@ -601,33 +601,22 @@ export default function DailyPricingSettings() {
       return;
     }
 
-    const specialDayMissingGroups = [];
+    const incompleteGroups = getIncompleteDefaultRuleGroups(pricingRules);
 
-    if (!isFullDayRequired(pricingRules?.summer?.sunday)) {
-      specialDayMissingGroups.push("夏月・星期日 / 例假日");
-    }
-
-    if (!isFullDayRequired(pricingRules?.non_summer?.sunday)) {
-      specialDayMissingGroups.push("非夏月・星期日 / 例假日");
-    }
-
-    if (specialDayMissingGroups.length > 0) {
+    if (incompleteGroups.length > 0) {
       alert(
-        "⚠️ Special Days 套用前，請先完成以下規則，且每組都必須設定滿 24 小時：\n\n" +
-          specialDayMissingGroups.join("\n")
+        "⚠️ Special Days 套用前，請先完成以下六組模板，且每組都必須設定滿 24 小時：\n\n" +
+          incompleteGroups.join("\n")
       );
       return;
     }
 
     const confirmed = window.confirm(
       `🎌 即將套用 ${startYear}～${endYear} 年的 Special Days。\n\n` +
-        `系統會讀取 holidays/YYYY.json，只套用 type = holiday 的日期。\n\n` +
-        `操作順序確認：\n` +
-        `① 已設定平日 / 星期六 / 星期日模板\n` +
-        `② 已執行萬年曆批次匯入\n` +
-        `③ 現在才執行 Special Days 批次套用\n\n` +
-        `系統會要求 Special Days 日期必須已經有既有每日電價資料。\n` +
-        `若尚未先執行萬年曆匯入，後端會拒絕套用。\n\n` +
+        `系統會自動執行兩個步驟：\n\n` +
+        `① 先執行「萬年曆補缺」：只補沒有每日電價資料的日期，不會覆蓋既有資料。\n` +
+        `② 再執行「Special Days 套用」：將 holidays/YYYY.json 中 type = holiday 的日期覆蓋為例假日電價。\n\n` +
+        `提醒：如果你之前已經手動設定過部分日期，萬年曆補缺不會覆蓋那些日期；但 Special Days 日期會被改寫為 label = holiday。\n\n` +
         `確定要繼續嗎？`
     );
 
@@ -637,6 +626,14 @@ export default function DailyPricingSettings() {
     setSpecialDaysResult(null);
 
     try {
+      const importRes = await axios.post("/api/daily-pricing/import-calendar", {
+        startYear,
+        endYear,
+        mode: "fill_missing"
+      });
+
+      setCalendarImportResult(importRes.data);
+
       const res = await axios.post("/api/daily-pricing/apply-special-days", {
         startYear,
         endYear,
@@ -645,7 +642,12 @@ export default function DailyPricingSettings() {
       });
 
       setSpecialDaysResult(res.data);
-      alert("✅ Special Days 多年批次套用完成！");
+
+      alert(
+        "✅ Special Days 多年批次套用完成！\n\n" +
+          `萬年曆補缺：建立 ${importRes.data?.daysCreated ?? 0} 天，跳過 ${importRes.data?.daysSkipped ?? 0} 天。\n` +
+          `Special Days：套用 ${res.data?.totalAppliedDayCount ?? 0} 天，寫入 ${res.data?.totalRulesInserted ?? 0} 筆規則。`
+      );
 
       setYear(startYear);
       setMonth(1);
@@ -663,8 +665,38 @@ export default function DailyPricingSettings() {
         errorMessage = detail;
       } else if (Array.isArray(detail)) {
         errorMessage = detail.map((item) => item.msg || JSON.stringify(item)).join("\n");
-      } else if (detail) {
-        errorMessage = JSON.stringify(detail);
+      } else if (detail && typeof detail === "object") {
+        const lines = [];
+
+        if (detail.message) {
+          lines.push(detail.message);
+        } else {
+          lines.push(JSON.stringify(detail));
+        }
+
+        if (
+          Array.isArray(detail.missingPricingDatesPreview) &&
+          detail.missingPricingDatesPreview.length > 0
+        ) {
+          lines.push("");
+          lines.push("缺少每日電價資料的日期預覽：");
+          lines.push(detail.missingPricingDatesPreview.join("、"));
+        }
+
+        if (typeof detail.missingPricingDatesCount !== "undefined") {
+          lines.push(`缺少日期總數：${detail.missingPricingDatesCount}`);
+        }
+
+        if (Number(detail.moreCount || 0) > 0) {
+          lines.push(`另有 ${detail.moreCount} 筆日期未顯示。`);
+        }
+
+        if (detail.hint) {
+          lines.push("");
+          lines.push(`建議：${detail.hint}`);
+        }
+
+        errorMessage = lines.join("\n");
       }
 
       alert(`❌ ${errorMessage}`);
@@ -822,12 +854,12 @@ export default function DailyPricingSettings() {
         </div>
 
         <div className="bg-gray-900 border border-yellow-700 rounded p-4 mb-4 text-sm text-yellow-200 leading-6">
-          <div className="font-bold mb-1">⚠️ 操作順序提醒</div>
-          <div>① 先設定夏月 / 非夏月的平日、星期六、星期日共六組模板</div>
-          <div>② 再執行萬年曆批次匯入</div>
-          <div>③ 最後執行 Special Days 批次套用</div>
+          <div className="font-bold mb-1">⚠️ 自動流程說明</div>
+          <div>① 請先設定夏月 / 非夏月的平日、星期六、星期日共六組模板</div>
+          <div>② 按下本按鈕後，系統會先自動執行「萬年曆補缺」</div>
+          <div>③ 萬年曆補齊後，系統會再自動套用 Special Days</div>
           <div className="mt-2 text-red-300">
-            若重新執行萬年曆 overwrite，請務必再次執行 Special Days 批次套用。
+            若你手動執行萬年曆 overwrite，請記得再次執行 Special Days 套用。
           </div>
         </div>
 
@@ -881,62 +913,61 @@ export default function DailyPricingSettings() {
               <div className="bg-gray-800 rounded p-3">
                 <div className="text-gray-400">套用天數</div>
                 <div className="text-xl font-bold">
-                  {specialDaysResult.daysApplied ??
-                    specialDaysResult.appliedDays ??
-                    specialDaysResult.daysUpdated ??
-                    0}
+                  {specialDaysResult.totalAppliedDayCount ?? 0}
+                </div>
+              </div>
+
+              <div className="bg-gray-800 rounded p-3">
+                <div className="text-gray-400">Special Days 總天數</div>
+                <div className="text-xl font-bold">
+                  {specialDaysResult.totalSpecialDayCount ?? 0}
                 </div>
               </div>
 
               <div className="bg-gray-800 rounded p-3">
                 <div className="text-gray-400">寫入規則筆數</div>
                 <div className="text-xl font-bold">
-                  {specialDaysResult.rulesInserted ??
-                    specialDaysResult.insertedRows ??
-                    0}
+                  {specialDaysResult.totalRulesInserted ?? 0}
                 </div>
               </div>
 
               <div className="bg-gray-800 rounded p-3">
                 <div className="text-gray-400">刪除筆數</div>
                 <div className="text-xl font-bold">
-                  {specialDaysResult.deletedRows ?? 0}
+                  {specialDaysResult.totalDeletedRows ?? 0}
                 </div>
               </div>
 
               <div className="bg-gray-800 rounded p-3">
                 <div className="text-gray-400">處理年份</div>
                 <div className="text-xl font-bold">
-                  {specialDaysResult.yearsProcessed ??
-                    specialDaysResult.processedYears ??
-                    0}
-                </div>
-              </div>
-
-              <div className="bg-gray-800 rounded p-3">
-                <div className="text-gray-400">模式</div>
-                <div className="text-base font-bold">
-                  {specialDaysResult.mode === "overwrite" ? "覆蓋" : specialDaysResult.mode || "overwrite"}
+                  {Array.isArray(specialDaysResult.years)
+                    ? specialDaysResult.years.length
+                    : 0}
                 </div>
               </div>
             </div>
 
-            <div className="mt-4 text-sm">
-              <div className="text-gray-400 mb-1">缺少 holidays 檔案</div>
+            <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+              <div className="bg-gray-800 rounded p-3">
+                <div className="text-gray-400 mb-1">模式</div>
+                <div className="text-base font-bold">
+                  {specialDaysResult.mode === "overwrite" ? "覆蓋" : specialDaysResult.mode || "overwrite"}
+                </div>
+              </div>
 
-              {Array.isArray(specialDaysResult.missingHolidayFiles) &&
-              specialDaysResult.missingHolidayFiles.length > 0 ? (
-                <div className="text-red-300">
-                  {specialDaysResult.missingHolidayFiles.join("、")}
-                </div>
-              ) : Array.isArray(specialDaysResult.missingYears) &&
+              <div className="bg-gray-800 rounded p-3">
+                <div className="text-gray-400 mb-1">缺少 holidays 檔案年份</div>
+
+                {Array.isArray(specialDaysResult.missingYears) &&
                 specialDaysResult.missingYears.length > 0 ? (
-                <div className="text-red-300">
-                  {specialDaysResult.missingYears.join("、")}
-                </div>
-              ) : (
-                <div className="text-green-300">無</div>
-              )}
+                  <div className="text-red-300">
+                    {specialDaysResult.missingYears.join("、")}
+                  </div>
+                ) : (
+                  <div className="text-green-300">無</div>
+                )}
+              </div>
             </div>
           </div>
         )}
