@@ -38,14 +38,13 @@ function isFullDay(rules) {
 
 const types = [
   { value: "peak", label: "尖峰", color: "#EF4444" },
-  { value: "mid", label: "半尖峰", color: "#F59E0B" },
   { value: "off", label: "離峰", color: "#3B82F6" }
 ];
 
 const weekdayLabels = ["日", "一", "二", "三", "四", "五", "六"];
 const seasonOptions = [
-  { value: "summer", label: "夏月", description: "5/16 ～ 10/15" },
-  { value: "non_summer", label: "非夏月", description: "10/16 ～ 5/15" }
+  { value: "summer", label: "夏月", description: "6/1 ～ 9/30" },
+  { value: "non_summer", label: "非夏月", description: "10/1 ～ 5/31" }
 ];
 
 const ruleGroupLabels = {
@@ -139,21 +138,15 @@ const getIncompleteDefaultRuleGroups = (pricingRules) => {
 const getSeasonByDate = (date) => {
   const d = dayjs(date);
   const month = d.month() + 1;
-  const day = d.date();
 
-  if (
-    (month === 5 && day >= 16) ||
-    month === 6 ||
-    month === 7 ||
-    month === 8 ||
-    month === 9 ||
-    (month === 10 && day <= 15)
-  ) {
+  // 6月1日 到 9月30日（即 6, 7, 8, 9 月）為低壓夏月
+  if (month >= 6 && month <= 9) {
     return "summer";
   }
 
   return "non_summer";
 };
+
 export default function DailyPricingSettings() {
   const currentYear = dayjs().year();
 
