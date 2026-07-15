@@ -142,15 +142,46 @@ export default function LiveStatus() {
   const [overviewLoading, setOverviewLoading] = useState(false);
   const [overviewError, setOverviewError] = useState("");
 
-  const getCpId = (cp) => cp?.chargePointId ?? cp?.id ?? cp?.charge_point_id ?? "";
+const getCpId = (cp) => cp?.chargePointId ?? cp?.id ?? cp?.charge_point_id ?? "";
 
-  // ✅ 分段電價表格用合計：直接加總各時段 subtotal，避免與表格內容不同步
-  const breakdownTotalAmount = Array.isArray(priceBreakdown)
-    ? priceBreakdown.reduce((sum, seg) => {
-        const v = Number(seg?.subtotal);
-        return sum + (Number.isFinite(v) ? v : 0);
-      }, 0)
-    : 0;
+// ✅ 分段電價表格顯示「台電基礎電價」與其基礎小計。
+// 後端 seg.price 為住戶實際單價（基礎電價 + 社區加價），
+// 因此此處優先使用 seg.base_price；舊資料沒有 base_price 時，
+// 再由 price - surcharge 回推。
+const getSegmentBasePrice = (seg) => {
+  const basePrice = Number(seg?.base_price);
+
+  if (Number.isFinite(basePrice)) {
+    return basePrice;
+  }
+
+  const finalPrice = Number(seg?.price);
+  const surcharge = Number(seg?.surcharge);
+
+  if (Number.isFinite(finalPrice) && Number.isFinite(surcharge)) {
+    return finalPrice - surcharge;
+  }
+
+  return Number.isFinite(finalPrice) ? finalPrice : 0;
+};
+
+const getSegmentBaseSubtotal = (seg) => {
+  const kwh = Number(seg?.kwh);
+  const basePrice = getSegmentBasePrice(seg);
+
+  if (!Number.isFinite(kwh) || !Number.isFinite(basePrice)) {
+    return 0;
+  }
+
+  return kwh * basePrice;
+};
+
+const breakdownTotalAmount = Array.isArray(priceBreakdown)
+  ? priceBreakdown.reduce(
+      (sum, seg) => sum + getSegmentBaseSubtotal(seg),
+      0
+    )
+  : 0;
 
 
 
@@ -1285,23 +1316,66 @@ export default function LiveStatus() {
 
 
 
-      {/* ✅ 分段電價統計 */}
-      <div style={{ marginTop: 20, padding: 12, background: "#333", borderRadius: 8 }}>
-        <h3>分段電價統計</h3>
+      {/* ✅ 台電基礎電價分段統計 */}
+      <div
+        style={{
+          marginTop: 20,
+          padding: 12,
+          background: "#333",
+          borderRadius: 8,
+        }}
+      >
+        <h3>台電基礎電價分段統計</h3>
 
         {priceBreakdown.length === 0 ? (
           <p>尚無分段資料</p>
         ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", color: "#fff" }}>
+          <table
+            style={{
+              width: "100%",
+              borderCollapse: "collapse",
+              color: "#fff",
+            }}
+          >
             <thead>
               <tr>
-                <th style={{ borderBottom: "1px solid #666", textAlign: "left" }}>時間段</th>
-                <th style={{ borderBottom: "1px solid #666", textAlign: "right" }}>用電量 (kWh)</th>
-                <th style={{ borderBottom: "1px solid #666", textAlign: "right" }}>電價 (元/kWh)</th>
-                <th style={{ borderBottom: "1px solid #666", textAlign: "right" }}>小計 (元)</th>
+                <th
+                  style={{
+                    borderBottom: "1px solid #666",
+                    textAlign: "left",
+                  }}
+                >
+                  時間段
+                </th>
+
+                <th
+                  style={{
+                    borderBottom: "1px solid #666",
+                    textAlign: "right",
+                  }}
+                >
+                  用電量 (kWh)
+                </th>
+
+                <th
+                  style={{
+                    borderBottom: "1px solid #666",
+                    textAlign: "right",
+                  }}
+                >
+                  台電基礎電價 (元/kWh)
+                </th>
+
+                <th
+                  style={{
+                    borderBottom: "1px solid #666",
+                    textAlign: "right",
+                  }}
+                >
+                  小計 (元)
+                </th>
               </tr>
             </thead>
-
 
             <tbody>
               {priceBreakdown.map((seg, idx) => {
@@ -1322,25 +1396,34 @@ export default function LiveStatus() {
                     <td>
                       {formatTime(start)} → {formatTime(end)}
                     </td>
+
                     <td style={{ textAlign: "right" }}>
                       {Number(seg.kwh).toFixed(4)}
                     </td>
+
                     <td style={{ textAlign: "right" }}>
-                      {Number(seg.price).toFixed(0)}
+                      {getSegmentBasePrice(seg).toFixed(2)}
                     </td>
+
                     <td style={{ textAlign: "right" }}>
-                      {Number(seg.subtotal).toFixed(2)}
+                      {getSegmentBaseSubtotal(seg).toFixed(2)}
                     </td>
                   </tr>
                 );
               })}
             </tbody>
-
           </table>
         )}
 
-        <div style={{ marginTop: 10, fontWeight: "bold", fontSize: "1.2em", textAlign: "right" }}>
-          合計金額：{breakdownTotalAmount.toFixed(2)} 元
+        <div
+          style={{
+            marginTop: 10,
+            fontWeight: "bold",
+            fontSize: "1.2em",
+            textAlign: "right",
+          }}
+        >
+          台電基礎電費合計：{breakdownTotalAmount.toFixed(2)} 元
         </div>
       </div>
       <p>⚡ 電壓：{liveVoltageV.toFixed(1)} V</p>
