@@ -255,13 +255,6 @@ const Dashboard = () => {
               description="依本月交易紀錄統計"
             />
 
-            <StatCard
-              title="本月有使用充電樁"
-              value={formatInteger(summary.activeChargePointCount)}
-              unit="座"
-              description="依本月交易紀錄統計"
-            />
-
             <div className="rounded-xl border border-gray-700 bg-gray-800 p-4 shadow">
               <div className="text-sm text-gray-400">契約容量使用率</div>
               <div className="mt-2 flex items-end gap-2">
