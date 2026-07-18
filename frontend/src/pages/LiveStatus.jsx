@@ -144,7 +144,7 @@ export default function LiveStatus() {
 
 const getCpId = (cp) => cp?.chargePointId ?? cp?.id ?? cp?.charge_point_id ?? "";
 
-// ✅ 分段電價表格顯示「台電基礎電價」與其基礎小計。
+// ✅ 分段電價表格顯示「台電基礎電價」與「社區盈餘」。
 // 後端 seg.price 為住戶實際單價（基礎電價 + 社區加價），
 // 因此此處優先使用 seg.base_price；舊資料沒有 base_price 時，
 // 再由 price - surcharge 回推。
@@ -165,20 +165,26 @@ const getSegmentBasePrice = (seg) => {
   return Number.isFinite(finalPrice) ? finalPrice : 0;
 };
 
-const getSegmentBaseSubtotal = (seg) => {
-  const kwh = Number(seg?.kwh);
-  const basePrice = getSegmentBasePrice(seg);
+const getSegmentSubtotal = (seg) => {
+  const subtotal = Number(seg?.subtotal);
 
-  if (!Number.isFinite(kwh) || !Number.isFinite(basePrice)) {
+  if (seg?.subtotal != null && Number.isFinite(subtotal)) {
+    return subtotal;
+  }
+
+  const kwh = Number(seg?.kwh);
+  const price = Number(seg?.price);
+
+  if (!Number.isFinite(kwh) || !Number.isFinite(price)) {
     return 0;
   }
 
-  return kwh * basePrice;
+  return kwh * price;
 };
 
 const breakdownTotalAmount = Array.isArray(priceBreakdown)
   ? priceBreakdown.reduce(
-      (sum, seg) => sum + getSegmentBaseSubtotal(seg),
+      (sum, seg) => sum + getSegmentSubtotal(seg),
       0
     )
   : 0;
@@ -1372,6 +1378,15 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
                     textAlign: "right",
                   }}
                 >
+                  社區盈餘 (元/kWh)
+                </th>
+
+                <th
+                  style={{
+                    borderBottom: "1px solid #666",
+                    textAlign: "right",
+                  }}
+                >
                   小計 (元)
                 </th>
               </tr>
@@ -1406,7 +1421,11 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
                     </td>
 
                     <td style={{ textAlign: "right" }}>
-                      {getSegmentBaseSubtotal(seg).toFixed(2)}
+                      {Number(seg.surcharge ?? 0).toFixed(2)}
+                    </td>
+
+                    <td style={{ textAlign: "right" }}>
+                      {getSegmentSubtotal(seg).toFixed(2)}
                     </td>
                   </tr>
                 );
@@ -1423,7 +1442,7 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
             textAlign: "right",
           }}
         >
-          台電基礎電費合計：{breakdownTotalAmount.toFixed(2)} 元
+          電費合計：{breakdownTotalAmount.toFixed(2)} 元
         </div>
       </div>
       <p>⚡ 電壓：{liveVoltageV.toFixed(1)} V</p>
