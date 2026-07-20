@@ -66,14 +66,6 @@ export default function LiveStatus() {
   const [rawAtFreeze, setRawAtFreeze] = useState(null);
   const prevStatusRef = useRef(cpStatus);
 
-  // ⭐ 自動停充安全旗標（不受換頁影響）
-  const seenPositiveBalanceRef = useRef(false);
-  const autoStopUsedRef = useRef(false);
-
-  // ✅ 新增：交易層級保護
-  const currentTxIdRef = useRef(null);
-  const warmupRef = useRef(true);
-
   // ✅ 新增：即時量測逾時保護（避免模擬器關閉後 UI 仍卡 Charging）
   const lastLiveOkAtRef = useRef(0);          // 最後一次成功拿到 live-status 的時間（ms）
   const [liveStale, setLiveStale] = useState(false);
@@ -119,10 +111,6 @@ export default function LiveStatus() {
   const effectiveEstimatedCost = Number.isFinite(Number(displayEstimatedCost))
     ? Number(displayEstimatedCost)
     : 0;
-
-  // 自動停樁
-  const [sentAutoStop, setSentAutoStop] = useState(false);
-  const [stopMsg, setStopMsg] = useState("");
 
   // 交易時間
   const [startTime, setStartTime] = useState("");
@@ -485,11 +473,6 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
         setLiveVoltageV(Number.isFinite(vv) ? vv : 0);
         setLiveCurrentA(Number.isFinite(aa) ? aa : 0);
 
-        // ✅ 一旦成功收到「有效即時功率」，解除暖機
-        if (Number.isFinite(kw) && kw > 0) {
-          warmupRef.current = false;
-        }
-
         const e = energyRes.data || {};
         const session = Number(
           e?.sessionEnergyKWh ??
@@ -600,13 +583,6 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
         // setLiveCost(0);
         // setSummaryEstimatedAmount(0);
 
-        // ✅ 新交易開始 → 重置所有自動停充狀態
-        seenPositiveBalanceRef.current = false;
-        autoStopUsedRef.current = false;
-        currentTxIdRef.current = null;
-        warmupRef.current = true;
-
-        setStopMsg("");
         setStartTime("");
         setStopTime("");
     }
@@ -681,10 +657,6 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
       const cost = Number.isFinite(effectiveEstimatedCost) ? effectiveEstimatedCost : 0;
       nb = base - cost;
 
-      // ⭐ 記錄：本交易中曾經看過餘額 > 0
-      if (nb > 0) {
-        seenPositiveBalanceRef.current = true;
-      }
     } else {
       // ✅ 其它狀態：顯示正式餘額
       nb = Number.isFinite(rawBalance) ? rawBalance : 0;
@@ -701,40 +673,6 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
   ]);
 
 
-  // ---------- 🧩 自動停充判斷（交易級保護 + 換頁安全） ----------
-  useEffect(() => {
-    if (
-      cpStatus === "Charging" &&
-      cpId &&
-      currentTxIdRef.current &&        // ✅ 必須綁定交易（避免換頁誤判）
-      !warmupRef.current &&            // ✅ 已完成暖機（避免第一秒誤判）
-      !autoStopUsedRef.current &&      // 本交易尚未停充
-      seenPositiveBalanceRef.current &&// 曾經看過餘額 > 0
-      Number.isFinite(displayBalance) &&
-      displayBalance <= 0.01           // 現在才變成 0
-    ) {
-      console.log("⚠️ 偵測餘額由正轉零，自動停充（交易級）");
-
-      autoStopUsedRef.current = true;  // 🔒 鎖定，只停一次
-      setSentAutoStop(true);
-      setStopMsg("⚠️ 餘額不足，自動發送停止充電命令…");
-
-      axios
-        .post(`/api/charge-points/${encodeURIComponent(cpId)}/stop`)
-        .then(() => {
-          setStopMsg("🔔 餘額不足，已自動停止充電。");
-        })
-        .catch(() => {
-          // 若失敗，解除鎖定允許重試
-          autoStopUsedRef.current = false;
-          setSentAutoStop(false);
-          setStopMsg("");
-        });
-    }
-  }, [displayBalance, cpStatus, cpId]);
-
-
-
   // ---------- 抓取交易時間 ----------
   useEffect(() => {
     if (!cpId) return;
@@ -746,10 +684,6 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
         );
 
         if (res.data?.found && res.data.start_timestamp) {
-
-          if (res.data.transaction_id && !currentTxIdRef.current) {
-            currentTxIdRef.current = res.data.transaction_id;
-          }
 
           setStartTime((prev) => {
             if (prev && cpStatus === "Charging") {
@@ -881,8 +815,6 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
       setSummaryTotalAmount(0);
       setSummaryEstimatedAmount(0);
 
-      setSentAutoStop(false);
-      setStopMsg("");
     }
   }, [cpStatus]);
 
@@ -1279,25 +1211,6 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
         🔌 狀態：{statusLabel(uiStatus)}
         {liveStale ? "（即時資料逾時/可能已離線）" : ""}
       </p>
-      {stopMsg && (
-            <p style={{ color: "orange", position: "relative", paddingRight: "24px" }}>
-                  {stopMsg}
-                  <span
-                        onClick={() => setStopMsg("")}
-                        style={{
-                              position: "absolute",
-                              right: 0,
-                              top: 0,
-                              cursor: "pointer",
-                              fontWeight: "bold"
-                        }}
-                  >
-                        ✕
-                  </span>
-            </p>
-      )}
-
-
       <p>💳 選擇卡片 ID：{cardId || "—"}</p>
 
       <p>⚡ 即時功率：{livePowerKw.toFixed(2)} kW</p>
