@@ -1,638 +1,197 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import axios from "../axiosInstance";
+import CardEnrollmentModal from "../components/CardEnrollmentModal";
 import EditCardAccessModal from "../components/EditCardAccessModal";
 
-const Cards = () => {
-  const [cards, setCards] = useState([]);
-  const [form, setForm] = useState({
-    ownerName: "",
-    idTag: "",
-    status: "Accepted",
-    validUntil: "2099-12-31T23:59:59",
-    balance: "",
+const emptyAccount = { account_code: "", account_name: "", balance: "0" };
+
+function money(value) {
+  return Number(value || 0).toLocaleString("zh-TW", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
   });
+}
 
-  const [editing, setEditing] = useState(null);
-  const [showAccessModal, setShowAccessModal] = useState(false);
-  const [selectedCardId, setSelectedCardId] = useState(null);
+export default function Cards() {
+  const [accounts, setAccounts] = useState([]);
+  const [form, setForm] = useState(emptyAccount);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [accessCard, setAccessCard] = useState(null);
+  const [history, setHistory] = useState(null);
+  const [enrollmentAccount, setEnrollmentAccount] = useState(null);
 
-  // === 儲值彈窗 ===
-  const [showDepositModal, setShowDepositModal] = useState(false);
-  const [depositCard, setDepositCard] = useState(null);
-  const [depositAmount, setDepositAmount] = useState("");
-
-  // === 歷史紀錄查詢彈窗 ===
-  const [showHistoryModal, setShowHistoryModal] = useState(false);
-  const [historyCard, setHistoryCard] = useState(null);
-  const [historyStartDate, setHistoryStartDate] = useState("");
-  const [historyEndDate, setHistoryEndDate] = useState("");
-  const [historySummary, setHistorySummary] = useState(null);
-  const [historyItems, setHistoryItems] = useState([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
-
-  useEffect(() => {
-    fetchCards();
+  const loadAccounts = useCallback(async () => {
+    setError("");
+    try {
+      const { data } = await axios.get("/api/household-accounts");
+      setAccounts(Array.isArray(data) ? data : []);
+    } catch (err) {
+      setError(err.response?.data?.detail || err.message);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
-  const fetchCards = async () => {
+  useEffect(() => {
+    loadAccounts();
+  }, [loadAccounts]);
+
+  const createAccount = async (event) => {
+    event.preventDefault();
     try {
-      const res = await axios.get("/api/cards");
-      setCards(res.data);
+      await axios.post("/api/household-accounts", {
+        account_code: form.account_code.trim(),
+        account_name: form.account_name.trim(),
+        balance: Number(form.balance || 0),
+      });
+      setForm(emptyAccount);
+      await loadAccounts();
     } catch (err) {
-      console.error("讀取卡片失敗", err);
+      alert(err.response?.data?.detail || err.message);
     }
   };
 
-  const resetForm = () => {
-    setForm({
-      ownerName: "",
-      idTag: "",
-      status: "Accepted",
-      validUntil: "2099-12-31T23:59:59",
-      balance: "",
-    });
-    setEditing(null);
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
-    if (!form.ownerName.trim()) {
-      alert("請輸入住戶名稱(含號/樓)");
-      return;
-    }
-
-    if (!form.idTag.trim()) {
-      alert("請輸入 ID Tag");
-      return;
-    }
-
-    const balanceNumber =
-      form.balance === "" || form.balance == null
-        ? 0
-        : parseFloat(form.balance) || 0;
-
+  const editAccount = async (account) => {
+    const accountCode = window.prompt("住戶代碼", account.account_code);
+    if (accountCode === null) return;
+    const accountName = window.prompt("住戶名稱", account.account_name);
+    if (accountName === null) return;
+    const status = window.prompt("帳戶狀態（active / disabled）", account.status);
+    if (status === null) return;
     try {
-      if (editing) {
-        // 更新餘額
-        await axios.put(`/api/cards/${editing}`, {
-          balance: balanceNumber,
-        });
-
-        // 更新狀態
-        await axios.put(`/api/id_tags/${editing}`, {
-          status: form.status,
-        });
-
-        // 更新住戶名稱
-        await axios.post(`/api/card-owners/${editing}`, {
-          name: form.ownerName.trim(),
-        });
-
-      } else {
-        // 新增 id tag
-        await axios.post("/api/id_tags", {
-          idTag: form.idTag.trim(),
-          status: form.status,
-        });
-
-        // 寫入住戶名稱
-        await axios.post(`/api/card-owners/${form.idTag.trim()}`, {
-          name: form.ownerName.trim(),
-        });
-      }
-
-      await fetchCards();
-      resetForm();
+      await axios.put(`/api/household-accounts/${account.account_id}`, {
+        account_code: accountCode,
+        account_name: accountName,
+        status,
+      });
+      await loadAccounts();
     } catch (err) {
-      alert("操作失敗: " + (err.response?.data?.detail || err.message));
+      alert(err.response?.data?.detail || err.message);
     }
   };
 
-  const handleEdit = (card) => {
-    setForm({
-      ownerName: card.name || "",
-      idTag: card.card_id,
-      status: card.status ?? "Accepted",
-      validUntil: card.validUntil ?? "2099-12-31T23:59:59",
-      balance:
-        card.balance === null || card.balance === undefined
-          ? ""
-          : String(card.balance),
-    });
-    setEditing(card.card_id);
-  };
-
-  const handleDelete = async (idTag) => {
-    if (window.confirm("確定要刪除這張卡片嗎?")) {
-      try {
-        await axios.delete(`/api/cards/${idTag}`);
-        fetchCards();
-      } catch (err) {
-        alert("刪除失敗: " + (err.response?.data?.detail || err.message));
-      }
-    }
-  };
-
-  const openEditAccessModal = (card) => {
-    if (!card.card_id) {
-      alert("無法開啟白名單設定，卡片 ID 無效");
-      return;
-    }
-    setSelectedCardId(card.card_id);
-    setShowAccessModal(true);
-  };
-
-  const handleCloseModal = () => {
-    setShowAccessModal(false);
-    setSelectedCardId(null);
-    fetchCards();
-  };
-
-  // === 儲值模組 ===
-  const openDepositModal = (card) => {
-    setDepositCard(card);
-    setDepositAmount("");
-    setShowDepositModal(true);
-  };
-
-  const closeDepositModal = () => {
-    setShowDepositModal(false);
-    setDepositCard(null);
-    setDepositAmount("");
-  };
-
-  const handleDeposit = async () => {
-    if (!depositAmount.trim()) {
-      alert("請輸入儲值金額");
-      return;
-    }
-
-    const amount = parseFloat(depositAmount);
-    if (isNaN(amount) || amount <= 0) {
+  const topup = async (account) => {
+    const raw = window.prompt(`為「${account.account_name}」儲值（增量金額）`, "1000");
+    if (raw === null) return;
+    const amount = Number(raw);
+    if (!Number.isFinite(amount) || amount <= 0) {
       alert("儲值金額必須大於 0");
       return;
     }
-
     try {
-      const newBalance = Number(depositCard.balance || 0) + amount;
-
-      await axios.put(`/api/cards/${depositCard.card_id}`, {
-        balance: newBalance,
-      });
-
-      alert("儲值成功！");
-      closeDepositModal();
-      fetchCards();
-
+      await axios.post(`/api/household-accounts/${account.account_id}/topup`, { amount });
+      await loadAccounts();
     } catch (err) {
-      alert("儲值失敗：" + (err.response?.data?.detail || err.message));
+      alert(err.response?.data?.detail || err.message);
     }
   };
 
-  const getCurrentMonthRange = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
-
-    return {
-      startDate: `${year}-${month}-01`,
-      endDate: `${year}-${month}-${String(lastDay).padStart(2, "0")}`,
-    };
-  };
-
-  const openHistoryModal = (card) => {
-    if (!card.card_id) {
-      alert("無法查詢歷史紀錄，卡片 ID 無效");
-      return;
-    }
-
-    const range = getCurrentMonthRange();
-
-    setHistoryCard(card);
-    setHistoryStartDate(range.startDate);
-    setHistoryEndDate(range.endDate);
-    setHistorySummary(null);
-    setHistoryItems([]);
-    setShowHistoryModal(true);
-
-    fetchCardHistory(card.card_id, range.startDate, range.endDate);
-  };
-
-  const closeHistoryModal = () => {
-    setShowHistoryModal(false);
-    setHistoryCard(null);
-    setHistoryStartDate("");
-    setHistoryEndDate("");
-    setHistorySummary(null);
-    setHistoryItems([]);
-    setHistoryLoading(false);
-  };
-
-  const fetchCardHistory = async (
-    cardId = historyCard?.card_id,
-    startDate = historyStartDate,
-    endDate = historyEndDate
-  ) => {
-    if (!cardId) {
-      alert("無法查詢歷史紀錄，卡片 ID 無效");
-      return;
-    }
-
-    if (!startDate || !endDate) {
-      alert("請選擇開始日期與結束日期");
-      return;
-    }
-
-    setHistoryLoading(true);
-
+  const addCard = async (account) => {
+    const cardId = window.prompt("RFID 卡號");
+    if (!cardId) return;
+    const holder = window.prompt("持卡人", "") ?? "";
+    const relationship = window.prompt("關係（例如：爸爸、媽媽）", "") ?? "";
     try {
-      const res = await axios.get("/api/transactions", {
-        params: {
-          idTag: cardId,
-          startDate,
-          endDate,
-          includeSummary: true,
-        },
+      await axios.post(`/api/household-accounts/${account.account_id}/cards`, {
+        card_id: cardId.trim(),
+        card_holder_name: holder.trim(),
+        relationship: relationship.trim(),
       });
-
-      const data = res.data;
-
-      if (data && typeof data === "object" && Array.isArray(data.items)) {
-        setHistorySummary(data.summary || null);
-        setHistoryItems(data.items || []);
-      } else if (Array.isArray(data)) {
-        setHistorySummary(null);
-        setHistoryItems(data);
-      } else {
-        console.warn("歷史紀錄 API 回傳格式非預期:", data);
-        setHistorySummary(null);
-        setHistoryItems([]);
-      }
+      await loadAccounts();
     } catch (err) {
-      console.error("查詢歷史紀錄失敗", err);
-      alert("查詢歷史紀錄失敗：" + (err.response?.data?.detail || err.message));
-      setHistorySummary(null);
-      setHistoryItems([]);
-    } finally {
-      setHistoryLoading(false);
+      alert(err.response?.data?.detail || err.message);
     }
   };
 
-  const formatDateTime = (value) => {
-    if (!value) return "--";
-
-    const date = new Date(value);
-    if (isNaN(date.getTime())) return "--";
-
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, "0");
-    const day = String(date.getDate()).padStart(2, "0");
-    const hours = String(date.getHours()).padStart(2, "0");
-    const minutes = String(date.getMinutes()).padStart(2, "0");
-
-    return `${year}-${month}-${day} ${hours}:${minutes}`;
+  const disableCard = async (card) => {
+    if (!window.confirm(`停用卡片 ${card.card_id}？共同帳戶內其他卡片不受影響。`)) return;
+    try {
+      await axios.delete(`/api/account-cards/${encodeURIComponent(card.card_id)}`);
+      await loadAccounts();
+    } catch (err) {
+      alert(err.response?.data?.detail || err.message);
+    }
   };
 
-  const formatNumber = (value, digits = 2) => {
-    if (value == null || isNaN(Number(value))) return "--";
-    return Number(value).toFixed(digits);
+  const showHistory = async (card) => {
+    try {
+      const { data } = await axios.get(`/api/cards/${encodeURIComponent(card.card_id)}/history`);
+      setHistory({ card, items: data.history || [] });
+    } catch (err) {
+      alert(err.response?.data?.detail || err.message);
+    }
   };
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold mb-4">卡片管理（含白名單設定）</h2>
+    <div className="p-6 space-y-6 text-gray-900 dark:text-gray-100">
+      <div>
+        <h1 className="text-2xl font-bold">住戶帳戶與 RFID 卡片</h1>
+        <p className="mt-1 text-sm text-gray-500">一個住戶帳戶共用一筆正式餘額；每張卡保留獨立持卡人、狀態與紀錄。</p>
+      </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-4 bg-gray-800 p-4 rounded-md mb-6"
-      >
-        <div className="flex gap-4">
-
-          {/* 住戶名稱 */}
-          <input
-            className="p-2 rounded bg-gray-700 text-white w-full"
-            placeholder="住戶名稱(含號/樓)"
-            value={form.ownerName}
-            onChange={(e) =>
-              setForm((prev) => ({ ...prev, ownerName: e.target.value }))
-            }
-          />
-
-          {/* ID Tag */}
-          <input
-            className="p-2 rounded bg-gray-700 text-white w-full"
-            placeholder="ID Tag"
-            value={form.idTag}
-            onChange={(e) =>
-              setForm((prev) => ({ ...prev, idTag: e.target.value }))
-            }
-            disabled={!!editing}
-          />
-
-          {/* 狀態 */}
-          <select
-            className="p-2 rounded bg-gray-700 text-white"
-            value={form.status}
-            onChange={(e) =>
-              setForm((prev) => ({ ...prev, status: e.target.value }))
-            }
-          >
-            <option value="Accepted">Accepted</option>
-            <option value="Blocked">Blocked</option>
-          </select>
-
-          {/* 餘額 */}
-          <input
-            type="text"
-            inputMode="decimal"
-            placeholder="餘額(僅編輯模式可填)"
-            className="p-2 rounded bg-gray-700 text-white w-32"
-            value={form.balance}
-            onChange={(e) => {
-              const value = e.target.value;
-              if (value === "" || /^[0-9]+(\.[0-9]*)?$/.test(value)) {
-                setForm((prev) => ({ ...prev, balance: value }));
-              }
-            }}
-            disabled={!editing}
-          />
-
-          <button
-            type="submit"
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-white"
-          >
-            {editing ? "更新資訊" : "新增授權"}
-          </button>
-        </div>
+      <form onSubmit={createAccount} className="grid gap-3 rounded-xl border p-4 md:grid-cols-4 dark:border-gray-700">
+        <input required className="rounded border px-3 py-2 dark:bg-gray-800" placeholder="住戶代碼，例如 A-05-01" value={form.account_code} onChange={(e) => setForm({ ...form, account_code: e.target.value })} />
+        <input required className="rounded border px-3 py-2 dark:bg-gray-800" placeholder="住戶名稱" value={form.account_name} onChange={(e) => setForm({ ...form, account_name: e.target.value })} />
+        <input type="number" min="0" step="0.01" className="rounded border px-3 py-2 dark:bg-gray-800" placeholder="開戶餘額" value={form.balance} onChange={(e) => setForm({ ...form, balance: e.target.value })} />
+        <button className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700">新增住戶帳戶</button>
       </form>
 
-      <table className="table-auto w-full text-sm">
-        <thead>
-          <tr className="bg-gray-700 text-left">
-            <th className="p-2">住戶名稱(含號/樓)</th>
-            <th className="p-2">ID Tag</th>
-            <th className="p-2">狀態</th>
-            <th className="p-2">餘額</th>
-            <th className="p-2">允許充電樁（白名單）</th>
-            <th className="p-2">操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {cards.map((card) => (
-            <tr key={card.card_id} className="border-b hover:bg-gray-700">
-              <td className="p-2">{card.name || "-"}</td>
-              <td className="p-2">{card.card_id}</td>
-              <td className="p-2">{card.status || "-"}</td>
+      {error && <div className="rounded bg-red-50 p-3 text-red-700">{error}</div>}
+      {loading && <div className="text-gray-500">載入住戶帳戶中…</div>}
+      {!loading && accounts.length === 0 && <div className="rounded border p-8 text-center text-gray-500">尚無住戶帳戶。既有卡片請先執行共同帳戶 migration。</div>}
 
-              {/* 餘額 + 儲值按鈕 */}
-              <td className="p-2 flex items-center gap-2">
-                {card.balance != null ? `${card.balance} 元` : "-"}
-                <button
-                  onClick={() => openDepositModal(card)}
-                  className="text-green-400 hover:underline"
-                >
-                  儲值
-                </button>
-              </td>
-
-              <td className="p-2">
-                <button
-                  onClick={() => openEditAccessModal(card)}
-                  className="text-yellow-400 hover:underline"
-                >
-                  設定白名單
-                </button>
-              </td>
-
-              <td className="p-2 space-x-2">
-                <button
-                  onClick={() => handleEdit(card)}
-                  className="text-blue-400 hover:underline"
-                >
-                  編輯
-                </button>
-                <button
-                  onClick={() => openHistoryModal(card)}
-                  className="text-purple-400 hover:underline"
-                >
-                  歷史紀錄
-                </button>
-                <button
-                  onClick={() => handleDelete(card.card_id)}
-                  className="text-red-400 hover:underline"
-                >
-                  刪除
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-
-      {showAccessModal && (
-        <EditCardAccessModal idTag={selectedCardId} onClose={handleCloseModal} />
-      )}
-
-      {/* === 儲值 Modal === */}
-      {showDepositModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="bg-gray-800 p-6 rounded shadow-xl w-80">
-            <h3 className="text-xl text-white mb-4">
-              卡片儲值：{depositCard.card_id}
-            </h3>
-
-            <input
-              type="text"
-              className="p-2 w-full bg-gray-700 text-white rounded mb-4"
-              placeholder="儲值金額"
-              value={depositAmount}
-              onChange={(e) => setDepositAmount(e.target.value)}
-            />
-
-            <div className="flex justify-end gap-2">
-              <button
-                className="px-4 py-2 bg-gray-600 rounded text-white"
-                onClick={closeDepositModal}
-              >
-                取消
-              </button>
-              <button
-                className="px-4 py-2 bg-green-600 rounded text-white"
-                onClick={handleDeposit}
-              >
-                儲值
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* === 歷史紀錄 Modal === */}
-      {showHistoryModal && historyCard && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-6 rounded shadow-xl w-[900px] max-h-[90vh] overflow-y-auto">
-            <h3 className="text-xl text-white mb-4">住戶用電歷史紀錄</h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-white mb-4">
+      <div className="space-y-4">
+        {accounts.map((account) => (
+          <section key={account.account_id} className="overflow-hidden rounded-xl border bg-white shadow-sm dark:border-gray-700 dark:bg-gray-900">
+            <header className="flex flex-wrap items-center justify-between gap-3 bg-gray-50 p-4 dark:bg-gray-800">
               <div>
-                <span className="text-gray-400">住戶名稱：</span>
-                <span>{historyCard.name || "-"}</span>
-              </div>
-
-              <div>
-                <span className="text-gray-400">卡號：</span>
-                <span>{historyCard.card_id || "-"}</span>
-              </div>
-
-              <div>
-                <span className="text-gray-400">目前餘額：</span>
-                <span>
-                  {historyCard.balance != null ? `${historyCard.balance} 元` : "-"}
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-gray-700 p-4 rounded mb-4">
-              <div className="flex flex-col md:flex-row md:items-end gap-3">
-                <div>
-                  <label className="block text-sm text-gray-300 mb-1">
-                    開始日期
-                  </label>
-                  <input
-                    type="date"
-                    value={historyStartDate}
-                    onChange={(e) => setHistoryStartDate(e.target.value)}
-                    className="border rounded px-3 py-2 text-sm bg-white text-black"
-                  />
+                <div className="flex items-center gap-2">
+                  <h2 className="text-lg font-semibold">{account.account_name}</h2>
+                  <span className="rounded bg-gray-200 px-2 py-0.5 text-xs dark:bg-gray-700">{account.account_code}</span>
+                  <span className={`rounded px-2 py-0.5 text-xs ${account.status === "active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{account.status}</span>
                 </div>
-
-                <div>
-                  <label className="block text-sm text-gray-300 mb-1">
-                    結束日期
-                  </label>
-                  <input
-                    type="date"
-                    value={historyEndDate}
-                    onChange={(e) => setHistoryEndDate(e.target.value)}
-                    className="border rounded px-3 py-2 text-sm bg-white text-black"
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => fetchCardHistory()}
-                  disabled={historyLoading}
-                  className="px-4 py-2 rounded bg-blue-600 text-white text-sm hover:bg-blue-700 disabled:bg-gray-500"
-                >
-                  {historyLoading ? "查詢中..." : "查詢"}
-                </button>
+                <div className="mt-1 text-xl font-bold text-blue-700 dark:text-blue-300">共同餘額：{money(account.balance)} 元</div>
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
-              <div className="p-3 rounded bg-gray-700 text-white">
-                <div className="text-xs text-gray-400">查詢期間</div>
-                <div className="font-semibold">
-                  {historySummary?.startDate || historyStartDate || "--"} ~{" "}
-                  {historySummary?.endDate || historyEndDate || "--"}
-                </div>
+              <div className="flex flex-wrap gap-2">
+                <button onClick={() => topup(account)} className="rounded bg-emerald-600 px-3 py-2 text-sm text-white">帳戶儲值</button>
+                <button onClick={() => addCard(account)} className="rounded bg-blue-600 px-3 py-2 text-sm text-white">手動新增卡</button>
+                <button onClick={() => setEnrollmentAccount(account)} className="rounded bg-violet-600 px-3 py-2 text-sm text-white">感應新增卡</button>
+                <button onClick={() => editAccount(account)} className="rounded border px-3 py-2 text-sm">編輯帳戶</button>
               </div>
-
-              <div className="p-3 rounded bg-gray-700 text-white">
-                <div className="text-xs text-gray-400">總交易筆數</div>
-                <div className="font-semibold">
-                  {historySummary?.totalTransactions ?? historyItems.length} 筆
-                </div>
-              </div>
-
-              <div className="p-3 rounded bg-gray-700 text-white">
-                <div className="text-xs text-gray-400">總充電度數</div>
-                <div className="font-semibold">
-                  {formatNumber(historySummary?.totalEnergyKwh)} kWh
-                </div>
-              </div>
-
-              <div className="p-3 rounded bg-gray-700 text-white">
-                <div className="text-xs text-gray-400">總金額</div>
-                <div className="font-semibold">
-                  {formatNumber(historySummary?.totalCost)} 元
-                </div>
-              </div>
-            </div>
+            </header>
 
             <div className="overflow-x-auto">
-              <table className="table-auto w-full text-sm text-white">
-                <thead>
-                  <tr className="bg-gray-700 text-left">
-                    <th className="p-2">交易編號</th>
-                    <th className="p-2">充電樁ID</th>
-                    <th className="p-2">開始時間</th>
-                    <th className="p-2">結束時間</th>
-                    <th className="p-2">充電時間</th>
-                    <th className="p-2">度數(kWh)</th>
-                    <th className="p-2">費用</th>
-                    <th className="p-2">充電後餘額</th>
-                  </tr>
+              <table className="min-w-full text-sm">
+                <thead className="border-b text-left text-gray-500 dark:border-gray-700">
+                  <tr><th className="p-3">持卡人</th><th className="p-3">關係</th><th className="p-3">RFID 卡號</th><th className="p-3">卡片狀態</th><th className="p-3">OCPP 狀態</th><th className="p-3 text-right">操作</th></tr>
                 </thead>
-
                 <tbody>
-                  {Array.isArray(historyItems) && historyItems.length > 0 ? (
-                    historyItems.map((txn, index) => (
-                      <tr
-                        key={txn.transactionId ?? `history-${index}`}
-                        className="border-b border-gray-600"
-                      >
-                        <td className="p-2">{txn.transactionId ?? "--"}</td>
-                        <td className="p-2">{txn.chargePointId ?? "--"}</td>
-                        <td className="p-2">
-                          {formatDateTime(txn.startTimestamp)}
-                        </td>
-                        <td className="p-2">
-                          {formatDateTime(txn.stopTimestamp)}
-                        </td>
-                        <td className="p-2">{txn.durationText ?? "--"}</td>
-                        <td className="p-2">
-                          {txn.energyKwh != null
-                            ? formatNumber(txn.energyKwh)
-                            : "--"}
-                        </td>
-                        <td className="p-2">
-                          {txn.cost != null ? `${formatNumber(txn.cost)} 元` : "--"}
-                        </td>
-                        <td className="p-2">
-                          {txn.balanceAfter != null
-                            ? `${formatNumber(txn.balanceAfter)} 元`
-                            : "--"}
-                        </td>
-                      </tr>
-                    ))
-                  ) : (
-                    <tr>
-                      <td colSpan="8" className="text-center py-4 text-gray-400">
-                        {historyLoading ? "資料查詢中..." : "無歷史交易資料"}
-                      </td>
+                  {(account.cards || []).map((card) => (
+                    <tr key={card.card_id} className="border-b last:border-0 dark:border-gray-800">
+                      <td className="p-3">{card.card_holder_name || "--"}</td>
+                      <td className="p-3">{card.relationship || "--"}</td>
+                      <td className="p-3 font-mono">{card.card_id}</td>
+                      <td className="p-3">{card.status}</td>
+                      <td className="p-3">{card.id_tag_status || "--"}</td>
+                      <td className="p-3"><div className="flex justify-end gap-2">
+                        <button onClick={() => setAccessCard(card.card_id)} className="text-blue-600">白名單</button>
+                        <button onClick={() => showHistory(card)} className="text-slate-600 dark:text-slate-300">歷史</button>
+                        {card.status === "active" && <button onClick={() => disableCard(card)} className="text-red-600">停用</button>}
+                      </div></td>
                     </tr>
-                  )}
+                  ))}
+                  {(account.cards || []).length === 0 && <tr><td colSpan="6" className="p-5 text-center text-gray-400">此帳戶尚未綁定卡片</td></tr>}
                 </tbody>
               </table>
             </div>
+          </section>
+        ))}
+      </div>
 
-            <div className="flex justify-end mt-4">
-              <button
-                className="px-4 py-2 bg-gray-600 rounded text-white"
-                onClick={closeHistoryModal}
-              >
-                關閉
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
+      {accessCard && <EditCardAccessModal idTag={accessCard} onClose={() => { setAccessCard(null); loadAccounts(); }} />}
+      {enrollmentAccount && <CardEnrollmentModal accountId={enrollmentAccount.account_id} accountName={enrollmentAccount.account_name} onClose={() => setEnrollmentAccount(null)} onConfirmed={() => { setEnrollmentAccount(null); loadAccounts(); }} />}
+      {history && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"><div className="max-h-[80vh] w-full max-w-2xl overflow-auto rounded-xl bg-white p-5 dark:bg-gray-900"><div className="mb-4 flex justify-between"><h2 className="text-lg font-semibold">卡片歷史：{history.card.card_id}</h2><button onClick={() => setHistory(null)}>關閉</button></div>{history.items.length === 0 ? <p className="text-gray-500">沒有交易紀錄</p> : <table className="w-full text-sm"><thead><tr><th className="p-2 text-left">交易</th><th className="p-2 text-left">時間</th><th className="p-2 text-right">金額</th></tr></thead><tbody>{history.items.map((item) => <tr key={item.transaction_id} className="border-t dark:border-gray-700"><td className="p-2">{item.transaction_id}</td><td className="p-2">{item.paid_at || item.stop_timestamp || "--"}</td><td className="p-2 text-right">{money(item.amount)} 元</td></tr>)}</tbody></table>}</div></div>}
     </div>
   );
-};
-
-export default Cards;
+}

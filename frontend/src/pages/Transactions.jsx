@@ -221,6 +221,9 @@ function Transactions() {
                   transactionId,
                   chargePointId,
                   residentName,
+                  accountCode,
+                  accountName,
+                  cardHolderName,
                   cardId,
                   startTimestamp,
                   stopTimestamp,
@@ -242,7 +245,11 @@ function Transactions() {
                   >
                     <td className="p-2">{transactionId ?? "--"}</td>
                     <td className="p-2">{chargePointId ?? "--"}</td>
-                    <td className="p-2">{residentName ?? "--"}</td>
+                    <td className="p-2">
+                      <div>{accountName || residentName || "--"}</div>
+                      {accountCode && <div className="text-xs text-gray-500">{accountCode}</div>}
+                      {cardHolderName && <div className="text-xs text-gray-500">持卡人：{cardHolderName}</div>}
+                    </td>
                     <td className="p-2">{cardId ?? "--"}</td>
                     <td className="p-2">{formatDateTime(startTimestamp)}</td>
                     <td className="p-2">{formatDateTime(stopTimestamp)}</td>

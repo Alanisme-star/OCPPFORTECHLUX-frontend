@@ -1176,7 +1176,7 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
           const id = c.card_id ?? c.cardId ?? "";
           return (
             <option key={id} value={id}>
-              {id}
+              {[c.accountName || c.accountCode, c.name, id].filter(Boolean).join("｜")}
             </option>
           );
         })}
