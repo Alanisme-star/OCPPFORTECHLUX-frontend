@@ -2,7 +2,6 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
 import DailyPricingSettings from "./pages/DailyPricingSettings";
 import Cards from './pages/Cards';
-import CardTopUp from './pages/CardTopUp';
 import Dashboard from './pages/Dashboard';
 import LinePush from './pages/LinePush';
 import LiveChargingStatus from './components/LiveChargingStatus';
@@ -26,7 +25,6 @@ export default function App() {
             <Route path="/" element={<Dashboard />} />
             <Route path="/transactions" element={<Transactions />} />
             <Route path="/cards" element={<Cards />} />
-            <Route path="/card-topup" element={<CardTopUp />} />
             <Route path="/line-push" element={<LinePush />} />
             <Route path="/login" element={<Login />} />
             <Route path="*" element={<div className="text-red-400 text-xl">404 找不到頁面</div>} />

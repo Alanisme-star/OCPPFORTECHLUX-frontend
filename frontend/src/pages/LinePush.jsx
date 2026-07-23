@@ -1,6 +1,7 @@
 // frontend/src/pages/LinePush.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "../axiosInstance";
+import { householdLabel, normalizeIdTag } from "../utils/display";
 
 const LinePush = () => {
   const [message, setMessage] = useState("LINE 推播測試成功：OCPP 後台手動測試");
@@ -39,48 +40,61 @@ const LinePush = () => {
 
       bindings.forEach((binding) => {
         if (binding?.idTag) {
-          bindingMap.set(binding.idTag, binding);
+          bindingMap.set(normalizeIdTag(binding.idTag), binding);
         }
       });
 
-      const mergedFromCards = cards
-        .map((card) => {
+      const mergedFromCards = Array.from(
+        new Map(
+          cards
+            .map((card) => {
           const idTag = card.card_id || card.idTag || card.cardId || card.id_tag;
 
           if (!idTag) {
             return null;
           }
 
-          const binding = bindingMap.get(idTag);
+          const normalizedIdTag = normalizeIdTag(idTag);
+          const binding = bindingMap.get(normalizedIdTag);
 
           return {
-            idTag,
-            name: card.name || binding?.residentName || binding?.displayName || "",
+            idTag: String(idTag).trim(),
+            normalizedIdTag,
+            floorNo: card.floorNo || binding?.floorNo || "",
+            parkingSpaceNo: card.parkingSpaceNo || binding?.parkingSpaceNo || "",
             balance: card.balance,
             cardStatus: card.status,
             validUntil: card.validUntil,
             lineBound: Boolean(binding?.lineUserId),
             lineEnabled: Boolean(binding?.enabled),
             lineDisplayName: binding?.displayName || "",
-            residentName: binding?.residentName || card.name || "",
           };
-        })
-        .filter(Boolean);
+            })
+            .filter(Boolean)
+            .map((item) => [item.normalizedIdTag, item])
+        ).values()
+      );
 
-      const cardIdSet = new Set(mergedFromCards.map((item) => item.idTag));
+      const cardIdSet = new Set(
+        mergedFromCards.map((item) => item.normalizedIdTag)
+      );
 
       const bindingOnlyTargets = bindings
-        .filter((binding) => binding?.idTag && !cardIdSet.has(binding.idTag))
+        .filter(
+          (binding) =>
+            binding?.idTag && !cardIdSet.has(normalizeIdTag(binding.idTag))
+        )
         .map((binding) => ({
           idTag: binding.idTag,
-          name: binding.residentName || binding.displayName || "",
+          normalizedIdTag: normalizeIdTag(binding.idTag),
+          floorNo: binding.floorNo || "",
+          parkingSpaceNo: binding.parkingSpaceNo || "",
           balance: binding.balance,
           cardStatus: "",
           validUntil: "",
           lineBound: Boolean(binding.lineUserId),
           lineEnabled: Boolean(binding.enabled),
           lineDisplayName: binding.displayName || "",
-          residentName: binding.residentName || "",
         }));
 
       const merged = [...mergedFromCards, ...bindingOnlyTargets].sort((a, b) =>
@@ -193,7 +207,8 @@ const LinePush = () => {
                 >
                   <div>
                     <span className="font-semibold">{item.idTag}</span>
-                    {item.residentName ? ` / ${item.residentName}` : ""}
+                    {(item.floorNo || item.parkingSpaceNo) &&
+                      ` / ${householdLabel([item.floorNo, item.parkingSpaceNo])}`}
                   </div>
                   <div className="text-gray-300">
                     狀態：
@@ -243,6 +258,9 @@ const LinePush = () => {
           {loadingTargets ? "更新中..." : "重新整理對象"}
         </button>
       </div>
+      <p className="mb-4 text-sm text-gray-400">
+        本頁為管理者指定 RFID 的測試推播；正式交易通知會發送給同住戶所有有效 LINE 綁定。
+      </p>
 
       <label className="mb-2 block font-semibold">訊息內容：</label>
       <textarea
@@ -283,10 +301,16 @@ const LinePush = () => {
 
                 <div className="flex-1">
                   <div className="font-semibold text-white">
-                    {target.name || target.residentName || "未命名住戶"}
+                    {householdLabel([
+                      target.floorNo,
+                      target.parkingSpaceNo,
+                      target.idTag,
+                    ])}
                   </div>
 
-                  <div className="text-gray-300">卡號：{target.idTag}</div>
+                  {target.lineDisplayName && (
+                    <div className="text-gray-300">LINE：{target.lineDisplayName}</div>
+                  )}
 
                   <div className="mt-1 text-gray-400">
                     LINE 狀態：{renderLineStatus(target)}

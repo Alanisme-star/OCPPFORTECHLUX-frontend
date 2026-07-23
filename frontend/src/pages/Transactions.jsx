@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import TransactionDetailModal from "@/components/TransactionDetailModal";
+import { textOrDash } from "../utils/display";
 
 function Transactions() {
   const [transactions, setTransactions] = useState([]);
@@ -198,8 +199,9 @@ function Transactions() {
             <tr className="bg-gray-200 dark:bg-gray-800 text-left">
               <th className="p-2">交易編號</th>
               <th className="p-2">充電樁ID</th>
-              <th className="p-2">住戶名稱</th>
-              <th className="p-2">卡片ID</th>
+              <th className="p-2">樓號</th>
+              <th className="p-2">車位號碼</th>
+              <th className="p-2">卡號</th>
               <th className="p-2">起始充電時間</th>
               <th className="p-2">結束充電時間</th>
               <th className="p-2">總充電時間</th>
@@ -220,11 +222,10 @@ function Transactions() {
                 const {
                   transactionId,
                   chargePointId,
-                  residentName,
-                  accountCode,
-                  accountName,
-                  cardHolderName,
-                  cardId,
+                  floorNo,
+                  parkingSpaceNo,
+                  cardNumber,
+                  idTag,
                   startTimestamp,
                   stopTimestamp,
                   durationText,
@@ -245,12 +246,9 @@ function Transactions() {
                   >
                     <td className="p-2">{transactionId ?? "--"}</td>
                     <td className="p-2">{chargePointId ?? "--"}</td>
-                    <td className="p-2">
-                      <div>{accountName || residentName || "--"}</div>
-                      {accountCode && <div className="text-xs text-gray-500">{accountCode}</div>}
-                      {cardHolderName && <div className="text-xs text-gray-500">持卡人：{cardHolderName}</div>}
-                    </td>
-                    <td className="p-2">{cardId ?? "--"}</td>
+                    <td className="p-2">{textOrDash(floorNo)}</td>
+                    <td className="p-2">{textOrDash(parkingSpaceNo)}</td>
+                    <td className="p-2">{textOrDash(cardNumber || idTag)}</td>
                     <td className="p-2">{formatDateTime(startTimestamp)}</td>
                     <td className="p-2">{formatDateTime(stopTimestamp)}</td>
                     <td className="p-2">{durationText ?? "--"}</td>
@@ -267,8 +265,7 @@ function Transactions() {
               })
             ) : (
               <tr>
-                {/* ⭐ colSpan 從 11 改為 12 */}
-                <td colSpan="12" className="text-center py-4 text-gray-400">
+                <td colSpan="13" className="text-center py-4 text-gray-400">
                   {loading ? "資料查詢中..." : "無交易資料"}
                 </td>
               </tr>

@@ -2,8 +2,17 @@ import React, { useCallback, useEffect, useState } from "react";
 import axios from "../axiosInstance";
 import CardEnrollmentModal from "../components/CardEnrollmentModal";
 import EditCardAccessModal from "../components/EditCardAccessModal";
+import { householdLabel, textOrDash } from "../utils/display";
 
-const emptyAccount = { account_code: "", account_name: "", balance: "0" };
+const emptyAccount = { floorNo: "", parkingSpaceNo: "", balance: "0" };
+
+function accountLabel(account) {
+  return householdLabel(
+    [account.floorNo ?? account.floor_no, account.parkingSpaceNo ?? account.parking_space_no],
+    "／",
+    "待補資料"
+  );
+}
 
 function money(value) {
   return Number(value || 0).toLocaleString("zh-TW", {
@@ -41,8 +50,8 @@ export default function Cards() {
     event.preventDefault();
     try {
       await axios.post("/api/household-accounts", {
-        account_code: form.account_code.trim(),
-        account_name: form.account_name.trim(),
+        floorNo: form.floorNo.trim(),
+        parkingSpaceNo: form.parkingSpaceNo.trim(),
         balance: Number(form.balance || 0),
       });
       setForm(emptyAccount);
@@ -53,16 +62,16 @@ export default function Cards() {
   };
 
   const editAccount = async (account) => {
-    const accountCode = window.prompt("住戶代碼", account.account_code);
-    if (accountCode === null) return;
-    const accountName = window.prompt("住戶名稱", account.account_name);
-    if (accountName === null) return;
+    const floorNo = window.prompt("樓號", account.floorNo ?? account.floor_no ?? "");
+    if (floorNo === null) return;
+    const parkingSpaceNo = window.prompt("車位號碼", account.parkingSpaceNo ?? account.parking_space_no ?? "");
+    if (parkingSpaceNo === null) return;
     const status = window.prompt("帳戶狀態（active / disabled）", account.status);
     if (status === null) return;
     try {
       await axios.put(`/api/household-accounts/${account.account_id}`, {
-        account_code: accountCode,
-        account_name: accountName,
+        floorNo,
+        parkingSpaceNo,
         status,
       });
       await loadAccounts();
@@ -72,7 +81,7 @@ export default function Cards() {
   };
 
   const topup = async (account) => {
-    const raw = window.prompt(`為「${account.account_name}」儲值（增量金額）`, "1000");
+    const raw = window.prompt(`為 ${accountLabel(account)} 儲值（增量金額）`, "1000");
     if (raw === null) return;
     const amount = Number(raw);
     if (!Number.isFinite(amount) || amount <= 0) {
@@ -90,13 +99,9 @@ export default function Cards() {
   const addCard = async (account) => {
     const cardId = window.prompt("RFID 卡號");
     if (!cardId) return;
-    const holder = window.prompt("持卡人", "") ?? "";
-    const relationship = window.prompt("關係（例如：爸爸、媽媽）", "") ?? "";
     try {
       await axios.post(`/api/household-accounts/${account.account_id}/cards`, {
         card_id: cardId.trim(),
-        card_holder_name: holder.trim(),
-        relationship: relationship.trim(),
       });
       await loadAccounts();
     } catch (err) {
@@ -127,12 +132,13 @@ export default function Cards() {
     <div className="p-6 space-y-6 text-gray-900 dark:text-gray-100">
       <div>
         <h1 className="text-2xl font-bold">住戶帳戶與 RFID 卡片</h1>
-        <p className="mt-1 text-sm text-gray-500">一個住戶帳戶共用一筆正式餘額；每張卡保留獨立持卡人、狀態與紀錄。</p>
+        <p className="mt-1 text-sm text-gray-500">同一樓號與車位的多張 RFID 卡共用一筆帳戶餘額。</p>
+        <p className="mt-1 text-sm text-gray-500">任一 RFID 卡產生正式交易通知時，將通知本住戶所有已綁定且啟用的 LINE 帳號。</p>
       </div>
 
       <form onSubmit={createAccount} className="grid gap-3 rounded-xl border p-4 md:grid-cols-4 dark:border-gray-700">
-        <input required className="rounded border px-3 py-2 dark:bg-gray-800" placeholder="住戶代碼，例如 A-05-01" value={form.account_code} onChange={(e) => setForm({ ...form, account_code: e.target.value })} />
-        <input required className="rounded border px-3 py-2 dark:bg-gray-800" placeholder="住戶名稱" value={form.account_name} onChange={(e) => setForm({ ...form, account_name: e.target.value })} />
+        <input required className="rounded border px-3 py-2 dark:bg-gray-800" placeholder="樓號，例如 5F" value={form.floorNo} onChange={(e) => setForm({ ...form, floorNo: e.target.value })} />
+        <input required className="rounded border px-3 py-2 dark:bg-gray-800" placeholder="車位號碼，例如 B12" value={form.parkingSpaceNo} onChange={(e) => setForm({ ...form, parkingSpaceNo: e.target.value })} />
         <input type="number" min="0" step="0.01" className="rounded border px-3 py-2 dark:bg-gray-800" placeholder="開戶餘額" value={form.balance} onChange={(e) => setForm({ ...form, balance: e.target.value })} />
         <button className="rounded bg-blue-600 px-4 py-2 font-medium text-white hover:bg-blue-700">新增住戶帳戶</button>
       </form>
@@ -147,8 +153,7 @@ export default function Cards() {
             <header className="flex flex-wrap items-center justify-between gap-3 bg-gray-50 p-4 dark:bg-gray-800">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="text-lg font-semibold">{account.account_name}</h2>
-                  <span className="rounded bg-gray-200 px-2 py-0.5 text-xs dark:bg-gray-700">{account.account_code}</span>
+                  <h2 className="text-lg font-semibold">{accountLabel(account)}</h2>
                   <span className={`rounded px-2 py-0.5 text-xs ${account.status === "active" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>{account.status}</span>
                 </div>
                 <div className="mt-1 text-xl font-bold text-blue-700 dark:text-blue-300">共同餘額：{money(account.balance)} 元</div>
@@ -164,14 +169,12 @@ export default function Cards() {
             <div className="overflow-x-auto">
               <table className="min-w-full text-sm">
                 <thead className="border-b text-left text-gray-500 dark:border-gray-700">
-                  <tr><th className="p-3">持卡人</th><th className="p-3">關係</th><th className="p-3">RFID 卡號</th><th className="p-3">卡片狀態</th><th className="p-3">OCPP 狀態</th><th className="p-3 text-right">操作</th></tr>
+                  <tr><th className="p-3">RFID 卡號</th><th className="p-3">卡片狀態</th><th className="p-3">OCPP 狀態</th><th className="p-3 text-right">操作</th></tr>
                 </thead>
                 <tbody>
                   {(account.cards || []).map((card) => (
                     <tr key={card.card_id} className="border-b last:border-0 dark:border-gray-800">
-                      <td className="p-3">{card.card_holder_name || "--"}</td>
-                      <td className="p-3">{card.relationship || "--"}</td>
-                      <td className="p-3 font-mono">{card.card_id}</td>
+                      <td className="p-3 font-mono">{textOrDash(card.card_id)}</td>
                       <td className="p-3">{card.status}</td>
                       <td className="p-3">{card.id_tag_status || "--"}</td>
                       <td className="p-3"><div className="flex justify-end gap-2">
@@ -181,7 +184,7 @@ export default function Cards() {
                       </div></td>
                     </tr>
                   ))}
-                  {(account.cards || []).length === 0 && <tr><td colSpan="6" className="p-5 text-center text-gray-400">此帳戶尚未綁定卡片</td></tr>}
+                  {(account.cards || []).length === 0 && <tr><td colSpan="4" className="p-5 text-center text-gray-400">此帳戶尚未綁定卡片</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -190,7 +193,7 @@ export default function Cards() {
       </div>
 
       {accessCard && <EditCardAccessModal idTag={accessCard} onClose={() => { setAccessCard(null); loadAccounts(); }} />}
-      {enrollmentAccount && <CardEnrollmentModal accountId={enrollmentAccount.account_id} accountName={enrollmentAccount.account_name} onClose={() => setEnrollmentAccount(null)} onConfirmed={() => { setEnrollmentAccount(null); loadAccounts(); }} />}
+      {enrollmentAccount && <CardEnrollmentModal accountId={enrollmentAccount.account_id} floorNo={enrollmentAccount.floorNo ?? enrollmentAccount.floor_no} parkingSpaceNo={enrollmentAccount.parkingSpaceNo ?? enrollmentAccount.parking_space_no} onClose={() => setEnrollmentAccount(null)} onConfirmed={() => { setEnrollmentAccount(null); loadAccounts(); }} />}
       {history && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"><div className="max-h-[80vh] w-full max-w-2xl overflow-auto rounded-xl bg-white p-5 dark:bg-gray-900"><div className="mb-4 flex justify-between"><h2 className="text-lg font-semibold">卡片歷史：{history.card.card_id}</h2><button onClick={() => setHistory(null)}>關閉</button></div>{history.items.length === 0 ? <p className="text-gray-500">沒有交易紀錄</p> : <table className="w-full text-sm"><thead><tr><th className="p-2 text-left">交易</th><th className="p-2 text-left">時間</th><th className="p-2 text-right">金額</th></tr></thead><tbody>{history.items.map((item) => <tr key={item.transaction_id} className="border-t dark:border-gray-700"><td className="p-2">{item.transaction_id}</td><td className="p-2">{item.paid_at || item.stop_timestamp || "--"}</td><td className="p-2 text-right">{money(item.amount)} 元</td></tr>)}</tbody></table>}</div></div>}
     </div>
   );

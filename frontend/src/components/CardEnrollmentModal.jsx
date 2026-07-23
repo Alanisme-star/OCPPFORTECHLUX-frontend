@@ -1,11 +1,10 @@
 import React, { useEffect, useRef, useState } from "react";
 import axios from "../axiosInstance";
+import { householdLabel } from "../utils/display";
 
-export default function CardEnrollmentModal({ accountId, accountName, onClose, onConfirmed }) {
+export default function CardEnrollmentModal({ accountId, floorNo, parkingSpaceNo, onClose, onConfirmed }) {
   const [chargePoints, setChargePoints] = useState([]);
   const [chargePointId, setChargePointId] = useState("");
-  const [holder, setHolder] = useState("");
-  const [relationship, setRelationship] = useState("");
   const [session, setSession] = useState(null);
   const [remaining, setRemaining] = useState(120);
   const [busy, setBusy] = useState(false);
@@ -64,8 +63,6 @@ export default function CardEnrollmentModal({ accountId, accountName, onClose, o
       const { data } = await axios.post("/api/card-enrollments", {
         account_id: accountId,
         charge_point_id: chargePointId,
-        card_holder_name: holder,
-        relationship,
         duration_seconds: 120,
       });
       if (!mountedRef.current) return;
@@ -100,11 +97,9 @@ export default function CardEnrollmentModal({ accountId, accountName, onClose, o
   };
 
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"><div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl dark:bg-gray-900">
-    <div className="mb-4 flex items-center justify-between"><div><h2 className="text-xl font-semibold">感應新增 RFID 卡</h2><p className="text-sm text-gray-500">住戶：{accountName}</p></div><button onClick={cancel}>✕</button></div>
+    <div className="mb-4 flex items-center justify-between"><div><h2 className="text-xl font-semibold">感應新增 RFID 卡</h2><p className="text-sm text-gray-500">住戶：{householdLabel([floorNo, parkingSpaceNo], "／", "待補資料")}</p></div><button onClick={cancel}>✕</button></div>
     {!session && <div className="space-y-3">
       <label className="block text-sm">指定充電樁<select className="mt-1 w-full rounded border px-3 py-2 dark:bg-gray-800" value={chargePointId} onChange={(e) => setChargePointId(e.target.value)}>{chargePoints.map((cp) => { const id = cp.chargePointId || cp.charge_point_id; return <option key={id} value={id}>{cp.name ? `${cp.name}｜${id}` : id}</option>; })}</select></label>
-      <label className="block text-sm">持卡人<input className="mt-1 w-full rounded border px-3 py-2 dark:bg-gray-800" value={holder} onChange={(e) => setHolder(e.target.value)} /></label>
-      <label className="block text-sm">關係<input className="mt-1 w-full rounded border px-3 py-2 dark:bg-gray-800" value={relationship} onChange={(e) => setRelationship(e.target.value)} /></label>
       {loadError && <p className="text-sm text-red-600" role="alert">{loadError}</p>}
       <button disabled={busy || !chargePointId || chargePoints.length === 0} onClick={start} className="w-full rounded bg-violet-600 px-4 py-2 text-white disabled:opacity-50">開啟 120 秒感應</button>
     </div>}

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "../axiosInstance";
+import { householdLabel } from "../utils/display";
 
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState({
@@ -296,13 +297,16 @@ const Dashboard = () => {
                           {alert.message || "系統提醒"}
                         </div>
 
-                        {(alert.chargePointId || alert.residentName) && (
+                        {(alert.chargePointId || alert.floorNo || alert.parkingSpaceNo) && (
                           <div className="mt-2 text-xs opacity-80">
                             {alert.chargePointId && (
                               <div>充電樁：{alert.chargePointId}</div>
                             )}
-                            {alert.residentName && (
-                              <div>住戶：{alert.residentName}</div>
+                            {(alert.floorNo || alert.parkingSpaceNo) && (
+                              <div>
+                                樓號／車位：
+                                {householdLabel([alert.floorNo, alert.parkingSpaceNo], "／")}
+                              </div>
                             )}
                           </div>
                         )}
@@ -330,7 +334,7 @@ const Dashboard = () => {
                   <thead>
                     <tr className="bg-gray-700 text-left text-gray-200">
                       <th className="p-3">充電樁</th>
-                      <th className="p-3">住戶</th>
+                      <th className="p-3">樓號／車位</th>
                       <th className="p-3">狀態</th>
                       <th className="p-3 text-right">目前功率</th>
                       <th className="p-3 text-right">累積度數</th>
@@ -350,7 +354,7 @@ const Dashboard = () => {
                           </td>
 
                           <td className="p-3 text-gray-200">
-                            {item.residentName || "-"}
+                            {householdLabel([item.floorNo, item.parkingSpaceNo], "／", "-")}
                           </td>
 
                           <td className="p-3">

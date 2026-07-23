@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
+import { textOrDash } from "../utils/display";
 
 function TransactionDetailModal({ transactionId, onClose }) {
   const [txn, setTxn] = useState(null);
@@ -64,13 +65,18 @@ function TransactionDetailModal({ transactionId, onClose }) {
             </tr>
 
             <tr>
-              <td className="font-medium py-1 w-32 align-top">住戶名稱：</td>
-              <td className="py-1">{txn.residentName || "--"}</td>
+              <td className="font-medium py-1 w-32 align-top">樓號：</td>
+              <td className="py-1">{textOrDash(txn.floorNo)}</td>
+            </tr>
+
+            <tr>
+              <td className="font-medium py-1 w-32 align-top">車位號碼：</td>
+              <td className="py-1">{textOrDash(txn.parkingSpaceNo)}</td>
             </tr>
 
             <tr>
               <td className="font-medium py-1 w-32 align-top">卡號：</td>
-              <td className="py-1">{txn.cardNumber || txn.idTag || "--"}</td>
+              <td className="py-1">{textOrDash(txn.cardNumber || txn.idTag)}</td>
             </tr>
 
             <tr>

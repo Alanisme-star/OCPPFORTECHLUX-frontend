@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import axios from "../axiosInstance"; // ← 依你的專案實際路徑調整
+import { householdLabel } from "../utils/display";
 
 
 export default function LiveStatus() {
@@ -1176,7 +1177,7 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
           const id = c.card_id ?? c.cardId ?? "";
           return (
             <option key={id} value={id}>
-              {[c.accountName || c.accountCode, c.name, id].filter(Boolean).join("｜")}
+              {householdLabel([c.floorNo, c.parkingSpaceNo, id])}
             </option>
           );
         })}
