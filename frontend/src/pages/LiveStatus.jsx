@@ -59,12 +59,9 @@ export default function LiveStatus() {
 
   // 餘額
   const [rawBalance, setRawBalance] = useState(0);
-  const [displayBalance, setDisplayBalance] = useState(0);
+  const [balanceLoading, setBalanceLoading] = useState(false);
+  const [balanceError, setBalanceError] = useState(false);
 
-  // 停充後畫面凍結
-  const [frozenAfterStop, setFrozenAfterStop] = useState(false);
-  const [frozenCost, setFrozenCost] = useState(0);
-  const [rawAtFreeze, setRawAtFreeze] = useState(null);
   const prevStatusRef = useRef(cpStatus);
 
   // ✅ 新增：即時量測逾時保護（避免模擬器關閉後 UI 仍卡 Charging）
@@ -545,6 +542,10 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
 
   // ---------- 餘額 ----------
   useEffect(() => {
+    setRawBalance(0);
+    setBalanceError(false);
+    setBalanceLoading(Boolean(cardId));
+
     if (!cardId) return;
     let cancelled = false;
 
@@ -553,11 +554,22 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
         const { data } = await axios.get(
           `/api/cards/${encodeURIComponent(cardId)}/balance`
         );
-        const bal = Number(data?.balance ?? data ?? 0);
-        if (!cancelled) {
-          setRawBalance(Number.isFinite(bal) ? bal : 0);
+        const bal = Number(data?.balance);
+        if (!Number.isFinite(bal)) {
+          throw new Error("餘額 API 回傳無效資料");
         }
-      } catch {}
+        if (!cancelled) {
+          setRawBalance(bal);
+          setBalanceError(false);
+          setBalanceLoading(false);
+        }
+      } catch (err) {
+        console.error(`住戶帳戶餘額讀取失敗（cardId=${cardId}）：`, err);
+        if (!cancelled) {
+          setBalanceError(true);
+          setBalanceLoading(false);
+        }
+      }
     };
 
     fetchBalance();
@@ -591,87 +603,6 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
     prevStatusRef.current = cpStatus;
   }, [cpStatus]);
 
-
-
-  // ---------- 扣款後解除凍結 ----------
-  useEffect(() => {
-    if (!frozenAfterStop || rawAtFreeze == null) return;
-    if (Number.isFinite(rawBalance) && rawBalance < rawAtFreeze - 0.01) {
-      setFrozenAfterStop(false);
-      setFrozenCost(0);
-      setRawAtFreeze(null);
-    }
-  }, [rawBalance, frozenAfterStop, rawAtFreeze]);
-
-  // ⭐ 方案 B：Charging → Suspended 時凍結顯示餘額；恢復 Charging 自動解除
-  useEffect(() => {
-    const isSuspended =
-      cpStatus === "SuspendedEV" || cpStatus === "SuspendedEVSE";
-
-    // 進入 Suspended：如果尚未凍結，立刻凍結（用 rawBalance - effectiveEstimatedCost）
-    if (isSuspended && !frozenAfterStop) {
-      const base = Number.isFinite(rawBalance) ? rawBalance : 0;
-      const cost = Number.isFinite(effectiveEstimatedCost) ? effectiveEstimatedCost : 0;
-
-      setFrozenAfterStop(true);
-      setFrozenCost(cost);
-      setRawAtFreeze(base);
-
-      console.log(
-        "[FREEZE][BALANCE]",
-        "cpStatus=", cpStatus,
-        "rawBalance=", base,
-        "effectiveEstimatedCost=", cost,
-        "frozenDisplay=", Math.max(0, base - cost)
-      );
-      return;
-    }
-
-    // Suspended → Charging：解除凍結，回到即時計算
-    if (cpStatus === "Charging" && frozenAfterStop) {
-      setFrozenAfterStop(false);
-      setFrozenCost(0);
-      setRawAtFreeze(null);
-
-      console.log("[FREEZE][RELEASE] resume charging");
-    }
-  }, [cpStatus, rawBalance, effectiveEstimatedCost, frozenAfterStop]);
-
-  // ---------- 顯示餘額（方案 1：正式餘額 + 即時預估剩餘餘額） ----------
-  useEffect(() => {
-    let nb = 0;
-
-    // ✅ 如果目前處於凍結狀態（Suspended 時會被設為 true）
-    if (frozenAfterStop && rawAtFreeze != null) {
-      nb = Math.max(
-        0,
-        rawAtFreeze - (Number.isFinite(frozenCost) ? frozenCost : 0)
-      );
-      setDisplayBalance(nb);
-      return;
-    }
-
-    // ✅ 充電中：顯示「即時預估剩餘餘額」
-    // 優先使用 summaryEstimatedAmount，否則 fallback 到 liveCost
-    if (cpStatus === "Charging") {
-      const base = Number.isFinite(rawBalance) ? rawBalance : 0;
-      const cost = Number.isFinite(effectiveEstimatedCost) ? effectiveEstimatedCost : 0;
-      nb = base - cost;
-
-    } else {
-      // ✅ 其它狀態：顯示正式餘額
-      nb = Number.isFinite(rawBalance) ? rawBalance : 0;
-    }
-
-    setDisplayBalance(nb > 0 ? nb : 0);
-  }, [
-    rawBalance,
-    effectiveEstimatedCost,
-    cpStatus,
-    frozenAfterStop,
-    rawAtFreeze,
-    frozenCost,
-  ]);
 
 
   // ---------- 抓取交易時間 ----------
@@ -1170,7 +1101,12 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
       <label>卡片 ID：</label>
       <select
         value={cardId}
-        onChange={(e) => setCardId(e.target.value)}
+        onChange={(e) => {
+          setRawBalance(0);
+          setBalanceError(false);
+          setBalanceLoading(true);
+          setCardId(e.target.value);
+        }}
         style={inputStyle}
       >
         {cardList.map((c) => {
@@ -1205,8 +1141,14 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
       </p>
 
 
-      <p>💳 正式卡片餘額：{rawBalance.toFixed(3)} 元</p>
-      <p>📉 即時預估剩餘餘額：{displayBalance.toFixed(3)} 元</p>
+      <p>
+        💳 住戶帳戶餘額：
+        {balanceLoading
+          ? "讀取中..."
+          : balanceError
+            ? "讀取失敗"
+            : `${rawBalance.toFixed(2)} 元`}
+      </p>
 
       <p>
         🔌 狀態：{statusLabel(uiStatus)}
