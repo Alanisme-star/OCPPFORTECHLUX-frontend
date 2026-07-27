@@ -1,6 +1,7 @@
 // frontend/src/pages/Login.jsx
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import techluxLogo from "../assets/techlux-logo-white.png";
 
 const Login = () => {
   const [username, setUsername] = useState("");
@@ -22,8 +23,18 @@ const Login = () => {
     <div className="flex h-screen items-center justify-center bg-gray-900">
       <form
         onSubmit={handleLogin}
-        className="bg-gray-800 p-8 rounded-md shadow w-80 space-y-4"
+        className="bg-gray-800 p-8 rounded-md shadow w-80 max-w-[calc(100%_-_2rem)] space-y-4"
       >
+        <div className="flex flex-col items-center">
+          <img
+            src={techluxLogo}
+            alt="TECHLUX Logo"
+            className="h-auto w-[200px] max-w-full"
+          />
+          <p className="mt-2 text-center text-sm text-slate-300">
+            社區充電能源管理系統
+          </p>
+        </div>
         <h2 className="text-xl font-bold text-white text-center">管理登入</h2>
         <input
           className="w-full p-2 rounded bg-gray-700 text-white"

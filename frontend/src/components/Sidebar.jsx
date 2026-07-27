@@ -10,6 +10,7 @@ import {
   MessageSquare,
   LogOut
 } from "lucide-react";
+import techluxLogo from "../assets/techlux-logo-white.png";
 
 const menu = [
   { path: "/", label: "管委會總覽", icon: <Home size={18} /> },
@@ -35,7 +36,16 @@ const Sidebar = () => {
   return (
     <div className="w-60 h-screen fixed top-0 left-0 bg-[#1E293B] text-white p-4 flex flex-col z-50">
       <div className="overflow-y-auto flex-1">
-        <h1 className="text-xl font-bold mb-6">🔌 Energy Admin</h1>
+        <div className="mb-5 flex flex-col items-center gap-2">
+          <img
+            src={techluxLogo}
+            alt="TECHLUX Logo"
+            className="h-auto w-[172px] max-w-full"
+          />
+          <p className="text-center text-xs text-slate-200">
+            社區充電能源管理系統
+          </p>
+        </div>
         <nav className="space-y-2">
           {menu.map((item) => (
             <Link
