@@ -101,7 +101,68 @@ const LinePush = () => {
         String(a.idTag).localeCompare(String(b.idTag))
       );
 
-      setTargets(merged);
+      /*
+       * LINE 綁定狀態改為「住戶層級」判斷：
+       *
+       * 同一樓號、同一車位內，只要有任一張卡片已綁定 LINE，
+       * 該住戶的所有卡片皆顯示為已綁定。
+       *
+       * 若同一住戶內至少有一個有效啟用的 LINE 綁定，
+       * 所有卡片皆顯示「✅ 已綁定」。
+       */
+      const householdLineStatusMap = new Map();
+
+      merged.forEach((target) => {
+        const floorNo = String(target.floorNo || "").trim();
+        const parkingSpaceNo = String(target.parkingSpaceNo || "").trim();
+
+        if (!floorNo || !parkingSpaceNo) {
+          return;
+        }
+
+        const householdKey = `${floorNo}::${parkingSpaceNo}`;
+        const currentStatus = householdLineStatusMap.get(householdKey) || {
+          lineBound: false,
+          lineEnabled: false,
+          lineDisplayName: "",
+        };
+
+        householdLineStatusMap.set(householdKey, {
+          lineBound: currentStatus.lineBound || target.lineBound,
+          lineEnabled: currentStatus.lineEnabled || target.lineEnabled,
+          lineDisplayName:
+            currentStatus.lineDisplayName || target.lineDisplayName || "",
+        });
+      });
+
+      const mergedWithHouseholdLineStatus = merged.map((target) => {
+        const floorNo = String(target.floorNo || "").trim();
+        const parkingSpaceNo = String(target.parkingSpaceNo || "").trim();
+
+        if (!floorNo || !parkingSpaceNo) {
+          return target;
+        }
+
+        const householdKey = `${floorNo}::${parkingSpaceNo}`;
+        const householdLineStatus =
+          householdLineStatusMap.get(householdKey);
+
+        if (!householdLineStatus) {
+          return target;
+        }
+
+        return {
+          ...target,
+          lineBound: householdLineStatus.lineBound,
+          lineEnabled: householdLineStatus.lineEnabled,
+          lineDisplayName:
+            target.lineDisplayName ||
+            householdLineStatus.lineDisplayName ||
+            "",
+        };
+      });
+
+      setTargets(mergedWithHouseholdLineStatus);
     } catch (err) {
       console.error("LINE 推播對象載入失敗：", err);
       setResult({
