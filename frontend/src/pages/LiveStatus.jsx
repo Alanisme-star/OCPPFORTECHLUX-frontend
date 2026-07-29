@@ -22,7 +22,6 @@ export default function LiveStatus() {
 
   // 電價
   const [pricePerKWh, setPricePerKWh] = useState(6);
-  const [priceLabel, setPriceLabel] = useState("");
   const [priceFallback, setPriceFallback] = useState(false);
 
   // 即時量測
@@ -427,7 +426,6 @@ const currentCardHolderName =
         const p = Number(data?.price);
         if (!cancelled && Number.isFinite(p)) {
           setPricePerKWh(p);
-          setPriceLabel(data?.label || "");
           setPriceFallback(!!data?.fallback);
         }
       } catch (err) {
@@ -1233,7 +1231,7 @@ const currentCardHolderName =
 
       <p>
         ⚡ 電價：{pricePerKWh.toFixed(2)} 元/kWh
-        {priceFallback ? "（預設）" : ""} {priceLabel ? `｜${priceLabel}` : ""}
+        {priceFallback ? "（預設）" : ""}
       </p>
 
 
