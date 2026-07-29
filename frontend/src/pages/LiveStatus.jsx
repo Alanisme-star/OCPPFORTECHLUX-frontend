@@ -1,6 +1,15 @@
 import React, { useEffect, useState, useRef } from "react";
 import axios from "../axiosInstance"; // ← 依你的專案實際路徑調整
-import { householdLabel } from "../utils/display";
+import {
+  fullHouseholdLabel,
+  getCardHolderName,
+  getDoorNo,
+  getFloorNo,
+  getParkingSpaceNo,
+  householdLabel,
+  normalizeIdTag,
+  textOrDash,
+} from "../utils/display";
 
 
 export default function LiveStatus() {
@@ -9,6 +18,7 @@ export default function LiveStatus() {
   const [cardList, setCardList] = useState([]);
   const [cpList, setCpList] = useState([]);
   const [cpId, setCpId] = useState("");
+  const [currentTransactionIdentity, setCurrentTransactionIdentity] = useState({});
 
   // 電價
   const [pricePerKWh, setPricePerKWh] = useState(6);
@@ -175,6 +185,30 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
     )
   : 0;
 
+const currentCardId = normalizeIdTag(
+  currentTransactionIdentity.cardId ??
+    currentTransactionIdentity.card_id ??
+    currentTransactionIdentity.idTag ??
+    currentTransactionIdentity.id_tag
+);
+const balanceCardId = currentCardId || normalizeIdTag(cardId);
+const currentCard = currentCardId
+  ? cardList.find(
+      (card) =>
+        normalizeIdTag(card?.card_id ?? card?.cardId) === currentCardId
+    )
+  : undefined;
+const currentHousehold = {
+  doorNo: getDoorNo(currentTransactionIdentity) || getDoorNo(currentCard),
+  floorNo: getFloorNo(currentTransactionIdentity) || getFloorNo(currentCard),
+  parkingSpaceNo:
+    getParkingSpaceNo(currentTransactionIdentity) ||
+    getParkingSpaceNo(currentCard),
+};
+const currentCardHolderName =
+  getCardHolderName(currentTransactionIdentity) ||
+  getCardHolderName(currentCard);
+
 
 
   // ---------- 格式化時間 ----------
@@ -200,17 +234,50 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
   useEffect(() => {
     (async () => {
       try {
-        const [cards, cps] = await Promise.all([
+        const [cards, cps, accounts] = await Promise.all([
           axios.get("/api/cards"),
           axios.get("/api/charge-points"),
+          axios.get("/api/household-accounts").catch((err) => {
+            console.error("住戶帳戶識別資料讀取失敗：", err);
+            return { data: [] };
+          }),
         ]);
         const cardsData = Array.isArray(cards.data) ? cards.data : [];
         const cpsData = Array.isArray(cps.data) ? cps.data : [];
-        setCardList(cardsData);
+        const accountsData = Array.isArray(accounts.data) ? accounts.data : [];
+        const accountByCardId = new Map();
+        accountsData.forEach((account) => {
+          const accountCards = Array.isArray(account?.cards) ? account.cards : [];
+          accountCards.forEach((card) => {
+            const id = normalizeIdTag(card?.card_id ?? card?.cardId);
+            if (id) accountByCardId.set(id, { account, card });
+          });
+        });
+        const enrichedCards = cardsData.map((card) => {
+          const id = normalizeIdTag(card?.card_id ?? card?.cardId);
+          const matched = accountByCardId.get(id);
+          return {
+            ...card,
+            accountId:
+              card?.accountId ??
+              card?.account_id ??
+              matched?.account?.accountId ??
+              matched?.account?.account_id,
+            doorNo: getDoorNo(card) || getDoorNo(matched?.account),
+            floorNo: getFloorNo(card) || getFloorNo(matched?.account),
+            parkingSpaceNo:
+              getParkingSpaceNo(card) ||
+              getParkingSpaceNo(matched?.account),
+            cardHolderName:
+              getCardHolderName(card) || getCardHolderName(matched?.card),
+          };
+        });
+        setCardList(enrichedCards);
         setCpList(cpsData);
 
-        if (cardsData.length) {
-          const firstId = cardsData[0].card_id ?? cardsData[0].cardId ?? "";
+        if (enrichedCards.length) {
+          const firstId =
+            enrichedCards[0].card_id ?? enrichedCards[0].cardId ?? "";
           setCardId(firstId);
         }
         if (cpsData.length) {
@@ -544,15 +611,15 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
   useEffect(() => {
     setRawBalance(0);
     setBalanceError(false);
-    setBalanceLoading(Boolean(cardId));
+    setBalanceLoading(Boolean(balanceCardId));
 
-    if (!cardId) return;
+    if (!balanceCardId) return;
     let cancelled = false;
 
     const fetchBalance = async () => {
       try {
         const { data } = await axios.get(
-          `/api/cards/${encodeURIComponent(cardId)}/balance`
+          `/api/cards/${encodeURIComponent(balanceCardId)}/balance`
         );
         const bal = Number(data?.balance);
         if (!Number.isFinite(bal)) {
@@ -564,7 +631,10 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
           setBalanceLoading(false);
         }
       } catch (err) {
-        console.error(`住戶帳戶餘額讀取失敗（cardId=${cardId}）：`, err);
+        console.error(
+          `住戶帳戶餘額讀取失敗（cardId=${balanceCardId}）：`,
+          err
+        );
         if (!cancelled) {
           setBalanceError(true);
           setBalanceLoading(false);
@@ -578,7 +648,7 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
       cancelled = true;
       clearInterval(t);
     };
-  }, [cardId]);
+  }, [balanceCardId]);
 
 
   // ⭐ 新增：當開始新一輪充電時，重置所有即時量測與預估
@@ -607,6 +677,10 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
 
   // ---------- 抓取交易時間 ----------
   useEffect(() => {
+    setCurrentTransactionIdentity({});
+  }, [cpId]);
+
+  useEffect(() => {
     if (!cpId) return;
 
     const fetchTxInfo = async () => {
@@ -614,6 +688,24 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
         const res = await axios.get(
           `/api/charge-points/${encodeURIComponent(cpId)}/current-transaction/summary`
         );
+
+        if (res.data?.found) {
+          setCurrentTransactionIdentity({
+            transactionId:
+              res.data?.transaction_id ?? res.data?.transactionId,
+            cardId:
+              res.data?.id_tag ??
+              res.data?.idTag ??
+              res.data?.card_id ??
+              res.data?.cardId,
+            doorNo: getDoorNo(res.data),
+            floorNo: getFloorNo(res.data),
+            parkingSpaceNo: getParkingSpaceNo(res.data),
+            cardHolderName: getCardHolderName(res.data),
+          });
+        } else {
+          setCurrentTransactionIdentity({});
+        }
 
         if (res.data?.found && res.data.start_timestamp) {
 
@@ -1113,7 +1205,11 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
           const id = c.card_id ?? c.cardId ?? "";
           return (
             <option key={id} value={id}>
-              {householdLabel([c.floorNo, c.parkingSpaceNo, id])}
+              {householdLabel([
+                fullHouseholdLabel(c),
+                getCardHolderName(c) || "尚未設定",
+                id,
+              ])}
             </option>
           );
         })}
@@ -1154,7 +1250,15 @@ const breakdownTotalAmount = Array.isArray(priceBreakdown)
         🔌 狀態：{statusLabel(uiStatus)}
         {liveStale ? "（即時資料逾時/可能已離線）" : ""}
       </p>
-      <p>💳 選擇卡片 ID：{cardId || "—"}</p>
+      <p>
+        🏠 住戶：
+        {currentCardId ? fullHouseholdLabel(currentHousehold) : "--"}
+      </p>
+      <p>
+        👤 持卡人：
+        {currentCardId ? currentCardHolderName || "尚未設定" : "尚未設定"}
+      </p>
+      <p>💳 本次 RFID：{textOrDash(currentCardId)}</p>
 
       <p>⚡ 即時功率：{livePowerKw.toFixed(2)} kW</p>
       <p>🔋 本次充電累積電量：{liveEnergyKWh.toFixed(3)} kWh</p>

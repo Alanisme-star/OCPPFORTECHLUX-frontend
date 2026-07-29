@@ -1,6 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import axios from "../axiosInstance";
-import { householdLabel } from "../utils/display";
+import {
+  fullHouseholdLabel,
+  getCardHolderName,
+  getFirstCardHolderName,
+  householdLabel,
+  normalizeIdTag,
+  textOrDash,
+} from "../utils/display";
 
 const Dashboard = () => {
   const [dashboardData, setDashboardData] = useState({
@@ -9,6 +16,7 @@ const Dashboard = () => {
     alerts: [],
     generatedAt: "",
   });
+  const [householdAccounts, setHouseholdAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
 
@@ -20,9 +28,16 @@ const Dashboard = () => {
       console.log("📡 發出社區管委會 Dashboard 請求...");
 
       try {
-        const response = await axios.get("/api/dashboard/community", {
-          timeout: 30000,
-        });
+        const [dashboardResult, accountsResult] = await Promise.allSettled([
+          axios.get("/api/dashboard/community", { timeout: 30000 }),
+          axios.get("/api/household-accounts", { timeout: 30000 }),
+        ]);
+
+        if (dashboardResult.status === "rejected") {
+          throw dashboardResult.reason;
+        }
+
+        const response = dashboardResult.value;
 
         console.log("✅ /api/dashboard/community 結果:", response.data);
 
@@ -36,6 +51,12 @@ const Dashboard = () => {
             : [],
           generatedAt: response.data?.generatedAt || "",
         });
+        setHouseholdAccounts(
+          accountsResult.status === "fulfilled" &&
+            Array.isArray(accountsResult.value?.data)
+            ? accountsResult.value.data
+            : []
+        );
       } catch (err) {
         console.error("❌ 社區管委會 Dashboard 資料讀取失敗：", err);
 
@@ -57,6 +78,18 @@ const Dashboard = () => {
   const chargingNow = dashboardData.chargingNow || [];
   const alerts = dashboardData.alerts || [];
 
+  const accountByCardId = useMemo(() => {
+    const lookup = new Map();
+    householdAccounts.forEach((account) => {
+      const cards = Array.isArray(account?.cards) ? account.cards : [];
+      cards.forEach((card) => {
+        const cardId = normalizeIdTag(card?.card_id ?? card?.cardId);
+        if (cardId) lookup.set(cardId, { account, card });
+      });
+    });
+    return lookup;
+  }, [householdAccounts]);
+
   const contractUsagePercent = useMemo(() => {
     const currentPower = Number(summary.currentTotalPowerKw || 0);
     const contractKw = Number(summary.contractKw || 0);
@@ -76,6 +109,11 @@ const Dashboard = () => {
     }
 
     return number.toFixed(digits);
+  };
+
+  const formatOptionalNumber = (value, digits = 2) => {
+    if (value == null || String(value).trim() === "") return "--";
+    return formatNumber(value, digits);
   };
 
   const formatInteger = (value) => {
@@ -278,6 +316,58 @@ const Dashboard = () => {
               </div>
             </div>
           </div>
+
+          <div className="rounded-xl border border-gray-700 bg-gray-800 p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-lg font-semibold">🏠 住戶帳戶</h3>
+              <span className="text-xs text-gray-400">
+                帳戶數：{householdAccounts.length}
+              </span>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-700 text-left text-gray-200">
+                    <th className="p-3">住戶</th>
+                    <th className="p-3">第一位持卡人</th>
+                    <th className="p-3 text-right">共同餘額</th>
+                    <th className="p-3">帳戶狀態</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {householdAccounts.length > 0 ? (
+                    householdAccounts.map((account, index) => (
+                      <tr
+                        key={account?.account_id ?? account?.accountId ?? index}
+                        className="border-b border-gray-700"
+                      >
+                        <td className="p-3 text-gray-200">
+                          {fullHouseholdLabel(account)}
+                        </td>
+                        <td className="p-3 text-gray-200">
+                          {getFirstCardHolderName(account) || "尚未設定"}
+                        </td>
+                        <td className="p-3 text-right text-gray-200">
+                          {formatOptionalNumber(account?.balance)} 元
+                        </td>
+                        <td className="p-3 text-gray-200">
+                          {textOrDash(account?.status)}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td className="p-4 text-center text-gray-400" colSpan="4">
+                        沒有住戶帳戶資料。
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
             <div className="rounded-xl border border-gray-700 bg-gray-800 p-4 xl:col-span-1">
               <div className="mb-3 flex items-center justify-between">
@@ -334,7 +424,11 @@ const Dashboard = () => {
                   <thead>
                     <tr className="bg-gray-700 text-left text-gray-200">
                       <th className="p-3">充電樁</th>
-                      <th className="p-3">樓號／車位</th>
+                      <th className="p-3">住戶</th>
+                      <th className="p-3">持卡人</th>
+                      <th className="p-3">RFID</th>
+                      <th className="p-3 text-right">共同餘額</th>
+                      <th className="p-3">帳戶狀態</th>
                       <th className="p-3">狀態</th>
                       <th className="p-3 text-right">目前功率</th>
                       <th className="p-3 text-right">累積度數</th>
@@ -344,45 +438,83 @@ const Dashboard = () => {
 
                   <tbody>
                     {chargingNow.length > 0 ? (
-                      chargingNow.map((item, index) => (
-                        <tr
-                          key={`${item.chargePointId || "cp"}-${item.transactionId || index}`}
-                          className="border-b border-gray-700 hover:bg-gray-700/40"
-                        >
-                          <td className="p-3 font-semibold text-white">
-                            {item.chargePointId || "-"}
-                          </td>
+                      chargingNow.map((item, index) => {
+                        const cardId = normalizeIdTag(
+                          item?.cardId ?? item?.card_id ?? item?.idTag ?? item?.id_tag
+                        );
+                        const matched = accountByCardId.get(cardId);
+                        const identity = {
+                          doorNo:
+                            item?.doorNo ??
+                            item?.door_no ??
+                            matched?.account?.doorNo ??
+                            matched?.account?.door_no,
+                          floorNo:
+                            item?.floorNo ??
+                            item?.floor_no ??
+                            matched?.account?.floorNo ??
+                            matched?.account?.floor_no,
+                          parkingSpaceNo:
+                            item?.parkingSpaceNo ??
+                            item?.parking_space_no ??
+                            matched?.account?.parkingSpaceNo ??
+                            matched?.account?.parking_space_no,
+                        };
+                        const holderName =
+                          getCardHolderName(item) ||
+                          getCardHolderName(matched?.card) ||
+                          String(item?.residentName ?? "").trim();
 
-                          <td className="p-3 text-gray-200">
-                            {householdLabel([item.floorNo, item.parkingSpaceNo], "／", "-")}
-                          </td>
-
-                          <td className="p-3">
-                            <span
-                              className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${getStatusBadgeClass(
-                                item.status
-                              )}`}
-                            >
-                              {item.status || "-"}
-                            </span>
-                          </td>
-
-                          <td className="p-3 text-right text-gray-200">
-                            {formatNumber(item.currentPowerKw)} kW
-                          </td>
-
-                          <td className="p-3 text-right text-gray-200">
-                            {formatNumber(item.energyKwh)} kWh
-                          </td>
-
-                          <td className="p-3 text-gray-300">
-                            {formatDateTime(item.startTimestamp)}
-                          </td>
-                        </tr>
-                      ))
+                        return (
+                          <tr
+                            key={`${item.chargePointId || "cp"}-${item.transactionId || index}`}
+                            className="border-b border-gray-700 hover:bg-gray-700/40"
+                          >
+                            <td className="p-3 font-semibold text-white">
+                              {item.chargePointId || "-"}
+                            </td>
+                            <td className="p-3 text-gray-200">
+                              {fullHouseholdLabel(identity)}
+                            </td>
+                            <td className="p-3 text-gray-200">
+                              {holderName || "尚未設定"}
+                            </td>
+                            <td className="p-3 font-mono text-gray-200">
+                              {textOrDash(cardId)}
+                            </td>
+                            <td className="p-3 text-right text-gray-200">
+                              {formatOptionalNumber(
+                                item?.balance ?? matched?.account?.balance
+                              )}{" "}
+                              元
+                            </td>
+                            <td className="p-3 text-gray-200">
+                              {textOrDash(matched?.account?.status)}
+                            </td>
+                            <td className="p-3">
+                              <span
+                                className={`inline-flex rounded-full border px-2 py-1 text-xs font-semibold ${getStatusBadgeClass(
+                                  item.status
+                                )}`}
+                              >
+                                {item.status || "-"}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right text-gray-200">
+                              {formatNumber(item.currentPowerKw)} kW
+                            </td>
+                            <td className="p-3 text-right text-gray-200">
+                              {formatNumber(item.energyKwh)} kWh
+                            </td>
+                            <td className="p-3 text-gray-300">
+                              {formatDateTime(item.startTimestamp)}
+                            </td>
+                          </tr>
+                        );
+                      })
                     ) : (
                       <tr>
-                        <td className="p-4 text-center text-yellow-300" colSpan="6">
+                        <td className="p-4 text-center text-yellow-300" colSpan="10">
                           目前沒有正在充電的交易。
                         </td>
                       </tr>

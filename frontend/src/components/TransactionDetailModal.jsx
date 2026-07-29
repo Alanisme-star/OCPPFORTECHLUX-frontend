@@ -1,6 +1,12 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { textOrDash } from "../utils/display";
+import {
+  getCardHolderName,
+  getDoorNo,
+  getFloorNo,
+  getParkingSpaceNo,
+  textOrDash,
+} from "../utils/display";
 
 function TransactionDetailModal({ transactionId, onClose }) {
   const [txn, setTxn] = useState(null);
@@ -47,6 +53,23 @@ function TransactionDetailModal({ transactionId, onClose }) {
 
   if (!txn) return null;
 
+  const detailTransactionId =
+    txn.transactionId ?? txn.transaction_id;
+  const detailChargePointId =
+    txn.chargePointId ?? txn.charge_point_id;
+  const detailStartTimestamp =
+    txn.startTimestamp ?? txn.start_timestamp;
+  const detailStopTimestamp =
+    txn.stopTimestamp ?? txn.stop_timestamp;
+  const detailMeterStart =
+    txn.meterStart ?? txn.meter_start;
+  const detailMeterStop =
+    txn.meterStop ?? txn.meter_stop;
+  const detailEnergyKwh =
+    txn.energyKwh ?? txn.energy_kwh;
+  const detailSurplusAmount =
+    txn.surplusAmount ?? txn.surplus_amount;
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-gray-800 text-black dark:text-white rounded-lg p-6 w-[560px] max-h-[90vh] overflow-y-auto shadow-lg">
@@ -56,56 +79,82 @@ function TransactionDetailModal({ transactionId, onClose }) {
           <tbody>
             <tr>
               <td className="font-medium py-1 w-32 align-top">交易編號：</td>
-              <td className="py-1">{txn.transactionId ?? "--"}</td>
+              <td className="py-1">{detailTransactionId ?? "--"}</td>
             </tr>
 
             <tr>
               <td className="font-medium py-1 w-32 align-top">充電樁：</td>
-              <td className="py-1">{txn.chargePointId ?? "--"}</td>
+              <td className="py-1">{detailChargePointId ?? "--"}</td>
             </tr>
 
             <tr>
-              <td className="font-medium py-1 w-32 align-top">樓號：</td>
-              <td className="py-1">{textOrDash(txn.floorNo)}</td>
+              <td className="font-medium py-1 w-32 align-top">門牌：</td>
+              <td className="py-1">{textOrDash(getDoorNo(txn))}</td>
+            </tr>
+
+            <tr>
+              <td className="font-medium py-1 w-32 align-top">樓層：</td>
+              <td className="py-1">{textOrDash(getFloorNo(txn))}</td>
             </tr>
 
             <tr>
               <td className="font-medium py-1 w-32 align-top">車位號碼：</td>
-              <td className="py-1">{textOrDash(txn.parkingSpaceNo)}</td>
+              <td className="py-1">
+                {textOrDash(getParkingSpaceNo(txn))}
+              </td>
             </tr>
 
             <tr>
               <td className="font-medium py-1 w-32 align-top">卡號：</td>
-              <td className="py-1">{textOrDash(txn.cardNumber || txn.idTag)}</td>
+              <td className="py-1">
+                {textOrDash(
+                  txn.id_tag ??
+                    txn.idTag ??
+                    txn.card_id ??
+                    txn.cardId ??
+                    txn.cardNumber
+                )}
+              </td>
+            </tr>
+
+            <tr>
+              <td className="font-medium py-1 w-32 align-top">持卡人：</td>
+              <td className="py-1">
+                {getCardHolderName(txn) || "尚未設定"}
+              </td>
             </tr>
 
             <tr>
               <td className="font-medium py-1 w-32 align-top">開始時間：</td>
-              <td className="py-1">{formatDateTime(txn.startTimestamp)}</td>
+              <td className="py-1">{formatDateTime(detailStartTimestamp)}</td>
             </tr>
 
             <tr>
               <td className="font-medium py-1 w-32 align-top">結束時間：</td>
-              <td className="py-1">{formatDateTime(txn.stopTimestamp)}</td>
+              <td className="py-1">{formatDateTime(detailStopTimestamp)}</td>
             </tr>
 
             <tr>
               <td className="font-medium py-1 w-32 align-top">起始電錶：</td>
-              <td className="py-1">{txn.meterStart != null ? txn.meterStart : "--"}</td>
+              <td className="py-1">
+                {detailMeterStart != null ? detailMeterStart : "--"}
+              </td>
             </tr>
 
             <tr>
               <td className="font-medium py-1 w-32 align-top">結束電錶：</td>
-              <td className="py-1">{txn.meterStop != null ? txn.meterStop : "--"}</td>
+              <td className="py-1">
+                {detailMeterStop != null ? detailMeterStop : "--"}
+              </td>
             </tr>
 
             <tr>
               <td className="font-medium py-1 w-32 align-top">耗電量：</td>
               <td className="py-1">
-                {txn.energyKwh != null
-                  ? `${formatNumber(txn.energyKwh)} kWh`
-                  : txn.meterStop != null && txn.meterStart != null
-                  ? `${formatNumber((txn.meterStop - txn.meterStart) / 1000)} kWh`
+                {detailEnergyKwh != null
+                  ? `${formatNumber(detailEnergyKwh)} kWh`
+                  : detailMeterStop != null && detailMeterStart != null
+                  ? `${formatNumber((detailMeterStop - detailMeterStart) / 1000)} kWh`
                   : "--"}
               </td>
             </tr>
@@ -119,7 +168,9 @@ function TransactionDetailModal({ transactionId, onClose }) {
             <tr>
               <td className="font-medium py-1 w-32 align-top">本次社區盈餘：</td>
               <td className="py-1 text-green-600 dark:text-green-400 font-bold">
-                {txn.surplusAmount != null ? formatAmount(txn.surplusAmount) : "--"}
+                {detailSurplusAmount != null
+                  ? formatAmount(detailSurplusAmount)
+                  : "--"}
               </td>
             </tr>
 

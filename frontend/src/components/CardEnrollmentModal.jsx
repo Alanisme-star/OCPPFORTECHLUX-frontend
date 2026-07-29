@@ -1,10 +1,21 @@
 import React, { useEffect, useRef, useState } from "react";
 import axios from "../axiosInstance";
-import { householdLabel } from "../utils/display";
+import { textOrDash } from "../utils/display";
 
-export default function CardEnrollmentModal({ accountId, floorNo, parkingSpaceNo, onClose, onConfirmed }) {
+export default function CardEnrollmentModal({
+  accountId,
+  doorNo,
+  floorNo,
+  parkingSpaceNo,
+  initialCardHolderName = "",
+  onClose,
+  onConfirmed,
+}) {
   const [chargePoints, setChargePoints] = useState([]);
   const [chargePointId, setChargePointId] = useState("");
+  const [cardHolderName, setCardHolderName] = useState(
+    String(initialCardHolderName || "").trim()
+  );
   const [session, setSession] = useState(null);
   const [remaining, setRemaining] = useState(120);
   const [busy, setBusy] = useState(false);
@@ -15,6 +26,12 @@ export default function CardEnrollmentModal({ accountId, floorNo, parkingSpaceNo
   useEffect(() => () => {
     mountedRef.current = false;
   }, []);
+
+  useEffect(() => {
+    if (!session) {
+      setCardHolderName(String(initialCardHolderName || "").trim());
+    }
+  }, [initialCardHolderName, session]);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,13 +74,17 @@ export default function CardEnrollmentModal({ accountId, floorNo, parkingSpaceNo
   }, [session?.enrollment_id, session?.status]);
 
   const start = async () => {
+    if (busy) return;
     if (!chargePointId) return alert("請選擇充電樁");
+    const normalizedHolderName = cardHolderName.trim();
     setBusy(true);
     try {
       const { data } = await axios.post("/api/card-enrollments", {
         account_id: accountId,
         charge_point_id: chargePointId,
         duration_seconds: 120,
+        card_holder_name:
+          normalizedHolderName === "尚未設定" ? "" : normalizedHolderName,
       });
       if (!mountedRef.current) return;
       setSession(data);
@@ -76,6 +97,7 @@ export default function CardEnrollmentModal({ accountId, floorNo, parkingSpaceNo
   };
 
   const cancel = async () => {
+    if (busy) return;
     if (session && ["waiting", "detected"].includes(session.status)) {
       try { await axios.post(`/api/card-enrollments/${session.enrollment_id}/cancel`); } catch { /* best effort */ }
     }
@@ -97,8 +119,9 @@ export default function CardEnrollmentModal({ accountId, floorNo, parkingSpaceNo
   };
 
   return <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"><div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl dark:bg-gray-900">
-    <div className="mb-4 flex items-center justify-between"><div><h2 className="text-xl font-semibold">感應新增 RFID 卡</h2><p className="text-sm text-gray-500">住戶：{householdLabel([floorNo, parkingSpaceNo], "／", "待補資料")}</p></div><button onClick={cancel}>✕</button></div>
+    <div className="mb-4 flex items-center justify-between"><div><h2 className="text-xl font-semibold">感應新增 RFID 卡</h2><p className="text-sm text-gray-500">門牌：{textOrDash(doorNo)}｜樓層：{textOrDash(floorNo)}｜車位：{textOrDash(parkingSpaceNo)}</p></div><button disabled={busy} onClick={cancel} className="disabled:cursor-not-allowed disabled:opacity-40">✕</button></div>
     {!session && <div className="space-y-3">
+      <label className="block text-sm">持卡人姓名<input className="mt-1 w-full rounded border px-3 py-2 dark:bg-gray-800" placeholder="請輸入持卡人姓名（可稍後設定）" value={cardHolderName} onChange={(e) => setCardHolderName(e.target.value)} /></label>
       <label className="block text-sm">指定充電樁<select className="mt-1 w-full rounded border px-3 py-2 dark:bg-gray-800" value={chargePointId} onChange={(e) => setChargePointId(e.target.value)}>{chargePoints.map((cp) => { const id = cp.chargePointId || cp.charge_point_id; return <option key={id} value={id}>{cp.name ? `${cp.name}｜${id}` : id}</option>; })}</select></label>
       {loadError && <p className="text-sm text-red-600" role="alert">{loadError}</p>}
       <button disabled={busy || !chargePointId || chargePoints.length === 0} onClick={start} className="w-full rounded bg-violet-600 px-4 py-2 text-white disabled:opacity-50">開啟 120 秒感應</button>
@@ -106,7 +129,7 @@ export default function CardEnrollmentModal({ accountId, floorNo, parkingSpaceNo
     {session && <div className="space-y-4 text-center">
       <div className="text-4xl font-bold tabular-nums">{remaining} 秒</div>
       <div className="rounded bg-gray-50 p-4 dark:bg-gray-800">{session.status === "waiting" && "請在指定充電樁感應新卡。第一次感應只會捕捉卡號，不能充電。"}{session.status === "detected" && <><div className="text-sm text-gray-500">已偵測卡號</div><div className="mt-1 font-mono text-xl">{session.detected_id_tag}</div></>}{session.status === "expired" && "感應工作已過期，請關閉後重新開始。"}{session.status === "cancelled" && "感應工作已取消。"}</div>
-      <div className="flex gap-2"><button onClick={cancel} className="flex-1 rounded border px-4 py-2">取消</button><button disabled={busy || session.status !== "detected"} onClick={confirm} className="flex-1 rounded bg-emerald-600 px-4 py-2 text-white disabled:opacity-40">確認綁定</button></div>
+      <div className="flex gap-2"><button disabled={busy} onClick={cancel} className="flex-1 rounded border px-4 py-2 disabled:cursor-not-allowed disabled:opacity-40">取消</button><button disabled={busy || session.status !== "detected"} onClick={confirm} className="flex-1 rounded bg-emerald-600 px-4 py-2 text-white disabled:opacity-40">確認綁定</button></div>
     </div>}
   </div></div>;
 }

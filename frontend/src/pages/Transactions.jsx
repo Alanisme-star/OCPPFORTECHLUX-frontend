@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import TransactionDetailModal from "@/components/TransactionDetailModal";
-import { textOrDash } from "../utils/display";
+import {
+  fullHouseholdLabel,
+  getCardHolderName,
+  textOrDash,
+} from "../utils/display";
 
 function Transactions() {
   const [transactions, setTransactions] = useState([]);
@@ -198,10 +202,10 @@ function Transactions() {
           <thead>
             <tr className="bg-gray-200 dark:bg-gray-800 text-left">
               <th className="p-2">交易編號</th>
+              <th className="p-2">住戶</th>
+              <th className="p-2">持卡人</th>
+              <th className="p-2">RFID</th>
               <th className="p-2">充電樁ID</th>
-              <th className="p-2">樓號</th>
-              <th className="p-2">車位號碼</th>
-              <th className="p-2">卡號</th>
               <th className="p-2">起始充電時間</th>
               <th className="p-2">結束充電時間</th>
               <th className="p-2">總充電時間</th>
@@ -219,22 +223,32 @@ function Transactions() {
               transactions.map((txn, index) => {
                 if (!txn || typeof txn !== "object") return null;
 
-                const {
-                  transactionId,
-                  chargePointId,
-                  floorNo,
-                  parkingSpaceNo,
-                  cardNumber,
-                  idTag,
-                  startTimestamp,
-                  stopTimestamp,
-                  durationText,
-                  energyKwh,
-                  balanceBefore,
-                  cost,
-                  surplusAmount, // ⭐ 取出盈餘
-                  balanceAfter,
-                } = txn;
+                const transactionId =
+                  txn.transactionId ?? txn.transaction_id;
+                const chargePointId =
+                  txn.chargePointId ?? txn.charge_point_id;
+                const startTimestamp =
+                  txn.startTimestamp ?? txn.start_timestamp;
+                const stopTimestamp =
+                  txn.stopTimestamp ?? txn.stop_timestamp;
+                const durationText =
+                  txn.durationText ?? txn.duration_text;
+                const energyKwh = txn.energyKwh ?? txn.energy_kwh;
+                const balanceBefore =
+                  txn.balanceBefore ?? txn.balance_before;
+                const cost =
+                  txn.cost ?? txn.amount ?? txn.total_amount;
+                const surplusAmount =
+                  txn.surplusAmount ?? txn.surplus_amount;
+                const balanceAfter =
+                  txn.balanceAfter ?? txn.balance_after;
+                const cardId =
+                  txn.id_tag ??
+                  txn.idTag ??
+                  txn.card_id ??
+                  txn.cardId ??
+                  txn.cardNumber;
+                const cardHolderName = getCardHolderName(txn);
 
                 return (
                   <tr
@@ -245,10 +259,12 @@ function Transactions() {
                     }
                   >
                     <td className="p-2">{transactionId ?? "--"}</td>
+                    <td className="p-2">{fullHouseholdLabel(txn)}</td>
+                    <td className="p-2">
+                      {cardHolderName || "尚未設定"}
+                    </td>
+                    <td className="p-2">{textOrDash(cardId)}</td>
                     <td className="p-2">{chargePointId ?? "--"}</td>
-                    <td className="p-2">{textOrDash(floorNo)}</td>
-                    <td className="p-2">{textOrDash(parkingSpaceNo)}</td>
-                    <td className="p-2">{textOrDash(cardNumber || idTag)}</td>
                     <td className="p-2">{formatDateTime(startTimestamp)}</td>
                     <td className="p-2">{formatDateTime(stopTimestamp)}</td>
                     <td className="p-2">{durationText ?? "--"}</td>
