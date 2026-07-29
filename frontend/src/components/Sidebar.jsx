@@ -40,9 +40,9 @@ const Sidebar = () => {
           <img
             src={techluxLogo}
             alt="TECHLUX Logo"
-            className="h-auto w-[172px] max-w-full"
+            className="h-auto w-[200px] max-w-full"
           />
-          <p className="text-center text-xs text-slate-200">
+          <p className="text-center text-base font-medium text-slate-200">
             社區充電能源管理系統
           </p>
         </div>
