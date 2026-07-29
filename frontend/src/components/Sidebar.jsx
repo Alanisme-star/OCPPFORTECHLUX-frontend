@@ -42,7 +42,7 @@ const Sidebar = () => {
             alt="TECHLUX Logo"
             className="h-auto w-[360px] max-w-none"
           />
-          <p className="text-center text-base font-medium text-slate-200">
+          <p className="text-center text-base font-medium text-slate-400">
             社區充電能源管理系統
           </p>
         </div>
