@@ -19,6 +19,8 @@ export default function LiveStatus() {
   const [cpList, setCpList] = useState([]);
   const [cpId, setCpId] = useState("");
   const [currentTransactionIdentity, setCurrentTransactionIdentity] = useState({});
+  const [currentTransactionSummaryState, setCurrentTransactionSummaryState] =
+    useState("loading");
 
   // 電價
   const [pricePerKWh, setPricePerKWh] = useState(6);
@@ -118,6 +120,15 @@ export default function LiveStatus() {
   const effectiveEstimatedCost = Number.isFinite(Number(displayEstimatedCost))
     ? Number(displayEstimatedCost)
     : 0;
+
+  // ✅ 純顯示用：正式住戶餘額－目前交易的後端預估電費
+  // 不寫入資料庫、不修改正式餘額，也不觸發任何前端停充功能
+  const currentTransactionEstimatedCost = Number(summaryEstimatedAmount);
+  const estimatedRemainingBalance =
+    Number.isFinite(Number(rawBalance)) &&
+    Number.isFinite(currentTransactionEstimatedCost)
+      ? Math.max(0, Number(rawBalance) - currentTransactionEstimatedCost)
+      : null;
 
   // 交易時間
   const [startTime, setStartTime] = useState("");
@@ -672,10 +683,10 @@ const currentCardHolderName =
   }, [cpStatus]);
 
 
-
   // ---------- 抓取交易時間 ----------
   useEffect(() => {
     setCurrentTransactionIdentity({});
+    setCurrentTransactionSummaryState("loading");
   }, [cpId]);
 
   useEffect(() => {
@@ -688,6 +699,7 @@ const currentCardHolderName =
         );
 
         if (res.data?.found) {
+          setCurrentTransactionSummaryState("active");
           setCurrentTransactionIdentity({
             transactionId:
               res.data?.transaction_id ?? res.data?.transactionId,
@@ -702,11 +714,11 @@ const currentCardHolderName =
             cardHolderName: getCardHolderName(res.data),
           });
         } else {
+          setCurrentTransactionSummaryState("idle");
           setCurrentTransactionIdentity({});
         }
 
         if (res.data?.found && res.data.start_timestamp) {
-
           setStartTime((prev) => {
             if (prev && cpStatus === "Charging") {
               return prev;
@@ -726,7 +738,6 @@ const currentCardHolderName =
               ? Number(res.data.estimated_amount)
               : 0
           );
-
         } else {
           setSummaryTotalAmount(0);
           setSummaryEstimatedAmount(0);
@@ -742,6 +753,7 @@ const currentCardHolderName =
         }
       } catch (err) {
         console.error("抓交易資訊失敗", err);
+        setCurrentTransactionSummaryState("error");
         setSummaryTotalAmount(0);
         setSummaryEstimatedAmount(0);
       }
@@ -753,6 +765,7 @@ const currentCardHolderName =
   }, [cpId, cpStatus, liveStale]);  // ⭐ 保持依賴 cpId / cpStatus
 
   // ---------- ⭐ 補強版：本次充電累積時間 ----------
+
   useEffect(() => {
     let timer = null;
 
@@ -1242,6 +1255,24 @@ const currentCardHolderName =
           : balanceError
             ? "讀取失敗"
             : `${rawBalance.toFixed(2)} 元`}
+      </p>
+
+      <p>
+        📉 即時預估餘額：
+        {balanceLoading ||
+        currentTransactionSummaryState === "loading"
+          ? "讀取中..."
+          : balanceError
+            ? "讀取失敗"
+            : currentTransactionSummaryState === "error"
+              ? "即時資料讀取失敗"
+              : currentTransactionSummaryState !== "active"
+                ? "—（未充電）"
+                : estimatedRemainingBalance == null
+                  ? "暫無資料"
+                  : `${estimatedRemainingBalance.toFixed(2)} 元${
+                      liveStale ? "（資料暫停更新）" : ""
+                    }`}
       </p>
 
       <p>

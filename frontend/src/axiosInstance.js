@@ -1,7 +1,13 @@
 import axios from "axios";
 
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.DEV
+    ? ""
+    : "https://ocppfortechlux-backend.onrender.com");
+
 const instance = axios.create({
-  baseURL: "https://ocppfortechlux-backend.onrender.com", // ✅ 已移除 /api
+  baseURL: API_BASE_URL,
   timeout: 10000,
 });
 
