@@ -47,6 +47,38 @@ function money(value) {
   });
 }
 
+function moneyOrDash(value) {
+  return value === null || value === undefined ? "--" : money(value);
+}
+
+function taipeiTime(value) {
+  if (!value) return "--";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("zh-TW", {
+    timeZone: "Asia/Taipei",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hourCycle: "h23",
+  }).format(date);
+}
+
+function signedMoney(value) {
+  const amount = Number(value);
+  if (!Number.isFinite(amount)) return "--";
+  return `${amount > 0 ? "+" : ""}${money(amount)}`;
+}
+
+function topupBlockedReason(account, card) {
+  if (account.status !== "active") return "住戶帳戶已停用，無法加值";
+  if (card.status !== "active") return "卡片已停用，無法加值";
+  return "";
+}
+
 export default function Cards() {
   const [accounts, setAccounts] = useState([]);
   const [form, setForm] = useState(emptyAccount);
@@ -57,6 +89,7 @@ export default function Cards() {
   const [enrollmentAccount, setEnrollmentAccount] = useState(null);
   const [pendingHolderNames, setPendingHolderNames] = useState({});
   const [creatingAccount, setCreatingAccount] = useState(false);
+  const [topupStates, setTopupStates] = useState({});
 
   const pendingHolderName = (account) =>
     String(pendingHolderNames[account.account_id] ?? "").trim();
@@ -142,19 +175,59 @@ export default function Cards() {
     }
   };
 
-  const topup = async (account) => {
-    const raw = window.prompt(`為 ${accountLabel(account)} 儲值（增量金額）`, "1000");
+  const setCardTopupState = (cardId, nextState) => {
+    setTopupStates((current) => ({ ...current, [cardId]: nextState }));
+  };
+
+  const topup = async (account, card) => {
+    if (topupStates[card.card_id]?.status === "loading") return;
+    const blockedReason = topupBlockedReason(account, card);
+    if (blockedReason) {
+      setCardTopupState(card.card_id, {
+        status: "error",
+        message: blockedReason,
+      });
+      return;
+    }
+    const raw = window.prompt(
+      `以卡片 ${card.card_id} 為 ${accountLabel(account)} 加值`,
+      "1000"
+    );
     if (raw === null) return;
     const amount = Number(raw);
     if (!Number.isFinite(amount) || amount <= 0) {
-      alert("儲值金額必須大於 0");
+      setCardTopupState(card.card_id, {
+        status: "error",
+        message: "加值金額必須大於 0",
+      });
       return;
     }
+    setCardTopupState(card.card_id, {
+      status: "loading",
+      message: "加值處理中…",
+    });
     try {
-      await axios.post(`/api/household-accounts/${account.account_id}/topup`, { amount });
+      const { data } = await axios.post(
+        `/api/cards/${encodeURIComponent(card.card_id)}/topup`,
+        { amount }
+      );
+      setAccounts((current) =>
+        current.map((item) =>
+          item.account_id === data.account_id
+            ? { ...item, balance: data.new_balance }
+            : item
+        )
+      );
+      setCardTopupState(card.card_id, {
+        status: "success",
+        message: `加值成功，共同餘額 ${money(data.new_balance)} 元`,
+      });
       await loadAccounts();
     } catch (err) {
-      alert(err.response?.data?.detail || err.message);
+      setCardTopupState(card.card_id, {
+        status: "error",
+        message: err.response?.data?.detail || err.message,
+      });
     }
   };
 
@@ -232,11 +305,25 @@ export default function Cards() {
   };
 
   const showHistory = async (card) => {
+    setHistory({ card, items: [], status: "loading", error: "" });
     try {
       const { data } = await axios.get(`/api/cards/${encodeURIComponent(card.card_id)}/history`);
-      setHistory({ card, items: data.history || [] });
+      setHistory((current) =>
+        current?.card.card_id === card.card_id
+          ? { card, items: data.history || [], status: "success", error: "" }
+          : current
+      );
     } catch (err) {
-      alert(err.response?.data?.detail || err.message);
+      setHistory((current) =>
+        current?.card.card_id === card.card_id
+          ? {
+              card,
+              items: [],
+              status: "error",
+              error: err.response?.data?.detail || err.message,
+            }
+          : current
+      );
     }
   };
 
@@ -289,7 +376,6 @@ export default function Cards() {
                 <div className="mt-1 text-xl font-bold text-blue-700 dark:text-blue-300">共同餘額：{money(account.balance)} 元</div>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button onClick={() => topup(account)} className="rounded bg-emerald-600 px-3 py-2 text-sm text-white">帳戶儲值</button>
                 <button onClick={() => addCard(account)} className="rounded bg-blue-600 px-3 py-2 text-sm text-white">手動新增卡</button>
                 <button onClick={() => openEnrollment(account)} className="rounded bg-violet-600 px-3 py-2 text-sm text-white">感應新增卡</button>
                 <button onClick={() => editAccount(account)} className="rounded border px-3 py-2 text-sm">編輯帳戶</button>
@@ -310,9 +396,37 @@ export default function Cards() {
                       <td className="p-3">{card.id_tag_status || "--"}</td>
                       <td className="p-3"><div className="flex flex-wrap justify-end gap-2">
                         <button onClick={() => setAccessCard(card.card_id)} className="text-blue-600">白名單</button>
+                        <button
+                          disabled={
+                            Boolean(topupBlockedReason(account, card)) ||
+                            topupStates[card.card_id]?.status === "loading"
+                          }
+                          onClick={() => topup(account, card)}
+                          title={topupBlockedReason(account, card) || "以此卡片辦理加值"}
+                          className="text-emerald-600 disabled:cursor-not-allowed disabled:text-gray-400 disabled:opacity-60 dark:text-emerald-300 dark:disabled:text-gray-600"
+                        >
+                          {topupBlockedReason(account, card)
+                            ? "不可加值"
+                            : topupStates[card.card_id]?.status === "loading"
+                              ? "加值中…"
+                              : "加值"}
+                        </button>
                         <button onClick={() => showHistory(card)} className="text-slate-600 dark:text-slate-300">歷史</button>
                         <button onClick={() => editCardHolderName(card)} className="text-violet-600 dark:text-violet-300">編輯姓名</button>
                         {card.status === "active" && <button onClick={() => disableCard(card)} className="text-red-600">停用</button>}
+                        {topupStates[card.card_id] && (
+                          <span
+                            className={`w-full text-right text-xs ${
+                              topupStates[card.card_id].status === "success"
+                                ? "text-emerald-600 dark:text-emerald-300"
+                                : topupStates[card.card_id].status === "error"
+                                  ? "text-red-600 dark:text-red-300"
+                                  : "text-gray-500"
+                            }`}
+                          >
+                            {topupStates[card.card_id].message}
+                          </span>
+                        )}
                       </div></td>
                     </tr>
                   ))}
@@ -326,7 +440,57 @@ export default function Cards() {
 
       {accessCard && <EditCardAccessModal idTag={accessCard} onClose={() => { setAccessCard(null); loadAccounts(); }} />}
       {enrollmentAccount && <CardEnrollmentModal accountId={enrollmentAccount.account.account_id} doorNo={enrollmentAccount.account.doorNo ?? enrollmentAccount.account.door_no} floorNo={enrollmentAccount.account.floorNo ?? enrollmentAccount.account.floor_no} parkingSpaceNo={enrollmentAccount.account.parkingSpaceNo ?? enrollmentAccount.account.parking_space_no} initialCardHolderName={enrollmentAccount.initialCardHolderName} onClose={() => setEnrollmentAccount(null)} onConfirmed={enrollmentConfirmed} />}
-      {history && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"><div className="max-h-[80vh] w-full max-w-2xl overflow-auto rounded-xl bg-white p-5 dark:bg-gray-900"><div className="mb-4 flex justify-between"><h2 className="text-lg font-semibold">卡片歷史：{history.card.card_id}</h2><button onClick={() => setHistory(null)}>關閉</button></div>{history.items.length === 0 ? <p className="text-gray-500">沒有交易紀錄</p> : <table className="w-full text-sm"><thead><tr><th className="p-2 text-left">交易</th><th className="p-2 text-left">時間</th><th className="p-2 text-right">金額</th></tr></thead><tbody>{history.items.map((item) => <tr key={item.transaction_id} className="border-t dark:border-gray-700"><td className="p-2">{item.transaction_id}</td><td className="p-2">{item.paid_at || item.stop_timestamp || "--"}</td><td className="p-2 text-right">{money(item.amount)} 元</td></tr>)}</tbody></table>}</div></div>}
+      {history && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="max-h-[80vh] w-full max-w-6xl overflow-auto rounded-xl bg-white p-5 dark:bg-gray-900">
+            <div className="mb-4 flex justify-between gap-4">
+              <h2 className="text-lg font-semibold">卡片歷史：{history.card.card_id}</h2>
+              <button onClick={() => setHistory(null)}>關閉</button>
+            </div>
+            {history.status === "loading" && <p className="text-gray-500">歷史載入中…</p>}
+            {history.status === "error" && <p className="text-red-600">歷史載入失敗：{history.error}</p>}
+            {history.status === "success" && history.items.length === 0 && (
+              <p className="text-gray-500">沒有收支紀錄</p>
+            )}
+            {history.status === "success" && history.items.length > 0 && (
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="border-b dark:border-gray-700">
+                    <th className="p-2 text-left">類型</th>
+                    <th className="p-2 text-left">時間</th>
+                    <th className="p-2 text-right">異動金額</th>
+                    <th className="p-2 text-right">異動前餘額</th>
+                    <th className="p-2 text-right">異動後餘額</th>
+                    <th className="p-2 text-right">交易編號</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.items.map((item) => (
+                    <tr key={item.id} className="border-t dark:border-gray-700">
+                      <td className="whitespace-nowrap p-2">
+                        {item.entry_type === "topup" ? "加值" : "充電扣款"}
+                      </td>
+                      <td className="whitespace-nowrap p-2">{taipeiTime(item.created_at)}</td>
+                      <td
+                        className={`whitespace-nowrap p-2 text-right font-medium ${
+                          item.entry_type === "topup"
+                            ? "text-emerald-600 dark:text-emerald-300"
+                            : "text-red-600 dark:text-red-300"
+                        }`}
+                      >
+                        {signedMoney(item.signed_amount)} 元
+                      </td>
+                      <td className="whitespace-nowrap p-2 text-right">{moneyOrDash(item.balance_before)}{item.balance_before == null ? "" : " 元"}</td>
+                      <td className="whitespace-nowrap p-2 text-right">{moneyOrDash(item.balance_after)}{item.balance_after == null ? "" : " 元"}</td>
+                      <td className="whitespace-nowrap p-2 text-right">{item.transaction_id ?? "--"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
